@@ -71,3 +71,8 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# IDE and development environment
+.claude/
+.github/
+.vscode/
