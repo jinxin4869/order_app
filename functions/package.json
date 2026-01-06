@@ -3,6 +3,9 @@
   "description": "Cloud Functions for Firebase",
   "scripts": {
     "lint": "eslint src/**/*.js --ignore-pattern '!src/'",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
     "start": "npm run shell",
@@ -23,7 +26,18 @@
     "eslint-config-google": "^0.14.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
-    "firebase-functions-test": "^3.4.1"
+    "firebase-functions-test": "^3.4.1",
+    "jest": "^29.7.0"
   },
-  "private": true
+  "private": true,
+  "jest": {
+    "testEnvironment": "node",
+    "coveragePathIgnorePatterns": [
+      "/node_modules/"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.js",
+      "**/?(*.)+(spec|test).js"
+    ]
+  }
 }

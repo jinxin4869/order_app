@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# テストを実行
+npm run test -- --passWithNoTests
+
+# Lintチェック
+npm run lint
