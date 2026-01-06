@@ -81,11 +81,21 @@ const validateOrderData = (orderData) => {
       if (!item.item_id) {
         errors.push(`Item ${index + 1}: item_id is required`);
       }
-      if (!item.quantity || item.quantity < 1) {
-        errors.push(`Item ${index + 1}: valid quantity is required`);
+      if (!item.quantity || item.quantity < 1 || item.quantity > 99) {
+        errors.push(`Item ${index + 1}: quantity must be between 1 and 99`);
       }
       if (item.price === undefined || item.price < 0) {
         errors.push(`Item ${index + 1}: valid price is required`);
+      }
+      // 特別リクエストのバリデーション
+      if (item.special_request && item.special_request.length > 200) {
+        errors.push(`Item ${index + 1}: special request must be 200 characters or less`);
+      }
+      // XSS対策: HTMLタグを除去（サニタイゼーション）
+      if (item.special_request) {
+        item.special_request = item.special_request
+            .replace(/<[^>]*>/g, "")
+            .trim();
       }
     });
   }

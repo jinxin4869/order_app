@@ -107,7 +107,7 @@ const ItemDetailScreen = ({ navigation, route }) => {
           {item.allergens?.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
-                {currentLanguage === "ja" ? "アレルゲン情報" : 
+                {currentLanguage === "ja" ? "アレルゲン情報"
                   : currentLanguage === "zh"
                     ? "过敏原信息"
                     : "Allergen Information"}
@@ -133,8 +133,8 @@ const ItemDetailScreen = ({ navigation, route }) => {
               <View style={styles.infoItem}>
                 <Text style={styles.infoIcon}>⏱️</Text>
                 <Text style={styles.infoText}>
-                  {currentLanguage === "ja" ? `約${item.cooking_time}分` : 
-                   currentLanguage === "zh" ? `约${item.cooking_time}分钟` : 
+                  {currentLanguage === "ja" ? `約${item.cooking_time}分`
+                   : currentLanguage === "zh" ? `约${item.cooking_time}分钟`
                       : `~${item.cooking_time} min`}
                 </Text>
               </View>

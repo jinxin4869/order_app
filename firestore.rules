@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // レストラン情報（読み取りのみ）
+    match /restaurants/{restaurantId} {
+      allow read: if true;
+      allow write: if false;
+
+      // テーブル情報
+      match /tables/{tableId} {
+        allow read: if true;
+        allow write: if false;
+      }
+
+      // メニューカテゴリ
+      match /menu_categories/{categoryId} {
+        allow read: if true;
+        allow write: if false;
+      }
+
+      // メニュー項目
+      match /menu_items/{itemId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
+    // 注文（作成のみ許可）
+    match /orders/{orderId} {
+      allow create: if true;
+      allow read: if false;  // 将来的に認証実装時に変更
+      allow update, delete: if false;
+    }
+
+    // 辞書・キャッシュ（サーバーサイドのみ）
+    match /dictionary/{entry} {
+      allow read, write: if false;
+    }
+
+    match /translation_cache/{entry} {
+      allow read, write: if false;
+    }
+  }
+}

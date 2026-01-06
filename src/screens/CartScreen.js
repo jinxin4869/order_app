@@ -13,12 +13,14 @@ import {
 } from "react-native";
 import { COLORS, FONT_SIZES } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
+import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { CartContext } from "../navigation/AppNavigator";
 import { createOrder } from "../services/api";
 
 const CartScreen = ({ navigation, route }) => {
   const { restaurantId, tableId, restaurant, table } = route.params;
   const { currentLanguage } = useLanguage();
+  const { isOnline } = useNetworkStatus();
   const {
     items,
     updateQuantity,

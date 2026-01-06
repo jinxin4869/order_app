@@ -12,12 +12,14 @@ import {
 } from "react-native";
 import { COLORS, FONT_SIZES, ALLERGENS } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
+import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { getMenuWithTranslation } from "../services/api";
 
 const MenuScreen = ({ navigation, route }) => {
   const { restaurantId, tableId, restaurant, table } = route.params;
   const { currentLanguage, getItemName, getItemDescription, getCategoryName } =
     useLanguage();
+  const { isOnline } = useNetworkStatus();
 
   const [categories, setCategories] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
@@ -194,6 +196,15 @@ const MenuScreen = ({ navigation, route }) => {
         </Text>
       </View>
 
+      {/* オフライン警告バナー */}
+      {!isOnline && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineBannerText}>
+            📡 オフライン - ネットワーク接続を確認してください
+          </Text>
+        </View>
+      )}
+
       {/* カテゴリタブ */}
       <FlatList
         data={categories}
@@ -261,6 +272,16 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     color: COLORS.surface,
     opacity: 0.9,
+  },
+  offlineBanner: {
+    backgroundColor: '#FF6B6B',
+    padding: 12,
+    alignItems: 'center',
+  },
+  offlineBannerText: {
+    color: COLORS.surface,
+    fontSize: FONT_SIZES.sm,
+    fontWeight: 'bold',
   },
   categoryList: {
     backgroundColor: COLORS.surface,
