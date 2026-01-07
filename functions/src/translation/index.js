@@ -7,6 +7,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const morphological = require("../morphological");
 
 const db = admin.firestore();
 
@@ -58,7 +59,7 @@ const loadDictionary = async () => {
 };
 
 /**
- * 専門用語をテキストから抽出
+ * 専門用語をテキストから抽出（形態素解析を使用）
  * @param {string} text - 検索対象テキスト
  * @return {Promise<Array>} - 抽出された専門用語の配列
  */
@@ -66,10 +67,38 @@ const findSpecializedTerms = async (text) => {
   const dictionary = await loadDictionary();
   const foundTerms = [];
 
+  // 1. 形態素解析で専門用語候補を抽出
+  const candidates = await morphological.extractSpecializedTermCandidates(text);
+
+  // 2. 辞書と照合
   dictionary.forEach((entry) => {
+    // 完全一致
     if (text.includes(entry.term_ja)) {
-      foundTerms.push(entry);
+      foundTerms.push({
+        ...entry,
+        matchType: "exact",
+      });
     }
+  });
+
+  // 3. 形態素解析の候補と辞書を照合（部分一致）
+  candidates.forEach((candidate) => {
+    dictionary.forEach((entry) => {
+      // 候補が辞書の用語を含む、または辞書の用語が候補を含む
+      if (
+        candidate.term.includes(entry.term_ja) ||
+        entry.term_ja.includes(candidate.term)
+      ) {
+        // 既に追加されていない場合のみ
+        if (!foundTerms.find((t) => t.term_ja === entry.term_ja)) {
+          foundTerms.push({
+            ...entry,
+            matchType: "partial",
+            candidate: candidate.term,
+          });
+        }
+      }
+    });
   });
 
   // 優先度順にソート（低い数字が高優先度）

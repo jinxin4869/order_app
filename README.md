@@ -12,8 +12,10 @@
 ### 主要技術スタック
 - **フロントエンド**: React Native (Expo)
 - **バックエンド**: Firebase (Firestore, Cloud Functions)
-- **翻訳API**: DeepL API / Google Translate API
-- **形態素解析**: Kuromoji.js
+- **翻訳API**: DeepL API
+- **形態素解析**: kuromoji.js（日本語の品詞解析・専門用語抽出）
+- **テスト**: Jest + React Native Testing Library
+- **品質管理**: Husky + lint-staged（自動Lint・テスト実行）
 
 ---
 
@@ -50,6 +52,15 @@ Firestoreデータベースの詳細設計
 - 翻訳API呼び出し（コンテキスト付与）
 - 後処理（辞書ベース補正）
 - エラーハンドリング
+
+#### [morphological_analysis.md](./docs/morphological_analysis.md)
+形態素解析システム（kuromoji.js）の詳細
+- kuromoji.jsの概要と選定理由
+- 形態素解析の基本機能
+- 専門用語抽出アルゴリズム
+- 翻訳システムへの統合方法
+- パフォーマンス最適化
+- 使用例とトラブルシューティング
 
 #### [qr_code_design.md](./qr_code_design.md)
 QRコードシステムの設計
