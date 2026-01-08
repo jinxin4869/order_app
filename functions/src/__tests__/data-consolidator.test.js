@@ -62,10 +62,10 @@ describe("データ統合ユーティリティ", () => {
     test("料理法データを統合フォーマットに変換", () => {
       const rows = [
         {
-          "Japanese": "炙り焼き",
-          "English": "seared/grilled",
-          "Chinese_simplified": "炙烤",
-          "Category": "cooking_method",
+          Japanese: "炙り焼き",
+          English: "seared/grilled",
+          Chinese_simplified: "炙烤",
+          Category: "cooking_method",
         },
       ];
 
@@ -82,16 +82,16 @@ describe("データ統合ユーティリティ", () => {
     test("複数のカテゴリを処理", () => {
       const rows = [
         {
-          "Japanese": "炙り焼き",
-          "English": "seared",
-          "Chinese_simplified": "炙烤",
-          "Category": "cooking_method",
+          Japanese: "炙り焼き",
+          English: "seared",
+          Chinese_simplified: "炙烤",
+          Category: "cooking_method",
         },
         {
-          "Japanese": "定食",
-          "English": "set meal",
-          "Chinese_simplified": "套餐",
-          "Category": "dish_type",
+          Japanese: "定食",
+          English: "set meal",
+          Chinese_simplified: "套餐",
+          Category: "dish_type",
         },
       ];
 
@@ -107,10 +107,10 @@ describe("データ統合ユーティリティ", () => {
     test("空の日本語フィールドをスキップ", () => {
       const rows = [
         {
-          "Japanese": "",
-          "English": "test",
-          "Chinese_simplified": "测试",
-          "Category": "cooking_method",
+          Japanese: "",
+          English: "test",
+          Chinese_simplified: "测试",
+          Category: "cooking_method",
         },
       ];
 
@@ -122,19 +122,16 @@ describe("データ統合ユーティリティ", () => {
   describe("consolidateData", () => {
     test("データを統合して重複を削除", () => {
       const dishData = [
-        {term_ja: "唐揚げ", priority: 1},
-        {term_ja: "寿司", priority: 2},
+        { term_ja: "唐揚げ", priority: 1 },
+        { term_ja: "寿司", priority: 2 },
       ];
 
       const cookingMethodData = [
-        {term_ja: "唐揚げ", priority: 100}, // 重複
-        {term_ja: "炙り焼き", priority: 100},
+        { term_ja: "唐揚げ", priority: 100 }, // 重複
+        { term_ja: "炙り焼き", priority: 100 },
       ];
 
-      const result = consolidator.consolidateData(
-          dishData,
-          cookingMethodData,
-      );
+      const result = consolidator.consolidateData(dishData, cookingMethodData);
 
       // 重複が削除されている
       expect(result).toHaveLength(3);
@@ -152,9 +149,9 @@ describe("データ統合ユーティリティ", () => {
 
     test("優先度順にソート", () => {
       const dishData = [
-        {term_ja: "C", priority: 300},
-        {term_ja: "A", priority: 100},
-        {term_ja: "B", priority: 200},
+        { term_ja: "C", priority: 300 },
+        { term_ja: "A", priority: 100 },
+        { term_ja: "B", priority: 200 },
       ];
 
       const result = consolidator.consolidateData(dishData, []);
@@ -166,8 +163,8 @@ describe("データ統合ユーティリティ", () => {
 
     test("term_jaが空の場合はスキップ", () => {
       const dishData = [
-        {term_ja: "", priority: 1},
-        {term_ja: "寿司", priority: 2},
+        { term_ja: "", priority: 1 },
+        { term_ja: "寿司", priority: 2 },
       ];
 
       const result = consolidator.consolidateData(dishData, []);
@@ -209,8 +206,30 @@ describe("データ統合ユーティリティ", () => {
 
     test("複数のアイテムを変換", () => {
       const data = [
-        {id: "item1", term_ja: "A", reading: "", term_en: "A_en", term_zh: "A_zh", category: "cat1", subcategory: "", priority: 1, type: "type1", notes: ""},
-        {id: "item2", term_ja: "B", reading: "", term_en: "B_en", term_zh: "B_zh", category: "cat2", subcategory: "", priority: 2, type: "type2", notes: ""},
+        {
+          id: "item1",
+          term_ja: "A",
+          reading: "",
+          term_en: "A_en",
+          term_zh: "A_zh",
+          category: "cat1",
+          subcategory: "",
+          priority: 1,
+          type: "type1",
+          notes: "",
+        },
+        {
+          id: "item2",
+          term_ja: "B",
+          reading: "",
+          term_en: "B_en",
+          term_zh: "B_zh",
+          category: "cat2",
+          subcategory: "",
+          priority: 2,
+          type: "type2",
+          notes: "",
+        },
       ];
 
       const result = consolidator.toFirestoreFormat(data);
@@ -264,23 +283,22 @@ describe("データ統合ユーティリティ", () => {
       // 料理法データ
       const cookingRows = [
         {
-          "Japanese": "炙り焼き",
-          "English": "seared",
-          "Chinese_simplified": "炙烤",
-          "Category": "cooking_method",
+          Japanese: "炙り焼き",
+          English: "seared",
+          Chinese_simplified: "炙烤",
+          Category: "cooking_method",
         },
       ];
 
       // 変換
       const dishData = consolidator.convertDishData(dishRows);
-      const cookingMethodData = consolidator.convertCookingMethodData(
-          cookingRows,
-      );
+      const cookingMethodData =
+        consolidator.convertCookingMethodData(cookingRows);
 
       // 統合
       const consolidated = consolidator.consolidateData(
-          dishData,
-          cookingMethodData,
+        dishData,
+        cookingMethodData
       );
 
       expect(consolidated).toHaveLength(2);
@@ -305,21 +323,20 @@ describe("データ統合ユーティリティ", () => {
 
       const cookingRows = [
         {
-          "Japanese": "唐揚げ",
-          "English": "fried chicken",
-          "Chinese_simplified": "炸鸡",
-          "Category": "dish_type",
+          Japanese: "唐揚げ",
+          English: "fried chicken",
+          Chinese_simplified: "炸鸡",
+          Category: "dish_type",
         },
       ];
 
       const dishData = consolidator.convertDishData(dishRows);
-      const cookingMethodData = consolidator.convertCookingMethodData(
-          cookingRows,
-      );
+      const cookingMethodData =
+        consolidator.convertCookingMethodData(cookingRows);
 
       const consolidated = consolidator.consolidateData(
-          dishData,
-          cookingMethodData,
+        dishData,
+        cookingMethodData
       );
 
       // 重複が削除され、最初の出現のみ保持

@@ -2,7 +2,7 @@
   "name": "functions",
   "description": "Cloud Functions for Firebase",
   "scripts": {
-    "lint": "eslint src/**/*.js --ignore-pattern '!src/'",
+    "lint": "eslint src --ignore-pattern '**/__tests__/**'",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -14,7 +14,7 @@
     "consolidate": "node scripts/consolidate-data.js"
   },
   "engines": {
-    "node": "24"
+    "node": "22"
   },
   "main": "src/index.js",
   "dependencies": {

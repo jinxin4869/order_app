@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
 } from "react-native";
-import { COLORS, FONT_SIZES, LANGUAGES } from "../constants";
+import { COLORS, FONT_SIZES } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
 
 const LanguageSelectScreen = ({ navigation, route }) => {

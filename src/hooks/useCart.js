@@ -43,27 +43,31 @@ export const useCart = () => {
   }, []);
 
   // 商品の数量を更新
-  const updateQuantity = useCallback((itemId, newQuantity, notes = "") => {
-    if (newQuantity <= 0) {
-      removeItem(itemId, notes);
-      return;
-    }
-
-    setItems((prevItems) =>
-      prevItems.map((item) =>
-        item.id === itemId && item.notes === notes
-          ? { ...item, quantity: newQuantity }
-          : item
-      )
-    );
-  }, []);
-
   // 商品を削除
   const removeItem = useCallback((itemId, notes = "") => {
     setItems((prevItems) =>
       prevItems.filter((item) => !(item.id === itemId && item.notes === notes))
     );
   }, []);
+
+  // 商品の数量を更新
+  const updateQuantity = useCallback(
+    (itemId, newQuantity, notes = "") => {
+      if (newQuantity <= 0) {
+        removeItem(itemId, notes);
+        return;
+      }
+
+      setItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === itemId && item.notes === notes
+            ? { ...item, quantity: newQuantity }
+            : item
+        )
+      );
+    },
+    [removeItem]
+  );
 
   // カートをクリア
   const clearCart = useCallback(() => {

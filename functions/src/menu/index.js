@@ -4,7 +4,8 @@
  * メニュー取得、QRコード検証などを行う
  */
 
-const functions = require("firebase-functions");
+const { onCall } = require("firebase-functions/v2/https");
+const { HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 
 const db = admin.firestore();
@@ -15,120 +16,115 @@ const db = admin.firestore();
  * @param {Object} data - {restaurantId: string, language: string}
  * @returns {Object} - {categories: Array, items: Array}
  */
-exports.getMenuWithTranslation = functions
-    .region("asia-northeast1")
-    .https.onCall(async (data, context) => {
-      const {restaurantId} = data;
+exports.getMenuWithTranslation = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    const { restaurantId } = request.data;
 
-      // バリデーション
-      if (!restaurantId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "レストランIDが必要です",
+    // バリデーション
+    if (!restaurantId) {
+      throw new HttpsError("invalid-argument", "レストランIDが必要です");
+    }
+
+    try {
+      // レストラン確認
+      const restaurantDoc = await db
+        .collection("restaurants")
+        .doc(restaurantId)
+        .get();
+
+      if (!restaurantDoc.exists) {
+        throw new HttpsError("not-found", "レストランが見つかりません");
+      }
+
+      const restaurant = restaurantDoc.data();
+
+      // 営業中かチェック
+      if (!restaurant.is_active) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Restaurant is currently closed"
         );
       }
 
-      try {
-      // レストラン確認
-        const restaurantDoc = await db
-            .collection("restaurants")
-            .doc(restaurantId)
-            .get();
+      // カテゴリ取得
+      const categoriesSnapshot = await db
+        .collection("restaurants")
+        .doc(restaurantId)
+        .collection("menu_categories")
+        .where("is_available", "==", true)
+        .orderBy("order", "asc")
+        .get();
 
-        if (!restaurantDoc.exists) {
-          throw new functions.https.HttpsError(
-              "not-found",
-              "レストランが見つかりません",
-          );
-        }
-
-        const restaurant = restaurantDoc.data();
-
-        // 営業中かチェック
-        if (!restaurant.is_active) {
-          throw new functions.https.HttpsError(
-              "failed-precondition",
-              "Restaurant is currently closed",
-          );
-        }
-
-        // カテゴリ取得
-        const categoriesSnapshot = await db
-            .collection("restaurants")
-            .doc(restaurantId)
-            .collection("menu_categories")
-            .where("is_available", "==", true)
-            .orderBy("order", "asc")
-            .get();
-
-        const categories = categoriesSnapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            name_ja: data.name_ja,
-            name_en: data.name_en || data.name_ja,
-            name_zh: data.name_zh || data.name_ja,
-            description_ja: data.description_ja,
-            description_en: data.description_en,
-            description_zh: data.description_zh,
-            icon: data.icon,
-            order: data.order,
-          };
-        });
-
-        // メニューアイテム取得
-        const itemsSnapshot = await db
-            .collection("restaurants")
-            .doc(restaurantId)
-            .collection("menu_items")
-            .where("is_available", "==", true)
-            .orderBy("order", "asc")
-            .get();
-
-        const items = itemsSnapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            category_id: data.category_id,
-            name_ja: data.name_ja,
-            name_en: data.name_en || data.name_ja,
-            name_zh: data.name_zh || data.name_ja,
-            description_ja: data.description_ja,
-            description_en: data.description_en,
-            description_zh: data.description_zh,
-            price: data.price,
-            image_url: data.image_url,
-            allergens: data.allergens || [],
-            tags: data.tags || [],
-            is_popular: data.is_popular || false,
-            spicy_level: data.spicy_level || 0,
-            cooking_time: data.cooking_time,
-            calories: data.calories,
-            order: data.order,
-          };
-        });
-
+      const categories = categoriesSnapshot.docs.map((doc) => {
+        const data = doc.data();
         return {
-          restaurant: {
-            id: restaurantDoc.id,
-            name: restaurant.name,
-            description: restaurant.description,
-            default_language: restaurant.default_language,
-            supported_languages: restaurant.supported_languages,
-          },
-          categories,
-          items,
+          id: doc.id,
+          name_ja: data.name_ja,
+          name_en: data.name_en || data.name_ja,
+          name_zh: data.name_zh || data.name_ja,
+          description_ja: data.description_ja,
+          description_en: data.description_en,
+          description_zh: data.description_zh,
+          icon: data.icon,
+          order: data.order,
         };
-      } catch (error) {
-        console.error("Get menu error:", error);
+      });
 
-        if (error instanceof functions.https.HttpsError) {
-          throw error;
-        }
+      // メニューアイテム取得
+      const itemsSnapshot = await db
+        .collection("restaurants")
+        .doc(restaurantId)
+        .collection("menu_items")
+        .where("is_available", "==", true)
+        .orderBy("order", "asc")
+        .get();
 
-        throw new functions.https.HttpsError("internal", "Failed to get menu");
+      const items = itemsSnapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          category_id: data.category_id,
+          name_ja: data.name_ja,
+          name_en: data.name_en || data.name_ja,
+          name_zh: data.name_zh || data.name_ja,
+          description_ja: data.description_ja,
+          description_en: data.description_en,
+          description_zh: data.description_zh,
+          price: data.price,
+          image_url: data.image_url,
+          allergens: data.allergens || [],
+          tags: data.tags || [],
+          is_popular: data.is_popular || false,
+          spicy_level: data.spicy_level || 0,
+          cooking_time: data.cooking_time,
+          calories: data.calories,
+          order: data.order,
+        };
+      });
+
+      return {
+        restaurant: {
+          id: restaurantDoc.id,
+          name: restaurant.name,
+          description: restaurant.description,
+          default_language: restaurant.default_language,
+          supported_languages: restaurant.supported_languages,
+        },
+        categories,
+        items,
+      };
+    } catch (error) {
+      console.error("Get menu error:", error);
+
+      if (error instanceof HttpsError) {
+        throw error;
       }
-    });
+
+      throw new HttpsError("internal", "Failed to get menu");
+    }
+  }
+);
 
 /**
  * QRコードを検証
@@ -136,109 +132,110 @@ exports.getMenuWithTranslation = functions
  * @param {Object} data - {qrData: string}
  * @returns {Object} - {valid: boolean, restaurant, table, error}
  */
-exports.validateQRCode = functions
-    .region("asia-northeast1")
-    .https.onCall(async (data, context) => {
-      const {qrData} = data;
+exports.validateQRCode = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    const { qrData } = request.data;
 
-      // バリデーション
-      if (!qrData || typeof qrData !== "string") {
-        return {
-          valid: false,
-          error: "Invalid QR code format",
-        };
-      }
+    // バリデーション
+    if (!qrData || typeof qrData !== "string") {
+      return {
+        valid: false,
+        error: "Invalid QR code format",
+      };
+    }
 
-      // QRコードデータをパース
-      const parts = qrData.split("/");
+    // QRコードデータをパース
+    const parts = qrData.split("/");
 
-      if (parts.length !== 2) {
-        return {
-          valid: false,
-          error: "Invalid QR code format: Expected restaurantId/tableId",
-        };
-      }
+    if (parts.length !== 2) {
+      return {
+        valid: false,
+        error: "Invalid QR code format: Expected restaurantId/tableId",
+      };
+    }
 
-      const [restaurantId, tableId] = parts;
+    const [restaurantId, tableId] = parts;
 
-      try {
+    try {
       // レストラン確認
-        const restaurantDoc = await db
-            .collection("restaurants")
-            .doc(restaurantId)
-            .get();
+      const restaurantDoc = await db
+        .collection("restaurants")
+        .doc(restaurantId)
+        .get();
 
-        if (!restaurantDoc.exists) {
-          return {
-            valid: false,
-            error: "Restaurant not found",
-          };
-        }
-
-        const restaurant = restaurantDoc.data();
-
-        // 営業中かチェック
-        if (!restaurant.is_active) {
-          return {
-            valid: false,
-            error: "Restaurant is currently closed",
-          };
-        }
-
-        // テーブル確認
-        const tableDoc = await db
-            .collection("restaurants")
-            .doc(restaurantId)
-            .collection("tables")
-            .doc(tableId)
-            .get();
-
-        if (!tableDoc.exists) {
-          return {
-            valid: false,
-            error: "Table not found",
-          };
-        }
-
-        const table = tableDoc.data();
-
-        // QRコードの一致確認
-        const expectedQRCode = `${restaurantId}/${tableId}`;
-        if (table.qr_code && table.qr_code !== expectedQRCode) {
-          return {
-            valid: false,
-            error: "QR code mismatch",
-          };
-        }
-
-        // 成功
-        return {
-          valid: true,
-          restaurant: {
-            id: restaurantDoc.id,
-            name: restaurant.name,
-            description: restaurant.description,
-            default_language: restaurant.default_language,
-            supported_languages: restaurant.supported_languages || ["ja"],
-          },
-          table: {
-            id: tableDoc.id,
-            table_number: table.table_number,
-            capacity: table.capacity,
-            status: table.status,
-            floor: table.floor,
-            notes: table.notes,
-          },
-        };
-      } catch (error) {
-        console.error("QR validation error:", error);
-
+      if (!restaurantDoc.exists) {
         return {
           valid: false,
-          error: "Validation error occurred",
+          error: "Restaurant not found",
         };
       }
-    });
+
+      const restaurant = restaurantDoc.data();
+
+      // 営業中かチェック
+      if (!restaurant.is_active) {
+        return {
+          valid: false,
+          error: "Restaurant is currently closed",
+        };
+      }
+
+      // テーブル確認
+      const tableDoc = await db
+        .collection("restaurants")
+        .doc(restaurantId)
+        .collection("tables")
+        .doc(tableId)
+        .get();
+
+      if (!tableDoc.exists) {
+        return {
+          valid: false,
+          error: "Table not found",
+        };
+      }
+
+      const table = tableDoc.data();
+
+      // QRコードの一致確認
+      const expectedQRCode = `${restaurantId}/${tableId}`;
+      if (table.qr_code && table.qr_code !== expectedQRCode) {
+        return {
+          valid: false,
+          error: "QR code mismatch",
+        };
+      }
+
+      // 成功
+      return {
+        valid: true,
+        restaurant: {
+          id: restaurantDoc.id,
+          name: restaurant.name,
+          description: restaurant.description,
+          default_language: restaurant.default_language,
+          supported_languages: restaurant.supported_languages || ["ja"],
+        },
+        table: {
+          id: tableDoc.id,
+          table_number: table.table_number,
+          capacity: table.capacity,
+          status: table.status,
+          floor: table.floor,
+          notes: table.notes,
+        },
+      };
+    } catch (error) {
+      console.error("QR validation error:", error);
+
+      return {
+        valid: false,
+        error: "Validation error occurred",
+      };
+    }
+  }
+);
 
 /**
  * 特定メニューアイテムの詳細を取得
@@ -246,58 +243,50 @@ exports.validateQRCode = functions
  * @param {Object} data - {restaurantId: string, itemId: string}
  * @returns {Object} - メニューアイテムの詳細
  */
-exports.getMenuItem = functions
-    .region("asia-northeast1")
-    .https.onCall(async (data, context) => {
-      const {restaurantId, itemId} = data;
+exports.getMenuItem = onCall({ region: "asia-northeast1" }, async (request) => {
+  const { restaurantId, itemId } = request.data;
 
-      // バリデーション
-      if (!restaurantId || !itemId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Restaurant ID and Item ID are required",
-        );
-      }
+  // バリデーション
+  if (!restaurantId || !itemId) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Restaurant ID and Item ID are required"
+    );
+  }
 
-      try {
-        const itemDoc = await db
-            .collection("restaurants")
-            .doc(restaurantId)
-            .collection("menu_items")
-            .doc(itemId)
-            .get();
+  try {
+    const itemDoc = await db
+      .collection("restaurants")
+      .doc(restaurantId)
+      .collection("menu_items")
+      .doc(itemId)
+      .get();
 
-        if (!itemDoc.exists) {
-          throw new functions.https.HttpsError(
-              "not-found",
-              "メニューアイテムが見つかりません",
-          );
-        }
+    if (!itemDoc.exists) {
+      throw new HttpsError("not-found", "メニューアイテムが見つかりません");
+    }
 
-        const itemData = itemDoc.data();
+    const itemData = itemDoc.data();
 
-        // 提供可能かチェック
-        if (!itemData.is_available) {
-          throw new functions.https.HttpsError(
-              "failed-precondition",
-              "This item is currently unavailable",
-          );
-        }
+    // 提供可能かチェック
+    if (!itemData.is_available) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This item is currently unavailable"
+      );
+    }
 
-        return {
-          id: itemDoc.id,
-          ...itemData,
-        };
-      } catch (error) {
-        console.error("Get menu item error:", error);
+    return {
+      id: itemDoc.id,
+      ...itemData,
+    };
+  } catch (error) {
+    console.error("Get menu item error:", error);
 
-        if (error instanceof functions.https.HttpsError) {
-          throw error;
-        }
+    if (error instanceof HttpsError) {
+      throw error;
+    }
 
-        throw new functions.https.HttpsError(
-            "internal",
-            "メニューアイテムの取得に失敗しました",
-        );
-      }
-    });
+    throw new HttpsError("internal", "メニューアイテムの取得に失敗しました");
+  }
+});

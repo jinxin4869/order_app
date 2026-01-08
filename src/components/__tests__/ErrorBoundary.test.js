@@ -30,7 +30,7 @@ describe("ErrorBoundary", () => {
     const { getByText } = render(
       <ErrorBoundary>
         <Text>Test content</Text>
-      </ErrorBoundary>,
+      </ErrorBoundary>
     );
 
     expect(getByText("Test content")).toBeTruthy();
@@ -40,12 +40,12 @@ describe("ErrorBoundary", () => {
     const { getByText, queryByText } = render(
       <ErrorBoundary>
         <ThrowError shouldThrow={true} />
-      </ErrorBoundary>,
+      </ErrorBoundary>
     );
 
     expect(getByText("エラーが発生しました")).toBeTruthy();
     expect(
-      getByText("アプリケーションでエラーが発生しました。"),
+      getByText("アプリケーションで予期しないエラーが発生しました。")
     ).toBeTruthy();
     expect(queryByText("Normal content")).toBeNull();
   });
@@ -54,22 +54,24 @@ describe("ErrorBoundary", () => {
     const { getByText, rerender } = render(
       <ErrorBoundary>
         <ThrowError shouldThrow={true} />
-      </ErrorBoundary>,
+      </ErrorBoundary>
     );
 
     // エラー画面が表示される
     expect(getByText("エラーが発生しました")).toBeTruthy();
 
-    // 再試行ボタンをクリック
+    // 再試行ボタンを取得
     const retryButton = getByText("再試行");
-    fireEvent.press(retryButton);
 
-    // エラーなしで再レンダリング
+    // エラーなしで再レンダリング (Propsを更新しておく)
     rerender(
       <ErrorBoundary>
         <ThrowError shouldThrow={false} />
-      </ErrorBoundary>,
+      </ErrorBoundary>
     );
+
+    // 再試行ボタンをクリック (エラー状態リセット -> 新しいPropsでレンダリング)
+    fireEvent.press(retryButton);
 
     // 通常のコンテンツが表示される
     expect(getByText("Normal content")).toBeTruthy();
@@ -79,7 +81,7 @@ describe("ErrorBoundary", () => {
     const { getByText } = render(
       <ErrorBoundary>
         <ThrowError shouldThrow={true} />
-      </ErrorBoundary>,
+      </ErrorBoundary>
     );
 
     expect(getByText("Test error")).toBeTruthy();

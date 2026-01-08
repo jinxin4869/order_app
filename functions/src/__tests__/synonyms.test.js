@@ -133,11 +133,11 @@ describe("類義語検出モジュール", () => {
 
   describe("findSynonyms", () => {
     const mockDictionary = [
-      {term_ja: "ラーメン", term_en: "Ramen", priority: 1},
-      {term_ja: "らーめん", term_en: "Ramen", priority: 2},
-      {term_ja: "拉麺", term_en: "Ramen", priority: 3},
-      {term_ja: "寿司", term_en: "Sushi", priority: 1},
-      {term_ja: "唐揚げ", term_en: "Karaage", priority: 1},
+      { term_ja: "ラーメン", term_en: "Ramen", priority: 1 },
+      { term_ja: "らーめん", term_en: "Ramen", priority: 2 },
+      { term_ja: "拉麺", term_en: "Ramen", priority: 3 },
+      { term_ja: "寿司", term_en: "Sushi", priority: 1 },
+      { term_ja: "唐揚げ", term_en: "Karaage", priority: 1 },
     ];
 
     test("類義語を検索できる", () => {
@@ -148,9 +148,7 @@ describe("類義語検出モジュール", () => {
 
     test("カタカナ・ひらがなの変換で類義語を検出", () => {
       const results = synonyms.findSynonyms("らーめん", mockDictionary);
-      const ramenVariants = results.filter((r) =>
-        r.term_en === "Ramen",
-      );
+      const ramenVariants = results.filter((r) => r.term_en === "Ramen");
       expect(ramenVariants.length).toBeGreaterThan(0);
     });
 
@@ -174,7 +172,7 @@ describe("類義語検出モジュール", () => {
       const results = synonyms.findSynonyms("ラーメン", mockDictionary);
       for (let i = 1; i < results.length; i++) {
         expect(results[i - 1].confidence).toBeGreaterThanOrEqual(
-            results[i].confidence,
+          results[i].confidence
         );
       }
     });
@@ -188,9 +186,7 @@ describe("類義語検出モジュール", () => {
       expect(groups.length).toBeGreaterThan(0);
 
       // ラーメングループ
-      const ramenGroup = groups.find((g) =>
-        g.variants.includes("ラーメン"),
-      );
+      const ramenGroup = groups.find((g) => g.variants.includes("ラーメン"));
       expect(ramenGroup).toBeDefined();
       expect(ramenGroup.variants).toContain("らーめん");
     });
@@ -224,7 +220,7 @@ describe("類義語検出モジュール", () => {
         for (let j = i + 1; j < variants.length; j++) {
           const result = synonyms.areSynonyms(variants[i], variants[j]);
           if (result.isSynonym) {
-            results.push({term1: variants[i], term2: variants[j]});
+            results.push({ term1: variants[i], term2: variants[j] });
           }
         }
       }

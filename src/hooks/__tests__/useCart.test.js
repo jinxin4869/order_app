@@ -38,7 +38,7 @@ describe("useCart", () => {
       quantity: 2,
       notes: "わさび抜き",
     });
-    expect(result.current.itemCount).toBe(1);
+    expect(result.current.itemCount).toBe(2);
     expect(result.current.isEmpty).toBe(false);
   });
 

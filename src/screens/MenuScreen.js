@@ -274,14 +274,14 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   offlineBanner: {
-    backgroundColor: '#FF6B6B',
+    backgroundColor: "#FF6B6B",
     padding: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   offlineBannerText: {
     color: COLORS.surface,
     fontSize: FONT_SIZES.sm,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   categoryList: {
     backgroundColor: COLORS.surface,

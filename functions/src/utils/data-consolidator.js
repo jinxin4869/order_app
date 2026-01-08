@@ -108,7 +108,7 @@ const convertCookingMethodData = (rows) => {
     const jaKey = Object.keys(row).find((key) => key.includes("Japanese"));
     const enKey = Object.keys(row).find((key) => key.includes("English"));
     const zhKey = Object.keys(row).find(
-        (key) => key.includes("Chinese") || key.includes("simplified"),
+      (key) => key.includes("Chinese") || key.includes("simplified")
     );
 
     const termJa = row[jaKey] || "";
@@ -147,9 +147,7 @@ const getCategoryPriority = (category) => {
     course_order: 400,
   };
 
-  return (
-    priorityMap[category.toLowerCase().replace(/\s+/g, "_")] || 999
-  );
+  return priorityMap[category.toLowerCase().replace(/\s+/g, "_")] || 999;
 };
 
 /**
@@ -190,7 +188,7 @@ const consolidateData = (dishData, cookingMethodData) => {
 
   // 優先度順にソート
   return Array.from(uniqueData.values()).sort(
-      (a, b) => a.priority - b.priority,
+    (a, b) => a.priority - b.priority
   );
 };
 
@@ -259,11 +257,7 @@ const consolidate = async (options = {}) => {
   const firestoreData = toFirestoreFormat(consolidatedData);
 
   // JSONファイルとして出力
-  fs.writeFileSync(
-      outputPath,
-      JSON.stringify(firestoreData, null, 2),
-      "utf8",
-  );
+  fs.writeFileSync(outputPath, JSON.stringify(firestoreData, null, 2), "utf8");
 
   console.log(`✅ 統合完了: ${outputPath}`);
 

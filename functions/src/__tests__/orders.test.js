@@ -38,7 +38,7 @@ const mockValidateOrderData = (orderData) => {
       // 特別リクエストのバリデーション
       if (item.special_request && item.special_request.length > 200) {
         errors.push(
-          `Item ${index + 1}: special request must be 200 characters or less`,
+          `Item ${index + 1}: special request must be 200 characters or less`
         );
       }
       // XSS対策: HTMLタグを除去
@@ -58,7 +58,7 @@ const mockValidatePriceCalculation = (orderData) => {
 
   const calculatedSubtotal = orderData.items.reduce(
     (sum, item) => sum + item.price * item.quantity,
-    0,
+    0
   );
 
   const calculatedTax = Math.floor(calculatedSubtotal * TAX_RATE);
@@ -168,7 +168,7 @@ describe("注文バリデーション", () => {
 
       const errors = mockValidateOrderData(invalidOrder);
       expect(errors).toContain(
-        "Item 1: special request must be 200 characters or less",
+        "Item 1: special request must be 200 characters or less"
       );
     });
 

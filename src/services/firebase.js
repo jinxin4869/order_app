@@ -2,9 +2,8 @@
 
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
-import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
+import { getFunctions } from "firebase/functions";
 
 // .envファイルから環境変数を読み込み
 import {
@@ -31,7 +30,6 @@ const firebaseConfig = {
 
 // Firebase初期化
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 
 // Firestore
 export const db = getFirestore(app);
@@ -39,7 +37,7 @@ export const db = getFirestore(app);
 // Cloud Functions（リージョンは環境変数から取得、デフォルト: asia-northeast1）
 export const functions = getFunctions(
   app,
-  FIREBASE_FUNCTIONS_REGION || "asia-northeast1",
+  FIREBASE_FUNCTIONS_REGION || "asia-northeast1"
 );
 
 // 開発環境でエミュレータを使用する場合（オプション）

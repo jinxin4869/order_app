@@ -39,10 +39,7 @@ const hiraganaToKatakana = (str) => {
  */
 const normalizeProlongedSound = (str) => {
   // 全角・半角・罫線の長音記号を統一
-  return str
-      .replace(/━/g, "ー")
-      .replace(/ｰ/g, "ー")
-      .replace(/─/g, "ー");
+  return str.replace(/━/g, "ー").replace(/ｰ/g, "ー").replace(/─/g, "ー");
 };
 
 /**
@@ -87,7 +84,7 @@ const areSynonyms = (term1, term2, options = {}) => {
   } = options;
 
   if (!term1 || !term2) {
-    return {isSynonym: false, confidence: 0, matchType: "none"};
+    return { isSynonym: false, confidence: 0, matchType: "none" };
   }
 
   // 正規化
@@ -96,11 +93,11 @@ const areSynonyms = (term1, term2, options = {}) => {
 
   // 1. 完全一致（正規化後）
   if (norm1 === norm2) {
-    return {isSynonym: true, confidence: 1.0, matchType: "exact"};
+    return { isSynonym: true, confidence: 1.0, matchType: "exact" };
   }
 
   if (strictMode) {
-    return {isSynonym: false, confidence: 0, matchType: "none"};
+    return { isSynonym: false, confidence: 0, matchType: "none" };
   }
 
   // 2. カタカナ・ひらがな変換後の一致
@@ -139,7 +136,7 @@ const areSynonyms = (term1, term2, options = {}) => {
     };
   }
 
-  return {isSynonym: false, confidence: similarity, matchType: "none"};
+  return { isSynonym: false, confidence: similarity, matchType: "none" };
 };
 
 /**
@@ -183,9 +180,9 @@ const levenshteinDistance = (str1, str2) => {
         matrix[i][j] = matrix[i - 1][j - 1];
       } else {
         matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1, // 置換
-            matrix[i][j - 1] + 1, // 挿入
-            matrix[i - 1][j] + 1, // 削除
+          matrix[i - 1][j - 1] + 1, // 置換
+          matrix[i][j - 1] + 1, // 挿入
+          matrix[i - 1][j] + 1 // 削除
         );
       }
     }
@@ -202,10 +199,7 @@ const levenshteinDistance = (str1, str2) => {
  * @return {Array} - マッチした類義語のリスト
  */
 const findSynonyms = (term, dictionary, options = {}) => {
-  const {
-    maxResults = 10,
-    minConfidence = 0.7,
-  } = options;
+  const { maxResults = 10, minConfidence = 0.7 } = options;
 
   const results = [];
 
@@ -279,7 +273,7 @@ const detectSynonymsInText = async (text, dictionary, options = {}) => {
  * @return {Array} - 類義語グループ
  */
 const createSynonymGroups = (terms, options = {}) => {
-  const {minConfidence = 0.8} = options;
+  const { minConfidence = 0.8 } = options;
 
   const groups = [];
   const processed = new Set();

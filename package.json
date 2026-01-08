@@ -12,23 +12,25 @@
     "test:coverage": "jest --coverage",
     "format": "prettier --write \"**/*.{js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{js,jsx,json,md}\"",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "eslint src --ext .js,.jsx --ignore-pattern '**/__tests__/**'",
+    "lint:fix": "eslint src --ext .js,.jsx --ignore-pattern '**/__tests__/**' --fix",
     "prepare": "husky"
   },
   "dependencies": {
     "@react-native-community/netinfo": "^11.3.1",
     "@react-navigation/native": "^6.1.9",
     "@react-navigation/native-stack": "^6.9.17",
-    "expo": "~50.0.0",
+    "expo": "^50.0.0",
     "expo-barcode-scanner": "~12.9.3",
     "expo-status-bar": "~1.11.1",
     "firebase": "^10.7.0",
     "react": "18.2.0",
-    "react-native": "0.73.2",
+    "react-dom": "18.2.0",
+    "react-native": "^0.73.11",
     "react-native-dotenv": "^3.4.11",
     "react-native-safe-area-context": "4.8.2",
-    "react-native-screens": "~3.29.0"
+    "react-native-screens": "~3.29.0",
+    "react-native-web": "^0.21.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
@@ -44,7 +46,8 @@
     "jest": "^29.7.0",
     "jest-expo": "~50.0.1",
     "lint-staged": "^15.2.0",
-    "prettier": "^3.7.4"
+    "prettier": "^3.7.4",
+    "react-test-renderer": "18.2.0"
   },
   "private": true,
   "jest": {
@@ -57,7 +60,13 @@
       "!src/**/*.test.{js,jsx}",
       "!src/**/index.{js,jsx}"
     ],
-    "setupFilesAfterEnv": ["@testing-library/jest-native/extend-expect"],
+    "setupFilesAfterEnv": [
+      "@testing-library/jest-native/extend-expect"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/functions/"
+    ],
     "testMatch": [
       "**/__tests__/**/*.[jt]s?(x)",
       "**/?(*.)+(spec|test).[jt]s?(x)"

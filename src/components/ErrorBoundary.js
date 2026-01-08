@@ -1,12 +1,13 @@
 // エラーバウンダリコンポーネント
-import React from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
-import { COLORS, FONT_SIZES } from '../constants';
+import React from "react";
+import { View, Text, Button, StyleSheet } from "react-native";
+import { COLORS, FONT_SIZES } from "../constants";
 
 export class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null };
+    this.handleReset = this.handleReset.bind(this);
   }
 
   static getDerivedStateFromError(error) {
@@ -16,14 +17,14 @@ export class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     // エラーログを記録
-    console.error('ErrorBoundary caught:', error, errorInfo);
+    console.error("ErrorBoundary caught:", error, errorInfo);
     // 将来的にFirebase Crashlyticsに送信可能
   }
 
-  handleReset = () => {
+  handleReset() {
     // エラー状態をリセット
     this.setState({ hasError: false, error: null });
-  };
+  }
 
   render() {
     if (this.state.hasError) {
@@ -35,7 +36,7 @@ export class ErrorBoundary extends React.Component {
             アプリケーションで予期しないエラーが発生しました。
           </Text>
           <Text style={styles.errorDetails}>
-            {this.state.error?.message || 'Unknown error'}
+            {this.state.error?.message || "Unknown error"}
           </Text>
           <View style={styles.buttonContainer}>
             <Button
@@ -56,8 +57,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
   emoji: {
@@ -66,26 +67,26 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: FONT_SIZES.title,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
     marginBottom: 10,
-    textAlign: 'center',
+    textAlign: "center",
   },
   message: {
     fontSize: FONT_SIZES.md,
     color: COLORS.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 20,
   },
   errorDetails: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.disabled,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 30,
     paddingHorizontal: 20,
   },
   buttonContainer: {
-    width: '60%',
+    width: "60%",
     marginTop: 10,
   },
 });

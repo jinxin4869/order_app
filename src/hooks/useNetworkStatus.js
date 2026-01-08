@@ -1,6 +1,6 @@
 // ネットワーク接続状態を監視するカスタムフック
-import { useEffect, useState } from 'react';
-import NetInfo from '@react-native-community/netinfo';
+import { useEffect, useState } from "react";
+import NetInfo from "@react-native-community/netinfo";
 
 export const useNetworkStatus = () => {
   const [isConnected, setIsConnected] = useState(true);
@@ -8,13 +8,13 @@ export const useNetworkStatus = () => {
 
   useEffect(() => {
     // ネットワーク状態の変化を監視
-    const unsubscribe = NetInfo.addEventListener(state => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
       setIsConnected(state.isConnected ?? true);
       setIsInternetReachable(state.isInternetReachable ?? true);
     });
 
     // 初期状態を取得
-    NetInfo.fetch().then(state => {
+    NetInfo.fetch().then((state) => {
       setIsConnected(state.isConnected ?? true);
       setIsInternetReachable(state.isInternetReachable ?? true);
     });
@@ -25,6 +25,6 @@ export const useNetworkStatus = () => {
   return {
     isConnected,
     isInternetReachable,
-    isOnline: isConnected && isInternetReachable
+    isOnline: isConnected && isInternetReachable,
   };
 };

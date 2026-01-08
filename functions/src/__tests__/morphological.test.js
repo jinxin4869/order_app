@@ -85,7 +85,9 @@ describe("形態素解析モジュール", () => {
       expect(candidates.length).toBeGreaterThan(0);
 
       // 複合名詞が含まれているか
-      const compoundNouns = candidates.filter((c) => c.type === "compound_noun");
+      const compoundNouns = candidates.filter(
+        (c) => c.type === "compound_noun"
+      );
       expect(compoundNouns.length).toBeGreaterThan(0);
     });
 
@@ -94,7 +96,9 @@ describe("形態素解析モジュール", () => {
       const candidates =
         await morphological.extractSpecializedTermCandidates(text);
 
-      const katakanaTerms = candidates.filter((c) => c.type === "katakana_noun");
+      const katakanaTerms = candidates.filter(
+        (c) => c.type === "katakana_noun"
+      );
       expect(katakanaTerms.length).toBeGreaterThan(0);
     });
 
@@ -106,7 +110,7 @@ describe("形態素解析モジュール", () => {
       // 優先度が昇順になっているか確認
       for (let i = 1; i < candidates.length; i++) {
         expect(candidates[i].priority).toBeGreaterThanOrEqual(
-            candidates[i - 1].priority,
+          candidates[i - 1].priority
         );
       }
     });
@@ -155,10 +159,10 @@ describe("形態素解析モジュール", () => {
 
         // 少なくとも1つは複合名詞または名詞が抽出される
         const hasRelevantTerms = candidates.some(
-            (c) =>
-              c.type === "compound_noun" ||
+          (c) =>
+            c.type === "compound_noun" ||
             c.type === "katakana_noun" ||
-            c.type === "general_noun",
+            c.type === "general_noun"
         );
         expect(hasRelevantTerms).toBe(true);
       }
@@ -170,7 +174,7 @@ describe("形態素解析モジュール", () => {
       const nouns = morphological.extractNouns(tokens);
 
       const allergenNouns = nouns.filter((n) =>
-        ["小麦", "卵", "乳"].some((a) => n.surface_form.includes(a)),
+        ["小麦", "卵", "乳"].some((a) => n.surface_form.includes(a))
       );
       expect(allergenNouns.length).toBeGreaterThan(0);
     });

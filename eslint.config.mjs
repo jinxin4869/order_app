@@ -45,6 +45,7 @@ export default [
       "react/prop-types": "off",
       "react/react-in-jsx-scope": "off",
       "no-console": "off",
+      "no-unused-vars": ["warn", { "varsIgnorePattern": "^React$" }],
       quotes: ["error", "double", { allowTemplateLiterals: true }],
       semi: ["error", "always"],
       "prefer-arrow-callback": "error",
@@ -55,6 +56,31 @@ export default [
         version: "detect",
       },
     },
+  },
+  {
+    files: [
+      "**/*.spec.*",
+      "**/*.test.*",
+      "**/__tests__/**",
+      "**/*.test.js",
+      "**/*.test.jsx",
+    ],
+    languageOptions: {
+      globals: {
+        describe: "readonly",
+        it: "readonly",
+        test: "readonly",
+        expect: "readonly",
+        beforeEach: "readonly",
+        afterEach: "readonly",
+        beforeAll: "readonly",
+        afterAll: "readonly",
+        jest: "readonly",
+        jestEach: "readonly",
+        act: "readonly",
+      },
+    },
+    rules: {},
   },
   {
     ignores: [

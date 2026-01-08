@@ -21,20 +21,15 @@ const getTokenizer = () => {
 
   tokenizerPromise = new Promise((resolve, reject) => {
     // kuromoji辞書のパス（node_modules内）
-    const dicPath = path.join(
-        __dirname,
-        "../../node_modules/kuromoji/dict",
-    );
+    const dicPath = path.join(__dirname, "../../node_modules/kuromoji/dict");
 
-    kuromoji
-        .builder({dicPath})
-        .build((err, tokenizer) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(tokenizer);
-          }
-        });
+    kuromoji.builder({ dicPath }).build((err, tokenizer) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(tokenizer);
+      }
+    });
   });
 
   return tokenizerPromise;
@@ -222,9 +217,7 @@ const getTextStats = async (text) => {
  */
 const normalizeText = async (text) => {
   const tokens = await tokenize(text);
-  return tokens
-      .map((token) => token.basic_form || token.surface_form)
-      .join("");
+  return tokens.map((token) => token.basic_form || token.surface_form).join("");
 };
 
 module.exports = {

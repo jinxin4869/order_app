@@ -2,7 +2,7 @@
  * useNetworkStatusフックのテスト
  */
 
-import { renderHook, waitFor } from "@testing-library/react-native";
+import { renderHook, waitFor, act } from "@testing-library/react-native";
 import NetInfo from "@react-native-community/netinfo";
 import { useNetworkStatus } from "../useNetworkStatus";
 

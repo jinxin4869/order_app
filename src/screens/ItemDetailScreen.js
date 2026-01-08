@@ -83,8 +83,11 @@ const ItemDetailScreen = ({ navigation, route }) => {
             {item.is_popular && (
               <View style={styles.popularBadge}>
                 <Text style={styles.popularText}>
-                  {currentLanguage === "ja" ? "人気" : 
-                   currentLanguage === "zh" ? "人气" : "Popular"}
+                  {currentLanguage === "ja"
+                    ? "人気"
+                    : currentLanguage === "zh"
+                      ? "人气"
+                      : "Popular"}
                 </Text>
               </View>
             )}
@@ -96,8 +99,11 @@ const ItemDetailScreen = ({ navigation, route }) => {
           {itemDescription && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
-                {currentLanguage === "ja" ? "説明" : 
-                 currentLanguage === "zh" ? "说明" : "Description"}
+                {currentLanguage === "ja"
+                  ? "説明"
+                  : currentLanguage === "zh"
+                    ? "说明"
+                    : "Description"}
               </Text>
               <Text style={styles.description}>{itemDescription}</Text>
             </View>
@@ -107,7 +113,8 @@ const ItemDetailScreen = ({ navigation, route }) => {
           {item.allergens?.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
-                {currentLanguage === "ja" ? "アレルゲン情報"
+                {currentLanguage === "ja"
+                  ? "アレルゲン情報"
                   : currentLanguage === "zh"
                     ? "过敏原信息"
                     : "Allergen Information"}
@@ -133,8 +140,10 @@ const ItemDetailScreen = ({ navigation, route }) => {
               <View style={styles.infoItem}>
                 <Text style={styles.infoIcon}>⏱️</Text>
                 <Text style={styles.infoText}>
-                  {currentLanguage === "ja" ? `約${item.cooking_time}分`
-                   : currentLanguage === "zh" ? `约${item.cooking_time}分钟`
+                  {currentLanguage === "ja"
+                    ? `約${item.cooking_time}分`
+                    : currentLanguage === "zh"
+                      ? `约${item.cooking_time}分钟`
                       : `~${item.cooking_time} min`}
                 </Text>
               </View>
@@ -158,15 +167,20 @@ const ItemDetailScreen = ({ navigation, route }) => {
           {/* 特別リクエスト */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              {currentLanguage === "ja" ? "ご要望（任意）" : 
-               currentLanguage === "zh" ? "特殊要求（可选）" : "Special Requests (Optional)"}
+              {currentLanguage === "ja"
+                ? "ご要望（任意）"
+                : currentLanguage === "zh"
+                  ? "特殊要求（可选）"
+                  : "Special Requests (Optional)"}
             </Text>
             <TextInput
               style={styles.notesInput}
               placeholder={
-                currentLanguage === "ja" ? "例: わさび抜き、少なめなど" : 
-                currentLanguage === "zh" ? "例：不加芥末、少量等" : 
-                "e.g., No wasabi, less spicy, etc."
+                currentLanguage === "ja"
+                  ? "例: わさび抜き、少なめなど"
+                  : currentLanguage === "zh"
+                    ? "例：不加芥末、少量等"
+                    : "e.g., No wasabi, less spicy, etc."
               }
               placeholderTextColor={COLORS.disabled}
               value={notes}
@@ -211,8 +225,11 @@ const ItemDetailScreen = ({ navigation, route }) => {
         {/* カートに追加ボタン */}
         <TouchableOpacity style={styles.addButton} onPress={handleAddToCart}>
           <Text style={styles.addButtonText}>
-            {currentLanguage === "ja" ? "カートに追加" : 
-             currentLanguage === "zh" ? "加入购物车" : "Add to Cart"}
+            {currentLanguage === "ja"
+              ? "カートに追加"
+              : currentLanguage === "zh"
+                ? "加入购物车"
+                : "Add to Cart"}
           </Text>
           <Text style={styles.addButtonPrice}>
             ¥{(item.price * quantity).toLocaleString()}
