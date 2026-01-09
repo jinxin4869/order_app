@@ -1,5 +1,4 @@
 #!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
+# (updated for Husky v10+)
 # lint-stagedを実行
 npx lint-staged
