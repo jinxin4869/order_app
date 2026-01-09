@@ -76,4 +76,13 @@ node_modules/
 .claude/
 .github/
 .vscode/
+.idea/
 .expo/
+
+# Binary files
+.bin
+*.bin
+
+# Native build folders (Expo Managed Workflow)
+android/
+ios/

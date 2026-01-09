@@ -1,3 +1,0 @@
-#!/bin/bash
-# ADB wrapper script to call Windows adb.exe from WSL
-exec /mnt/c/Users/jinxi/AppData/Local/Android/Sdk/platform-tools/adb.exe "$@"
