@@ -8,23 +8,20 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { BarCodeScanner } from "expo-barcode-scanner";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { COLORS, FONT_SIZES } from "../constants";
 import { validateQRCode } from "../services/api";
 
 const QRScannerScreen = ({ navigation }) => {
-  const [hasPermission, setHasPermission] = useState(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
 
   useEffect(() => {
-    requestCameraPermission();
-  }, []);
-
-  const requestCameraPermission = async () => {
-    const { status } = await BarCodeScanner.requestPermissionsAsync();
-    setHasPermission(status === "granted");
-  };
+    if (!permission) {
+      requestPermission();
+    }
+  }, [permission]);
 
   const handleBarCodeScanned = async ({ data }) => {
     if (scanned || isValidating) return;
@@ -76,8 +73,27 @@ const QRScannerScreen = ({ navigation }) => {
     }
   };
 
+  // デバッグ用：スキャンをスキップする関数
+  const handleDebugSkip = () => {
+    // サンプルデータを使用して次の画面へ遷移
+    navigation.navigate("LanguageSelect", {
+      restaurantId: "restaurant_01",
+      tableId: "table_01",
+      restaurant: {
+        id: "restaurant_01",
+        name: "居酒屋さくら (Demo)",
+        default_language: "ja",
+        supported_languages: ["ja", "en", "zh"],
+      },
+      table: {
+        id: "table_01",
+        table_number: "1",
+      },
+    });
+  };
+
   // 権限リクエスト中
-  if (hasPermission === null) {
+  if (!permission) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -90,7 +106,7 @@ const QRScannerScreen = ({ navigation }) => {
   }
 
   // 権限拒否
-  if (hasPermission === false) {
+  if (!permission.granted) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>📷</Text>
@@ -98,10 +114,7 @@ const QRScannerScreen = ({ navigation }) => {
           カメラへのアクセスが必要です{"\n"}
           Camera access is required
         </Text>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={requestCameraPermission}
-        >
+        <TouchableOpacity style={styles.button} onPress={requestPermission}>
           <Text style={styles.buttonText}>権限を許可 / Grant Permission</Text>
         </TouchableOpacity>
       </View>
@@ -110,9 +123,13 @@ const QRScannerScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <BarCodeScanner
-        onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+      <CameraView
         style={StyleSheet.absoluteFillObject}
+        facing="back"
+        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        barcodeScannerSettings={{
+          barcodeTypes: ["qr"],
+        }}
       />
 
       {/* スキャンガイド */}
@@ -153,6 +170,11 @@ const QRScannerScreen = ({ navigation }) => {
           <Text style={styles.rescanButtonText}>再スキャン / Scan Again</Text>
         </TouchableOpacity>
       )}
+
+      {/* デバッグ用スキップボタン */}
+      <TouchableOpacity style={styles.debugButton} onPress={handleDebugSkip}>
+        <Text style={styles.debugButtonText}>[Debug] Skip Scan</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -276,6 +298,19 @@ const styles = StyleSheet.create({
   rescanButtonText: {
     color: COLORS.surface,
     fontSize: FONT_SIZES.md,
+    fontWeight: "bold",
+  },
+  debugButton: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    padding: 10,
+    borderRadius: 8,
+  },
+  debugButtonText: {
+    color: "#00ff00",
+    fontSize: 12,
     fontWeight: "bold",
   },
 });

@@ -76,3 +76,4 @@ node_modules/
 .claude/
 .github/
 .vscode/
+.expo/

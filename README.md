@@ -12,6 +12,9 @@
 **詳細な設定が必要な方は:**
 - **[完全セットアップガイド](./docs/SETUP_GUIDE.md)** - 詳細な手順とトラブルシューティング
 
+**Android開発環境（WSL）:**
+- **[WSL環境でのAndroidセットアップ](./docs/ANDROID_WSL_SETUP.md)** - WSL内でのAndroid環境構築手順
+
 ---
 
 ### 対応言語
