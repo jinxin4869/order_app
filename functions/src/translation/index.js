@@ -363,8 +363,19 @@ exports.translateText = onCall(
         foundTermsCount: foundTerms.length,
       };
     } catch (error) {
-      console.error("Translation error:", error);
-      throw new HttpsError("internal", "翻訳に失敗しました");
+      console.error(
+        `Translation error for text "${text}" to ${targetLang}:`,
+        error
+      );
+
+      if (
+        error instanceof HttpsError ||
+        (error.code && typeof error.code === "string" && error.message)
+      ) {
+        throw error;
+      }
+
+      throw new HttpsError("internal", "翻訳処理中にエラーが発生しました。");
     }
   }
 );
@@ -503,8 +514,22 @@ exports.batchTranslateMenu = onCall(
         items: results,
       };
     } catch (error) {
-      console.error("Batch translation error:", error);
-      throw new HttpsError("internal", "一括翻訳に失敗しました");
+      console.error(
+        `Batch translation error for restaurant ${restaurantId}:`,
+        error
+      );
+
+      if (
+        error instanceof HttpsError ||
+        (error.code && typeof error.code === "string" && error.message)
+      ) {
+        throw error;
+      }
+
+      throw new HttpsError(
+        "internal",
+        "メニューの一括翻訳中にエラーが発生しました。"
+      );
     }
   }
 );

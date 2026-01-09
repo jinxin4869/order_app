@@ -181,7 +181,13 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
       .get();
 
     if (!restaurantDoc.exists) {
-      throw new HttpsError("not-found", "レストランが見つかりません");
+      console.warn(
+        `CreateOrder failed: Restaurant ${data.restaurantId} not found`
+      );
+      throw new HttpsError(
+        "not-found",
+        "指定されたレストランが見つかりません。"
+      );
     }
 
     const tableDoc = await db
@@ -192,11 +198,23 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
       .get();
 
     if (!tableDoc.exists) {
-      throw new HttpsError("not-found", "テーブルが見つかりません");
+      console.warn(
+        `CreateOrder failed: Table ${data.tableId} not found in restaurant ${data.restaurantId}`
+      );
+      throw new HttpsError("not-found", "指定されたテーブルが見つかりません。");
     }
 
     // 注文番号生成
-    const orderNumber = await generateOrderNumber(data.restaurantId);
+    let orderNumber;
+    try {
+      orderNumber = await generateOrderNumber(data.restaurantId);
+    } catch (e) {
+      console.error("Order number generation failed:", e);
+      throw new HttpsError(
+        "internal",
+        "注文番号の生成中にエラーが発生しました。"
+      );
+    }
 
     // 注文データを作成
     const orderDoc = {
@@ -241,17 +259,27 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
     console.log(`Order created: ${orderRef.id}, Number: ${orderNumber}`);
 
     return {
+      success: true,
       orderId: orderRef.id,
       orderNumber: orderNumber,
     };
   } catch (error) {
-    console.error("Create order error:", error);
+    console.error(
+      `Create order error for restaurant ${data.restaurantId}:`,
+      error
+    );
 
-    if (error instanceof HttpsError) {
+    if (
+      error instanceof HttpsError ||
+      (error.code && typeof error.code === "string" && error.message)
+    ) {
       throw error;
     }
 
-    throw new HttpsError("internal", "注文の作成に失敗しました");
+    throw new HttpsError(
+      "internal",
+      "注文の作成中に予期せぬエラーが発生しました。"
+    );
   }
 });
 
@@ -316,13 +344,22 @@ exports.updateOrderStatus = onCall(
 
       return { success: true };
     } catch (error) {
-      console.error("Update order status error:", error);
+      console.error(
+        `Update order status error (ID: ${orderId}, NewStatus: ${newStatus}):`,
+        error
+      );
 
-      if (error instanceof HttpsError) {
+      if (
+        error instanceof HttpsError ||
+        (error.code && typeof error.code === "string" && error.message)
+      ) {
         throw error;
       }
 
-      throw new HttpsError("internal", "注文ステータスの更新に失敗しました");
+      throw new HttpsError(
+        "internal",
+        "注文ステータスの更新中にエラーが発生しました。"
+      );
     }
   }
 );

@@ -9,11 +9,11 @@ import {
   Image,
   Alert,
   ActivityIndicator,
-  SafeAreaView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS, FONT_SIZES } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
-import { CartContext } from "../navigation/AppNavigator";
+import { CartContext } from "../context/CartContext";
 import { createOrder } from "../services/api";
 
 const CartScreen = ({ navigation, route }) => {

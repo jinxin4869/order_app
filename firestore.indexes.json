@@ -1,6 +1,22 @@
 {
   "indexes": [
     {
+      "collectionGroup": "menu_categories",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "is_available", "order": "ASCENDING" },
+        { "fieldPath": "order", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "menu_items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "is_available", "order": "ASCENDING" },
+        { "fieldPath": "order", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "menu_items",
       "queryScope": "COLLECTION",
       "fields": [

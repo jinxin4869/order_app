@@ -31,6 +31,9 @@ const MenuScreen = ({ navigation, route }) => {
   // メニューを読み込み
   const loadMenu = useCallback(
     async (showRefresh = false) => {
+      console.log(
+        `Loading menu for restaurant: ${restaurantId}, lang: ${currentLanguage}`
+      );
       try {
         if (showRefresh) {
           setIsRefreshing(true);
@@ -44,6 +47,12 @@ const MenuScreen = ({ navigation, route }) => {
           currentLanguage
         );
 
+        console.log(
+          "Menu loaded successfully:",
+          result.categories?.length,
+          "categories"
+        );
+
         setCategories(result.categories || []);
         setMenuItems(result.items || []);
 
@@ -52,7 +61,8 @@ const MenuScreen = ({ navigation, route }) => {
         }
       } catch (err) {
         console.error("Menu load error:", err);
-        setError("メニューの読み込みに失敗しました");
+        const errorMessage = err.message || "メニューの読み込みに失敗しました";
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);

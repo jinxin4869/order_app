@@ -77,16 +77,16 @@ const QRScannerScreen = ({ navigation }) => {
   const handleDebugSkip = () => {
     // サンプルデータを使用して次の画面へ遷移
     navigation.navigate("LanguageSelect", {
-      restaurantId: "restaurant_01",
-      tableId: "table_01",
+      restaurantId: "rest001",
+      tableId: "table001",
       restaurant: {
-        id: "restaurant_01",
-        name: "居酒屋さくら (Demo)",
+        id: "rest001",
+        name: "和食レストラン 桜",
         default_language: "ja",
         supported_languages: ["ja", "en", "zh"],
       },
       table: {
-        id: "table_01",
+        id: "table001",
         table_number: "1",
       },
     });

@@ -8,11 +8,11 @@ import {
   Image,
   TouchableOpacity,
   TextInput,
-  SafeAreaView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS, FONT_SIZES, ALLERGENS } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
-import { CartContext } from "../navigation/AppNavigator";
+import { CartContext } from "../context/CartContext";
 
 const ItemDetailScreen = ({ navigation, route }) => {
   const { item } = route.params;
@@ -134,35 +134,21 @@ const ItemDetailScreen = ({ navigation, route }) => {
             </View>
           )}
 
-          {/* 追加情報 */}
-          <View style={styles.infoRow}>
-            {item.cooking_time && (
+          {/* 調理時間 */}
+          {item.cooking_time && (
+            <View style={styles.section}>
               <View style={styles.infoItem}>
                 <Text style={styles.infoIcon}>⏱️</Text>
                 <Text style={styles.infoText}>
                   {currentLanguage === "ja"
-                    ? `約${item.cooking_time}分`
+                    ? `調理時間: 約${item.cooking_time}分`
                     : currentLanguage === "zh"
-                      ? `约${item.cooking_time}分钟`
-                      : `~${item.cooking_time} min`}
+                      ? `烹饪时间: 约${item.cooking_time}分钟`
+                      : `Cooking time: ~${item.cooking_time} min`}
                 </Text>
               </View>
-            )}
-            {item.calories && (
-              <View style={styles.infoItem}>
-                <Text style={styles.infoIcon}>🔥</Text>
-                <Text style={styles.infoText}>{item.calories} kcal</Text>
-              </View>
-            )}
-            {item.spicy_level > 0 && (
-              <View style={styles.infoItem}>
-                <Text style={styles.infoIcon}>🌶️</Text>
-                <Text style={styles.infoText}>
-                  {"🌶️".repeat(item.spicy_level)}
-                </Text>
-              </View>
-            )}
-          </View>
+            </View>
+          )}
 
           {/* 特別リクエスト */}
           <View style={styles.section}>
@@ -330,12 +316,6 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     color: COLORS.text,
   },
-  infoRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 20,
-    gap: 15,
-  },
   infoItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -343,6 +323,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 15,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   infoIcon: {
     fontSize: 16,

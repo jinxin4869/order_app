@@ -1,10 +1,11 @@
 // アプリナビゲーション設定
-import React, { createContext } from "react";
+import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { COLORS } from "../constants";
 import { LanguageProvider, useLanguage } from "../hooks/useLanguage";
 import { useCart } from "../hooks/useCart";
+import { CartContext } from "../context/CartContext";
 
 // スクリーンのインポート
 import {
@@ -17,9 +18,6 @@ import {
 } from "../screens";
 
 const Stack = createNativeStackNavigator();
-
-// カートコンテキスト
-export const CartContext = createContext(null);
 
 // ナビゲーションスタック
 const AppStack = () => {
