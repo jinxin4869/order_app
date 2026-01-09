@@ -1,11 +1,11 @@
 // 言語選択画面
 import React from "react";
 import {
+  StyleSheet,
+  SafeAreaView,
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
 } from "react-native";
 import { COLORS, FONT_SIZES } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";

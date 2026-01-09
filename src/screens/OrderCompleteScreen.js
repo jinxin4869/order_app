@@ -1,5 +1,5 @@
 // 注文完了画面
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -16,8 +16,8 @@ const OrderCompleteScreen = ({ navigation, route }) => {
   const { currentLanguage } = useLanguage();
 
   // アニメーション
-  const scaleAnim = new Animated.Value(0);
-  const fadeAnim = new Animated.Value(0);
+  const scaleAnim = useMemo(() => new Animated.Value(0), []);
+  const fadeAnim = useMemo(() => new Animated.Value(0), []);
 
   useEffect(() => {
     Animated.sequence([
@@ -33,7 +33,7 @@ const OrderCompleteScreen = ({ navigation, route }) => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, scaleAnim]);
 
   // テキスト取得用ヘルパー
   const t = (ja, en, zh) => {

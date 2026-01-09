@@ -1,12 +1,12 @@
 // メニュー画面
 import React, { useState, useEffect, useCallback } from "react";
 import {
+  StyleSheet,
   View,
   Text,
-  StyleSheet,
-  FlatList,
   TouchableOpacity,
   Image,
+  FlatList,
   ActivityIndicator,
   RefreshControl,
 } from "react-native";

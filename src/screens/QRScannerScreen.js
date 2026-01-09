@@ -1,12 +1,12 @@
 // QRコードスキャン画面
 import React, { useState, useEffect } from "react";
 import {
-  View,
-  Text,
   StyleSheet,
-  TouchableOpacity,
   Alert,
   ActivityIndicator,
+  View,
+  Text,
+  TouchableOpacity,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { COLORS, FONT_SIZES } from "../constants";
@@ -21,7 +21,7 @@ const QRScannerScreen = ({ navigation }) => {
     if (!permission) {
       requestPermission();
     }
-  }, [permission]);
+  }, [permission, requestPermission]);
 
   const handleBarCodeScanned = async ({ data }) => {
     if (scanned || isValidating) return;
