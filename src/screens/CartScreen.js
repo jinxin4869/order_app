@@ -39,6 +39,17 @@ const CartScreen = ({ navigation, route }) => {
     return ja;
   };
 
+  // カートアイテムの名前を現在の言語で取得
+  const getItemDisplayName = (item) => {
+    if (currentLanguage === "zh" && item.name_zh) {
+      return item.name_zh;
+    }
+    if (currentLanguage === "en" && item.name_en) {
+      return item.name_en;
+    }
+    return item.name_ja || item.name;
+  };
+
   // 数量変更
   const handleQuantityChange = (item, delta) => {
     const newQuantity = item.quantity + delta;
@@ -51,12 +62,14 @@ const CartScreen = ({ navigation, route }) => {
 
   // 商品削除
   const handleRemoveItem = (item) => {
+    console.log("handleRemoveItem called for:", item.id, item.notes);
+    const displayName = getItemDisplayName(item);
     Alert.alert(
       t("削除確認", "Confirm Removal", "确认删除"),
       t(
-        `「${item.name}」をカートから削除しますか？`,
-        `Remove "${item.name}" from cart?`,
-        `从购物车中删除"${item.name}"吗？`
+        `「${displayName}」をカートから削除しますか？`,
+        `Remove "${displayName}" from cart?`,
+        `从购物车中删除"${displayName}"吗？`
       ),
       [
         {
@@ -66,7 +79,10 @@ const CartScreen = ({ navigation, route }) => {
         {
           text: t("削除", "Remove", "删除"),
           style: "destructive",
-          onPress: () => removeItem(item.id, item.notes),
+          onPress: () => {
+            console.log("Removing item:", item.id, item.notes);
+            removeItem(item.id, item.notes);
+          },
         },
       ]
     );
@@ -78,11 +94,7 @@ const CartScreen = ({ navigation, route }) => {
 
     Alert.alert(
       t("注文確認", "Confirm Order", "确认订单"),
-      t(
-        `合計 ¥${total.toLocaleString()} で注文を確定しますか？`,
-        `Confirm order for ¥${total.toLocaleString()}?`,
-        `确认订购总计 ¥${total.toLocaleString()} 吗？`
-      ),
+      t("注文を確定しますか？", "Confirm order?", "确认订购吗？"),
       [
         {
           text: t("キャンセル", "Cancel", "取消"),
@@ -156,14 +168,13 @@ const CartScreen = ({ navigation, route }) => {
 
       <View style={styles.itemInfo}>
         <Text style={styles.itemName} numberOfLines={2}>
-          {item.name}
+          {getItemDisplayName(item)}
         </Text>
         {item.notes && (
           <Text style={styles.itemNotes} numberOfLines={1}>
             📝 {item.notes}
           </Text>
         )}
-        <Text style={styles.itemPrice}>¥{item.price.toLocaleString()}</Text>
       </View>
 
       <View style={styles.quantityControl}>
@@ -186,9 +197,13 @@ const CartScreen = ({ navigation, route }) => {
 
       <TouchableOpacity
         style={styles.removeButton}
-        onPress={() => handleRemoveItem(item)}
+        onPress={() => {
+          console.log("Delete button pressed!");
+          handleRemoveItem(item);
+        }}
+        activeOpacity={0.7}
       >
-        <Text style={styles.removeButtonText}>✕</Text>
+        <Text style={styles.removeButtonText}>×</Text>
       </TouchableOpacity>
     </View>
   );
@@ -226,10 +241,22 @@ const CartScreen = ({ navigation, route }) => {
     <SafeAreaView style={styles.container}>
       {/* ヘッダー */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t("カート", "Cart", "购物车")}</Text>
-        <Text style={styles.headerSubtitle}>
-          Table {table?.table_number || tableId}
-        </Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.headerBackButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.headerBackButtonText}>←</Text>
+          </TouchableOpacity>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>
+              {t("カート", "Cart", "购物车")}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              Table {table?.table_number || tableId}
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* カートリスト */}
@@ -240,30 +267,8 @@ const CartScreen = ({ navigation, route }) => {
         contentContainerStyle={styles.cartList}
       />
 
-      {/* 合計エリア */}
+      {/* 注文ボタンエリア */}
       <View style={styles.summaryContainer}>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>
-            {t("小計", "Subtotal", "小计")}
-          </Text>
-          <Text style={styles.summaryValue}>¥{subtotal.toLocaleString()}</Text>
-        </View>
-
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>
-            {t("消費税 (10%)", "Tax (10%)", "消费税 (10%)")}
-          </Text>
-          <Text style={styles.summaryValue}>¥{tax.toLocaleString()}</Text>
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.summaryRow}>
-          <Text style={styles.totalLabel}>{t("合計", "Total", "总计")}</Text>
-          <Text style={styles.totalValue}>¥{total.toLocaleString()}</Text>
-        </View>
-
-        {/* 注文ボタン */}
         <TouchableOpacity
           style={[
             styles.submitButton,
@@ -294,6 +299,25 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     padding: 15,
     paddingTop: 20,
+  },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerBackButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  headerBackButtonText: {
+    fontSize: 28,
+    color: COLORS.surface,
+    fontWeight: "bold",
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: FONT_SIZES.xl,
@@ -348,12 +372,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: 2,
   },
-  itemPrice: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.primary,
-    fontWeight: "bold",
-    marginTop: 4,
-  },
   quantityControl: {
     flexDirection: "row",
     alignItems: "center",
@@ -381,45 +399,25 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   removeButton: {
-    padding: 5,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#FFE5E5",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
   },
   removeButtonText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.disabled,
+    fontSize: 22,
+    color: "#FF6B6B",
+    fontWeight: "bold",
+    lineHeight: 24,
   },
   summaryContainer: {
     backgroundColor: COLORS.surface,
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  summaryLabel: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-  },
-  summaryValue: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.text,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginVertical: 10,
-  },
-  totalLabel: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: "bold",
-    color: COLORS.text,
-  },
-  totalValue: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: "bold",
-    color: COLORS.primary,
   },
   submitButton: {
     backgroundColor: COLORS.primary,

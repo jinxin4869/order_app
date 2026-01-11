@@ -45,7 +45,13 @@ export default [
       "react/prop-types": "off",
       "react/react-in-jsx-scope": "off",
       "no-console": "off",
-      "no-unused-vars": ["warn", { "varsIgnorePattern": "^React$" }],
+      "no-unused-vars": ["warn", {
+        "varsIgnorePattern": "^React$",
+        "args": "after-used",
+        "ignoreRestSiblings": true
+      }],
+      "react/jsx-uses-react": "error",
+      "react/jsx-uses-vars": "error",
       quotes: ["error", "double", { allowTemplateLiterals: true }],
       semi: ["error", "always"],
       "prefer-arrow-callback": "error",

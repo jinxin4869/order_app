@@ -32,6 +32,8 @@ export const useCart = () => {
             id: item.id,
             name: item.name,
             name_ja: item.name_ja,
+            name_en: item.name_en,
+            name_zh: item.name_zh,
             price: item.price,
             quantity,
             notes,

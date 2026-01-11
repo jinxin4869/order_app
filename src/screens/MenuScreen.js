@@ -165,8 +165,6 @@ const MenuScreen = ({ navigation, route }) => {
             )}
           </View>
         )}
-
-        <Text style={styles.itemPrice}>¥{item.price.toLocaleString()}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -198,12 +196,22 @@ const MenuScreen = ({ navigation, route }) => {
     <View style={styles.container}>
       {/* ヘッダー */}
       <View style={styles.header}>
-        <Text style={styles.restaurantName}>
-          {restaurant?.name || "レストラン"}
-        </Text>
-        <Text style={styles.tableInfo}>
-          Table {table?.table_number || tableId}
-        </Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.restaurantName}>
+              {restaurant?.name || "レストラン"}
+            </Text>
+            <Text style={styles.tableInfo}>
+              Table {table?.table_number || tableId}
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* オフライン警告バナー */}
@@ -273,6 +281,25 @@ const styles = StyleSheet.create({
     padding: 15,
     paddingTop: 50,
   },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  backButtonText: {
+    fontSize: 28,
+    color: COLORS.surface,
+    fontWeight: "bold",
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
   restaurantName: {
     fontSize: FONT_SIZES.xl,
     fontWeight: "bold",
@@ -309,6 +336,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
   },
   categoryTabActive: {
     backgroundColor: COLORS.primary,
@@ -320,6 +349,7 @@ const styles = StyleSheet.create({
   categoryText: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.text,
+    textAlign: "center",
   },
   categoryTextActive: {
     color: COLORS.surface,
@@ -395,12 +425,6 @@ const styles = StyleSheet.create({
   moreAllergens: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.textSecondary,
-  },
-  itemPrice: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: "bold",
-    color: COLORS.primary,
-    marginTop: 5,
   },
   cartButton: {
     position: "absolute",

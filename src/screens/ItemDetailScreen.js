@@ -46,6 +46,8 @@ const ItemDetailScreen = ({ navigation, route }) => {
         id: item.id,
         name: itemName,
         name_ja: item.name_ja,
+        name_en: item.name_en,
+        name_zh: item.name_zh,
         price: item.price,
         image_url: item.image_url,
       },
@@ -65,6 +67,24 @@ const ItemDetailScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* ヘッダー */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          {currentLanguage === "ja"
+            ? "商品詳細"
+            : currentLanguage === "zh"
+              ? "商品详情"
+              : "Details"}
+        </Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
       <ScrollView style={styles.scrollView}>
         {/* 画像 */}
         {item.image_url ? (
@@ -78,7 +98,7 @@ const ItemDetailScreen = ({ navigation, route }) => {
         {/* 商品情報 */}
         <View style={styles.content}>
           {/* 名前と価格 */}
-          <View style={styles.header}>
+          <View style={styles.itemHeader}>
             <Text style={styles.name}>{itemName}</Text>
             {item.is_popular && (
               <View style={styles.popularBadge}>
@@ -92,8 +112,6 @@ const ItemDetailScreen = ({ navigation, route }) => {
               </View>
             )}
           </View>
-
-          <Text style={styles.price}>¥{item.price.toLocaleString()}</Text>
 
           {/* 説明 */}
           {itemDescription && (
@@ -217,9 +235,6 @@ const ItemDetailScreen = ({ navigation, route }) => {
                 ? "加入购物车"
                 : "Add to Cart"}
           </Text>
-          <Text style={styles.addButtonPrice}>
-            ¥{(item.price * quantity).toLocaleString()}
-          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -230,6 +245,35 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  header: {
+    backgroundColor: COLORS.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  backButtonText: {
+    fontSize: 28,
+    color: COLORS.surface,
+    fontWeight: "bold",
+  },
+  headerTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: "bold",
+    color: COLORS.surface,
+    flex: 1,
+    textAlign: "center",
+  },
+  headerSpacer: {
+    width: 40,
   },
   scrollView: {
     flex: 1,
@@ -250,7 +294,7 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
   },
-  header: {
+  itemHeader: {
     flexDirection: "row",
     alignItems: "center",
     flexWrap: "wrap",
@@ -272,12 +316,6 @@ const styles = StyleSheet.create({
     color: COLORS.surface,
     fontSize: FONT_SIZES.sm,
     fontWeight: "bold",
-  },
-  price: {
-    fontSize: FONT_SIZES.title,
-    fontWeight: "bold",
-    color: COLORS.primary,
-    marginTop: 10,
   },
   section: {
     marginTop: 25,
@@ -395,11 +433,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addButtonText: {
-    color: COLORS.surface,
-    fontSize: FONT_SIZES.md,
-    fontWeight: "bold",
-  },
-  addButtonPrice: {
     color: COLORS.surface,
     fontSize: FONT_SIZES.md,
     fontWeight: "bold",

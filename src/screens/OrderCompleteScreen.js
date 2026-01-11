@@ -12,7 +12,7 @@ import { COLORS, FONT_SIZES } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
 
 const OrderCompleteScreen = ({ navigation, route }) => {
-  const { orderId, orderNumber, total, restaurant, table } = route.params;
+  const { orderId, orderNumber, restaurant, table } = route.params;
   const { currentLanguage } = useLanguage();
 
   // アニメーション
@@ -113,15 +113,6 @@ const OrderCompleteScreen = ({ navigation, route }) => {
               </Text>
               <Text style={styles.detailValue}>
                 {table?.table_number || "-"}
-              </Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>
-                {t("合計金額", "Total", "总计")}
-              </Text>
-              <Text style={styles.detailValuePrice}>
-                ¥{total?.toLocaleString()}
               </Text>
             </View>
           </View>
@@ -251,11 +242,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: "500",
   },
-  detailValuePrice: {
-    fontSize: FONT_SIZES.lg,
-    color: COLORS.primary,
-    fontWeight: "bold",
-  },
+
   messageContainer: {
     alignItems: "center",
     paddingHorizontal: 20,
