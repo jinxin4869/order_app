@@ -1,6 +1,7 @@
 // Cloud Functions API サービス
 import { httpsCallable } from "firebase/functions";
 import { functions } from "./firebase";
+import { withRetry, handleError } from "../utils/errorHandler";
 
 // ===== 翻訳関連 =====
 
@@ -13,11 +14,18 @@ import { functions } from "./firebase";
 export const translateText = async (text, targetLang) => {
   try {
     const translateFunction = httpsCallable(functions, "translateText");
-    const result = await translateFunction({ text, targetLang });
+    const result = await withRetry(
+      () => translateFunction({ text, targetLang }),
+      2,
+      1000
+    );
     return result.data;
   } catch (error) {
-    console.error("Translation error:", error);
-    throw error;
+    const userMessage = handleError(error, {
+      function: "translateText",
+      params: { text, targetLang },
+    });
+    throw new Error(userMessage);
   }
 };
 
@@ -30,11 +38,18 @@ export const translateText = async (text, targetLang) => {
 export const batchTranslateMenu = async (restaurantId, targetLang) => {
   try {
     const batchFunction = httpsCallable(functions, "batchTranslateMenu");
-    const result = await batchFunction({ restaurantId, targetLang });
+    const result = await withRetry(
+      () => batchFunction({ restaurantId, targetLang }),
+      2,
+      1000
+    );
     return result.data;
   } catch (error) {
-    console.error("Batch translation error:", error);
-    throw error;
+    const userMessage = handleError(error, {
+      function: "batchTranslateMenu",
+      params: { restaurantId, targetLang },
+    });
+    throw new Error(userMessage);
   }
 };
 
@@ -48,11 +63,18 @@ export const batchTranslateMenu = async (restaurantId, targetLang) => {
 export const createOrder = async (orderData) => {
   try {
     const createOrderFunction = httpsCallable(functions, "createOrder");
-    const result = await createOrderFunction(orderData);
+    const result = await withRetry(
+      () => createOrderFunction(orderData),
+      3,
+      1000
+    );
     return result.data;
   } catch (error) {
-    console.error("Create order error:", error);
-    throw error;
+    const userMessage = handleError(error, {
+      function: "createOrder",
+      params: { itemCount: orderData.items?.length },
+    });
+    throw new Error(userMessage);
   }
 };
 
@@ -65,11 +87,18 @@ export const createOrder = async (orderData) => {
 export const updateOrderStatus = async (orderId, newStatus) => {
   try {
     const updateFunction = httpsCallable(functions, "updateOrderStatus");
-    const result = await updateFunction({ orderId, newStatus });
+    const result = await withRetry(
+      () => updateFunction({ orderId, newStatus }),
+      2,
+      1000
+    );
     return result.data;
   } catch (error) {
-    console.error("Update order status error:", error);
-    throw error;
+    const userMessage = handleError(error, {
+      function: "updateOrderStatus",
+      params: { orderId, newStatus },
+    });
+    throw new Error(userMessage);
   }
 };
 
@@ -84,11 +113,18 @@ export const updateOrderStatus = async (orderId, newStatus) => {
 export const getMenuWithTranslation = async (restaurantId, language) => {
   try {
     const getMenuFunction = httpsCallable(functions, "getMenuWithTranslation");
-    const result = await getMenuFunction({ restaurantId, language });
+    const result = await withRetry(
+      () => getMenuFunction({ restaurantId, language }),
+      3,
+      1000
+    );
     return result.data;
   } catch (error) {
-    console.error("Get menu error:", error);
-    throw error;
+    const userMessage = handleError(error, {
+      function: "getMenuWithTranslation",
+      params: { restaurantId, language },
+    });
+    throw new Error(userMessage);
   }
 };
 
@@ -102,10 +138,13 @@ export const getMenuWithTranslation = async (restaurantId, language) => {
 export const validateQRCode = async (qrData) => {
   try {
     const validateFunction = httpsCallable(functions, "validateQRCode");
-    const result = await validateFunction({ qrData });
+    const result = await withRetry(() => validateFunction({ qrData }), 2, 1000);
     return result.data;
   } catch (error) {
-    console.error("QR validation error:", error);
-    throw error;
+    const userMessage = handleError(error, {
+      function: "validateQRCode",
+      params: { qrData },
+    });
+    throw new Error(userMessage);
   }
 };

@@ -1,0 +1,275 @@
+/**
+ * useLanguageのテスト
+ */
+
+import React from "react";
+import { renderHook, act } from "@testing-library/react-native";
+import { LanguageProvider, useLanguage } from "../useLanguage";
+import { LANGUAGES, DEFAULT_LANGUAGE } from "../../constants";
+
+describe("useLanguage", () => {
+  const wrapper = ({ children }) => (
+    <LanguageProvider>{children}</LanguageProvider>
+  );
+
+  test("デフォルト言語は日本語", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    expect(result.current.currentLanguage).toBe(DEFAULT_LANGUAGE);
+    expect(result.current.currentLanguage).toBe("ja");
+  });
+
+  test("言語情報を正しく取得する", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    expect(result.current.languageInfo).toEqual(LANGUAGES.ja);
+    expect(result.current.languageInfo.code).toBe("ja");
+    expect(result.current.languageInfo.name).toBe("日本語");
+    expect(result.current.languageInfo.flag).toBe("🇯🇵");
+  });
+
+  test("利用可能な言語リストを取得する", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    expect(result.current.availableLanguages).toHaveLength(3);
+    expect(result.current.availableLanguages).toContainEqual(LANGUAGES.ja);
+    expect(result.current.availableLanguages).toContainEqual(LANGUAGES.en);
+    expect(result.current.availableLanguages).toContainEqual(LANGUAGES.zh);
+  });
+
+  test("changeLanguageで言語を変更できる", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    act(() => {
+      result.current.changeLanguage("en");
+    });
+
+    expect(result.current.currentLanguage).toBe("en");
+    expect(result.current.languageInfo).toEqual(LANGUAGES.en);
+  });
+
+  test("無効な言語コードでは変更されない", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    act(() => {
+      result.current.changeLanguage("invalid");
+    });
+
+    expect(result.current.currentLanguage).toBe("ja");
+  });
+
+  test("getTextで多言語テキストを取得する", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    const textObj = {
+      ja: "こんにちは",
+      en: "Hello",
+      zh: "你好",
+    };
+
+    expect(result.current.getText(textObj)).toBe("こんにちは");
+
+    act(() => {
+      result.current.changeLanguage("en");
+    });
+
+    expect(result.current.getText(textObj)).toBe("Hello");
+
+    act(() => {
+      result.current.changeLanguage("zh");
+    });
+
+    expect(result.current.getText(textObj)).toBe("你好");
+  });
+
+  test("getTextで文字列が渡された場合はそのまま返す", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    expect(result.current.getText("直接テキスト")).toBe("直接テキスト");
+  });
+
+  test("getTextでnullやundefinedが渡された場合は空文字を返す", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    expect(result.current.getText(null)).toBe("");
+    expect(result.current.getText(undefined)).toBe("");
+  });
+
+  test("getTextで現在の言語がない場合はフォールバックを返す", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    const textObj = {
+      ja: "日本語",
+      en: "English",
+    };
+
+    act(() => {
+      result.current.changeLanguage("zh");
+    });
+
+    // 中国語がない場合、日本語にフォールバック
+    expect(result.current.getText(textObj)).toBe("日本語");
+  });
+
+  test("getItemNameでメニュー項目名を取得する", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    const item = {
+      name_ja: "枝豆",
+      name_en: "Edamame",
+      name_zh: "毛豆",
+    };
+
+    expect(result.current.getItemName(item)).toBe("枝豆");
+
+    act(() => {
+      result.current.changeLanguage("en");
+    });
+
+    expect(result.current.getItemName(item)).toBe("Edamame");
+
+    act(() => {
+      result.current.changeLanguage("zh");
+    });
+
+    expect(result.current.getItemName(item)).toBe("毛豆");
+  });
+
+  test("getItemNameで現在の言語がない場合は日本語にフォールバック", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    const item = {
+      name_ja: "枝豆",
+      name_en: "Edamame",
+    };
+
+    act(() => {
+      result.current.changeLanguage("zh");
+    });
+
+    expect(result.current.getItemName(item)).toBe("枝豆");
+  });
+
+  test("getItemNameでname_jaもない場合はnameにフォールバック", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    const item = {
+      name: "フォールバック名",
+    };
+
+    expect(result.current.getItemName(item)).toBe("フォールバック名");
+  });
+
+  test("getItemDescriptionで説明文を取得する", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    const item = {
+      description_ja: "塩茹でした枝豆",
+      description_en: "Salted boiled soybeans",
+      description_zh: "盐水煮毛豆",
+    };
+
+    expect(result.current.getItemDescription(item)).toBe("塩茹でした枝豆");
+
+    act(() => {
+      result.current.changeLanguage("en");
+    });
+
+    expect(result.current.getItemDescription(item)).toBe(
+      "Salted boiled soybeans"
+    );
+
+    act(() => {
+      result.current.changeLanguage("zh");
+    });
+
+    expect(result.current.getItemDescription(item)).toBe("盐水煮毛豆");
+  });
+
+  test("getItemDescriptionで現在の言語がない場合は日本語にフォールバック", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    const item = {
+      description_ja: "塩茹でした枝豆",
+      description_en: "Salted boiled soybeans",
+    };
+
+    act(() => {
+      result.current.changeLanguage("zh");
+    });
+
+    expect(result.current.getItemDescription(item)).toBe("塩茹でした枝豆");
+  });
+
+  test("getCategoryNameでカテゴリ名を取得する", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    const category = {
+      name_ja: "前菜",
+      name_en: "Appetizer",
+      name_zh: "开胃菜",
+    };
+
+    expect(result.current.getCategoryName(category)).toBe("前菜");
+
+    act(() => {
+      result.current.changeLanguage("en");
+    });
+
+    expect(result.current.getCategoryName(category)).toBe("Appetizer");
+
+    act(() => {
+      result.current.changeLanguage("zh");
+    });
+
+    expect(result.current.getCategoryName(category)).toBe("开胃菜");
+  });
+
+  test("getCategoryNameで現在の言語がない場合は日本語にフォールバック", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    const category = {
+      name_ja: "前菜",
+      name_en: "Appetizer",
+    };
+
+    act(() => {
+      result.current.changeLanguage("zh");
+    });
+
+    expect(result.current.getCategoryName(category)).toBe("前菜");
+  });
+
+  test("LanguageProviderなしでuseLanguageを使うとエラー", () => {
+    // エラーをキャッチするためにconsole.errorをモック
+    const consoleError = console.error;
+    console.error = jest.fn();
+
+    expect(() => {
+      renderHook(() => useLanguage());
+    }).toThrow("useLanguage must be used within a LanguageProvider");
+
+    console.error = consoleError;
+  });
+
+  test("複数回言語を切り替えても正しく動作する", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    expect(result.current.currentLanguage).toBe("ja");
+
+    act(() => {
+      result.current.changeLanguage("en");
+    });
+    expect(result.current.currentLanguage).toBe("en");
+
+    act(() => {
+      result.current.changeLanguage("zh");
+    });
+    expect(result.current.currentLanguage).toBe("zh");
+
+    act(() => {
+      result.current.changeLanguage("ja");
+    });
+    expect(result.current.currentLanguage).toBe("ja");
+  });
+});
