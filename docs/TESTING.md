@@ -84,6 +84,7 @@ functions/
 ### 1. 注文バリデーションテスト (`functions/src/__tests__/orders.test.js`)
 
 **テストケース:**
+
 - ✅ 有効な注文データはエラーなし
 - ✅ レストランIDが必須
 - ✅ テーブルIDが必須
@@ -97,6 +98,7 @@ functions/
 ### 2. useCartフックテスト (`src/hooks/__tests__/useCart.test.js`)
 
 **テストケース:**
+
 - ✅ 初期状態は空のカート
 - ✅ アイテムを追加できる
 - ✅ 同じアイテムを追加すると数量が増える
@@ -109,6 +111,7 @@ functions/
 ### 3. useNetworkStatusフックテスト (`src/hooks/__tests__/useNetworkStatus.test.js`)
 
 **テストケース:**
+
 - ✅ 初期状態はオンライン
 - ✅ ネットワーク状態の変化を検知する
 - ✅ 接続はあるがインターネットに到達不可の場合はオフライン
@@ -117,6 +120,7 @@ functions/
 ### 4. ErrorBoundaryテスト (`src/components/__tests__/ErrorBoundary.test.js`)
 
 **テストケース:**
+
 - ✅ エラーがない場合は子コンポーネントを表示
 - ✅ エラーが発生した場合はエラーメッセージを表示
 - ✅ 再試行ボタンをクリックするとエラー状態がリセットされる
@@ -131,6 +135,7 @@ Gitコミット時とプッシュ時に自動的にコード品質チェック�
 ### pre-commit フック
 
 **コミット前に自動実行:**
+
 1. ESLintによるコードチェック（自動修正）
 2. Prettierによるフォーマット（自動修正）
 3. 変更されたファイルに関連するテストを実行
@@ -145,6 +150,7 @@ git commit -m "feat: 新機能追加"
 ### pre-push フック
 
 **プッシュ前に自動実行:**
+
 1. すべてのテストを実行
 2. ESLintによる全ファイルチェック
 
@@ -172,12 +178,14 @@ git push --no-verify
 
 コミット時に以下が自動実行されます:
 
-**JavaScriptファイル (*.js, *.jsx):**
+**JavaScriptファイル (_.js, _.jsx):**
+
 1. `eslint --fix` - コードスタイルのチェックと自動修正
 2. `prettier --write` - コードフォーマット
 3. `jest --bail --findRelatedTests` - 関連テストの実行
 
-**その他のファイル (*.json, *.md):**
+**その他のファイル (_.json, _.md):**
+
 1. `prettier --write` - コードフォーマット
 
 ---
@@ -239,6 +247,7 @@ open coverage/lcov-report/index.html
 ```
 
 **目標カバレッジ:**
+
 - 重要なビジネスロジック: 80%以上
 - ユーティリティ関数: 90%以上
 - UIコンポーネント: 60%以上
@@ -262,7 +271,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: "18"
       - run: npm install
       - run: npm test
       - run: npm run lint

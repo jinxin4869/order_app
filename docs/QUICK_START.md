@@ -31,6 +31,7 @@ FIREBASE_FUNCTIONS_REGION=asia-northeast1
 ```
 
 **Firebase コンソールで値を取得:**
+
 1. https://console.firebase.google.com/
 2. プロジェクト設定 → 全般 → マイアプ → SDK の設定
 3. 値をコピーして `.env` に貼り付け
