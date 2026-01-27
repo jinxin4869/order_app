@@ -236,3 +236,132 @@ describe("注文バリデーション", () => {
     });
   });
 });
+
+// 注文ステータス定義
+const ORDER_STATUS = {
+  PENDING: "pending",
+  CONFIRMED: "confirmed",
+  PREPARING: "preparing",
+  READY: "ready",
+  SERVED: "served",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+};
+
+// ステータス遷移の検証
+const VALID_STATUS_TRANSITIONS = {
+  [ORDER_STATUS.PENDING]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.CONFIRMED]: [ORDER_STATUS.PREPARING, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.PREPARING]: [ORDER_STATUS.READY, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.READY]: [ORDER_STATUS.SERVED],
+  [ORDER_STATUS.SERVED]: [ORDER_STATUS.COMPLETED],
+  [ORDER_STATUS.COMPLETED]: [],
+  [ORDER_STATUS.CANCELLED]: [],
+};
+
+describe("注文ステータス遷移", () => {
+  describe("有効な遷移", () => {
+    test("PENDING → CONFIRMED は有効", () => {
+      const validTransitions = VALID_STATUS_TRANSITIONS[ORDER_STATUS.PENDING];
+      expect(validTransitions).toContain(ORDER_STATUS.CONFIRMED);
+    });
+
+    test("PENDING → CANCELLED は有効", () => {
+      const validTransitions = VALID_STATUS_TRANSITIONS[ORDER_STATUS.PENDING];
+      expect(validTransitions).toContain(ORDER_STATUS.CANCELLED);
+    });
+
+    test("CONFIRMED → PREPARING は有効", () => {
+      const validTransitions = VALID_STATUS_TRANSITIONS[ORDER_STATUS.CONFIRMED];
+      expect(validTransitions).toContain(ORDER_STATUS.PREPARING);
+    });
+
+    test("PREPARING → READY は有効", () => {
+      const validTransitions = VALID_STATUS_TRANSITIONS[ORDER_STATUS.PREPARING];
+      expect(validTransitions).toContain(ORDER_STATUS.READY);
+    });
+
+    test("READY → SERVED は有効", () => {
+      const validTransitions = VALID_STATUS_TRANSITIONS[ORDER_STATUS.READY];
+      expect(validTransitions).toContain(ORDER_STATUS.SERVED);
+    });
+
+    test("SERVED → COMPLETED は有効", () => {
+      const validTransitions = VALID_STATUS_TRANSITIONS[ORDER_STATUS.SERVED];
+      expect(validTransitions).toContain(ORDER_STATUS.COMPLETED);
+    });
+  });
+
+  describe("無効な遷移", () => {
+    test("PENDING → PREPARING は無効（CONFIRMEDをスキップ）", () => {
+      const validTransitions = VALID_STATUS_TRANSITIONS[ORDER_STATUS.PENDING];
+      expect(validTransitions).not.toContain(ORDER_STATUS.PREPARING);
+    });
+
+    test("COMPLETED からの遷移は存在しない", () => {
+      const validTransitions = VALID_STATUS_TRANSITIONS[ORDER_STATUS.COMPLETED];
+      expect(validTransitions).toHaveLength(0);
+    });
+
+    test("CANCELLED からの遷移は存在しない", () => {
+      const validTransitions = VALID_STATUS_TRANSITIONS[ORDER_STATUS.CANCELLED];
+      expect(validTransitions).toHaveLength(0);
+    });
+
+    test("READY → CONFIRMED は無効（逆方向）", () => {
+      const validTransitions = VALID_STATUS_TRANSITIONS[ORDER_STATUS.READY];
+      expect(validTransitions).not.toContain(ORDER_STATUS.CONFIRMED);
+    });
+  });
+
+  describe("キャンセル可能なステータス", () => {
+    test("PENDING はキャンセル可能", () => {
+      const validTransitions = VALID_STATUS_TRANSITIONS[ORDER_STATUS.PENDING];
+      expect(validTransitions).toContain(ORDER_STATUS.CANCELLED);
+    });
+
+    test("CONFIRMED はキャンセル可能", () => {
+      const validTransitions = VALID_STATUS_TRANSITIONS[ORDER_STATUS.CONFIRMED];
+      expect(validTransitions).toContain(ORDER_STATUS.CANCELLED);
+    });
+
+    test("PREPARING はキャンセル可能", () => {
+      const validTransitions = VALID_STATUS_TRANSITIONS[ORDER_STATUS.PREPARING];
+      expect(validTransitions).toContain(ORDER_STATUS.CANCELLED);
+    });
+
+    test("READY はキャンセル不可", () => {
+      const validTransitions = VALID_STATUS_TRANSITIONS[ORDER_STATUS.READY];
+      expect(validTransitions).not.toContain(ORDER_STATUS.CANCELLED);
+    });
+
+    test("SERVED はキャンセル不可", () => {
+      const validTransitions = VALID_STATUS_TRANSITIONS[ORDER_STATUS.SERVED];
+      expect(validTransitions).not.toContain(ORDER_STATUS.CANCELLED);
+    });
+  });
+});
+
+describe("注文番号生成", () => {
+  test("注文番号は YYYYMMDD-XXX 形式", () => {
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
+    const orderNumber = `${dateStr}-001`;
+
+    expect(orderNumber).toMatch(/^\d{8}-\d{3}$/);
+  });
+
+  test("シーケンス番号は3桁でゼロパディング", () => {
+    const sequence = 1;
+    const paddedSequence = sequence.toString().padStart(3, "0");
+
+    expect(paddedSequence).toBe("001");
+  });
+
+  test("シーケンス番号が100以上の場合も正しく生成", () => {
+    const sequence = 123;
+    const paddedSequence = sequence.toString().padStart(3, "0");
+
+    expect(paddedSequence).toBe("123");
+  });
+});

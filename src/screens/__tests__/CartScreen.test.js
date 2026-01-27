@@ -245,6 +245,8 @@ describe("CartScreen", () => {
         orderId: "order_001",
         orderNumber: "001",
         total: expect.any(Number),
+        restaurantId: "restaurant_01",
+        tableId: "table_01",
         restaurant: mockRoute.params.restaurant,
         table: mockRoute.params.table,
       });

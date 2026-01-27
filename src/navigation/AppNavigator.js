@@ -3,7 +3,7 @@ import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { COLORS } from "../constants";
-import { LanguageProvider, useLanguage } from "../hooks/useLanguage";
+import { LanguageProvider } from "../hooks/useLanguage";
 import { useCart } from "../hooks/useCart";
 import { CartContext } from "../context/CartContext";
 
@@ -21,21 +21,6 @@ const Stack = createNativeStackNavigator();
 
 // ナビゲーションスタック
 const AppStack = () => {
-  const { currentLanguage } = useLanguage();
-
-  // ヘッダータイトルの多言語対応
-  const getHeaderTitle = (key) => {
-    const titles = {
-      QRScanner: { ja: "スキャン", en: "Scan", zh: "扫描" },
-      LanguageSelect: { ja: "言語選択", en: "Language", zh: "语言选择" },
-      Menu: { ja: "メニュー", en: "Menu", zh: "菜单" },
-      ItemDetail: { ja: "商品詳細", en: "Details", zh: "商品详情" },
-      Cart: { ja: "カート", en: "Cart", zh: "购物车" },
-      OrderComplete: { ja: "注文完了", en: "Complete", zh: "订单完成" },
-    };
-    return titles[key]?.[currentLanguage] || titles[key]?.ja || key;
-  };
-
   return (
     <Stack.Navigator
       initialRouteName="QRScanner"
@@ -72,7 +57,7 @@ const AppStack = () => {
         name="ItemDetail"
         component={ItemDetailScreen}
         options={{
-          title: getHeaderTitle("ItemDetail"),
+          headerShown: false,
           presentation: "modal",
         }}
       />

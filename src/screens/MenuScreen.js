@@ -322,7 +322,8 @@ const styles = StyleSheet.create({
   },
   categoryList: {
     backgroundColor: COLORS.surface,
-    maxHeight: 80,
+    height: 80,
+    flexShrink: 0,
   },
   categoryListContent: {
     paddingHorizontal: 10,

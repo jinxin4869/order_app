@@ -282,8 +282,11 @@ const translateWithDictionaryOnly = async (text, targetLang) => {
 /**
  * テキスト翻訳
  *
- * @param {Object} data - {text: string, targetLang: 'en' | 'zh'}
- * @returns {Object} - {translatedText: string, fromCache: boolean}
+ * @param {Object} data - {text: string, targetLang: 'en' | 'zh', useDictionary?: boolean}
+ * @param {string} data.text - 翻訳対象テキスト
+ * @param {string} data.targetLang - 翻訳先言語コード ('en' | 'zh')
+ * @param {boolean} [data.useDictionary=true] - 専門用語辞書を使用するかどうか（A/Bテスト用）
+ * @returns {Object} - {translatedText: string, fromCache: boolean, method: string}
  */
 exports.translateText = onCall(
   {
@@ -292,7 +295,7 @@ exports.translateText = onCall(
     memory: "512MiB",
   },
   async (request) => {
-    const { text, targetLang } = request.data;
+    const { text, targetLang, useDictionary = true } = request.data;
 
     // バリデーション
     if (!text || typeof text !== "string") {
@@ -309,43 +312,54 @@ exports.translateText = onCall(
     }
 
     try {
+      // キャッシュキーに辞書使用フラグを含める（A/Bテスト時に別キャッシュとなる）
+      const cacheKey = useDictionary ? text : `__nodic__${text}`;
+
       // Step 1: キャッシュチェック
-      const cachedTranslation = await checkCache(text, targetLang);
+      const cachedTranslation = await checkCache(cacheKey, targetLang);
       if (cachedTranslation) {
         return {
           translatedText: cachedTranslation,
           fromCache: true,
+          method: useDictionary ? "hybrid_cached" : "deepl_only_cached",
         };
       }
 
-      // Step 2: 専門用語を抽出
-      const foundTerms = await findSpecializedTerms(text);
+      // Step 2: 専門用語を抽出（辞書使用時のみ）
+      const foundTerms = useDictionary ? await findSpecializedTerms(text) : [];
 
       // Step 3: 翻訳API呼び出し
       let translatedText;
-      let method = "deepl_api";
+      let method = useDictionary ? "deepl_api" : "deepl_only";
 
       try {
         translatedText = await translateWithDeepL(text, targetLang);
       } catch (apiError) {
         console.error("DeepL API error:", apiError);
 
-        // フォールバック: 辞書のみで翻訳
-        translatedText = await translateWithDictionaryOnly(text, targetLang);
-        method = "dictionary_only";
+        // フォールバック: 辞書のみで翻訳（辞書使用時のみ）
+        if (useDictionary) {
+          translatedText = await translateWithDictionaryOnly(text, targetLang);
+          method = "dictionary_only";
+        }
 
         if (!translatedText) {
           // 最終フォールバック: 元のテキストを返す
           return {
             translatedText: text,
             fromCache: false,
+            method: "fallback_original",
             error: "Translation failed",
           };
         }
       }
 
-      // Step 4: 後処理（辞書ベース補正）
-      if (foundTerms.length > 0 && method !== "dictionary_only") {
+      // Step 4: 後処理（辞書ベース補正）- 辞書使用時のみ
+      if (
+        useDictionary &&
+        foundTerms.length > 0 &&
+        method !== "dictionary_only"
+      ) {
         translatedText = postProcessTranslation(
           translatedText,
           foundTerms,
@@ -355,12 +369,14 @@ exports.translateText = onCall(
       }
 
       // Step 5: キャッシュ保存
-      await saveToCache(text, targetLang, translatedText, method);
+      await saveToCache(cacheKey, targetLang, translatedText, method);
 
       return {
         translatedText,
         fromCache: false,
+        method,
         foundTermsCount: foundTerms.length,
+        usedDictionary: useDictionary,
       };
     } catch (error) {
       console.error(

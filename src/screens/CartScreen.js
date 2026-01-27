@@ -120,6 +120,8 @@ const CartScreen = ({ navigation, route }) => {
           item_id: item.id,
           name: item.name,
           name_ja: item.name_ja,
+          name_en: item.name_en,
+          name_zh: item.name_zh,
           quantity: item.quantity,
           price: item.price,
           notes: item.notes || null,
@@ -137,6 +139,8 @@ const CartScreen = ({ navigation, route }) => {
         orderId: result.orderId,
         orderNumber: result.orderNumber,
         total,
+        restaurantId,
+        tableId,
         restaurant,
         table,
       });

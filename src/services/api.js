@@ -9,13 +9,16 @@ import { withRetry, handleError } from "../utils/errorHandler";
  * テキストを翻訳する
  * @param {string} text - 翻訳するテキスト
  * @param {string} targetLang - 翻訳先言語（'en' | 'zh'）
- * @returns {Promise<{translatedText: string, fromCache: boolean}>}
+ * @param {Object} options - オプション
+ * @param {boolean} [options.useDictionary=true] - 専門用語辞書を使用するか（A/Bテスト用）
+ * @returns {Promise<{translatedText: string, fromCache: boolean, method: string}>}
  */
-export const translateText = async (text, targetLang) => {
+export const translateText = async (text, targetLang, options = {}) => {
+  const { useDictionary = true } = options;
   try {
     const translateFunction = httpsCallable(functions, "translateText");
     const result = await withRetry(
-      () => translateFunction({ text, targetLang }),
+      () => translateFunction({ text, targetLang, useDictionary }),
       2,
       1000
     );
@@ -23,7 +26,7 @@ export const translateText = async (text, targetLang) => {
   } catch (error) {
     const userMessage = handleError(error, {
       function: "translateText",
-      params: { text, targetLang },
+      params: { text, targetLang, useDictionary },
     });
     throw new Error(userMessage);
   }
