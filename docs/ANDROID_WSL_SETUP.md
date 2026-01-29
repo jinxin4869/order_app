@@ -5,6 +5,7 @@
 ## 概要
 
 WSL環境では、以下のコンポーネントをインストールします:
+
 - OpenJDK 17
 - Android SDK Command Line Tools
 - Android Platform Tools
@@ -30,6 +31,7 @@ bash scripts/setup-android-wsl.sh
 ```
 
 このスクリプトは以下を実行します:
+
 - OpenJDK 17 のインストール
 - 必要なパッケージ（unzip、wget、curl）のインストール
 - Android SDK ディレクトリの作成（`~/Android/Sdk`）
@@ -51,6 +53,7 @@ bash scripts/install-android-packages.sh
 ```
 
 このスクリプトは以下を実行します:
+
 - Android SDKライセンスの同意
 - Platform Tools のインストール
 - Build Tools とプラットフォーム（API 33, 34）のインストール
@@ -68,6 +71,7 @@ bash scripts/create-avd.sh
 ```
 
 このスクリプトは以下を実行します:
+
 - AVD名 `ExpoTestDevice` の作成（Pixel 6ベース）
 - メモリ、GPU、キーボードの最適設定
 
@@ -82,6 +86,7 @@ bash scripts/start-emulator.sh
 ```
 
 **初回起動時の注意:**
+
 - 初回起動は時間がかかります（5〜10分程度）
 - エミュレータはバックグラウンドで起動します
 - ログは `/tmp/emulator.log` に保存されます
@@ -93,6 +98,7 @@ adb devices
 ```
 
 以下のように表示されれば成功です:
+
 ```
 List of devices attached
 emulator-5554   device
@@ -120,13 +126,16 @@ npx expo run:android
 ### エミュレータが起動しない場合
 
 1. **KVMが有効か確認:**
+
    ```bash
    ls -al /dev/kvm
    ```
+
    存在しない場合は、BIOS/UEFIで仮想化を有効化する必要があります。
 
 2. **WSLgが必要な場合:**
    WSL2でGUIアプリケーションを実行するには、WSLgが必要です。
+
    ```bash
    wsl --update
    ```
@@ -139,6 +148,7 @@ npx expo run:android
 ### Expoがデバイスを検出しない場合
 
 1. **adbサーバーを再起動:**
+
    ```bash
    adb kill-server
    adb start-server
@@ -167,6 +177,7 @@ source ~/.bashrc
 ### エミュレータが遅い場合
 
 1. **AVDのメモリを増やす:**
+
    ```bash
    nano ~/.android/avd/ExpoTestDevice.avd/config.ini
    # hw.ramSize=2048 を 4096 に変更
@@ -180,21 +191,25 @@ source ~/.bashrc
 ## 便利なコマンド
 
 ### AVD一覧を表示
+
 ```bash
 $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager list avd
 ```
 
 ### インストール済みパッケージを表示
+
 ```bash
 $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --list_installed
 ```
 
 ### エミュレータを停止
+
 ```bash
 adb emu kill
 ```
 
 ### 既存のAVDを削除
+
 ```bash
 $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager delete avd -n ExpoTestDevice
 ```
@@ -207,6 +222,29 @@ $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager delete avd -n ExpoTestDevice
 2. 新しい環境変数を適用: `source ~/.bashrc`
 3. 必要に応じてExpoのキャッシュをクリア: `npx expo start -c`
 
+## Android Studio を使う場合（GUI）
+
+WSLではなくWindows側のAndroid Studioを使う場合は、以下の手順でAVDを作成できます。
+
+1. Android Studio をダウンロードしてインストール
+2. Android Studio を起動して `SDK Manager` を開く
+   - Android SDK Platform: 推奨 API レベル 30〜33 をインストール
+   - Android SDK Tools / Android SDK Platform-tools / Android Emulator をインストール
+3. `AVD Manager` を開き、`Create Virtual Device` を選択
+   - 推奨デバイス: Pixel 4 / Pixel 6 系
+   - システムイメージ: Google APIs x86_64（API 30〜33）
+4. AVD を作成して `Play` ボタンで起動する
+
+### AVD の推奨設定
+
+| 項目             | 推奨値                              |
+| ---------------- | ----------------------------------- |
+| システムイメージ | `x86_64`（高速）                    |
+| API レベル       | 30〜33（安定）                      |
+| メモリ           | 1536MB〜4096MB（ホストのRAMに依存） |
+| グラフィック     | `automatic` または `hardware`       |
+| ストレージ       | デフォルトでOK                      |
+
 ## 参考リンク
 
 - [Android Studio Command Line Tools](https://developer.android.com/studio#command-tools)
@@ -216,6 +254,7 @@ $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager delete avd -n ExpoTestDevice
 ## まとめ
 
 セットアップが完了すると、以下の環境が整います:
+
 - WSL内に完全なAndroid開発環境
 - Expoプロジェクトをエミュレータで実行可能
 - adb、emulator等のツールがPATHに追加済み

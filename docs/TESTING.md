@@ -54,13 +54,23 @@ src/
 │       └── ErrorBoundary.test.js
 ├── hooks/
 │   ├── useCart.js
+│   ├── useLanguage.js
 │   ├── useNetworkStatus.js
 │   └── __tests__/
 │       ├── useCart.test.js
+│       ├── useLanguage.test.js
 │       └── useNetworkStatus.test.js
-└── screens/
+├── screens/
+│   └── __tests__/
+│       ├── QRScannerScreen.test.js
+│       ├── LanguageSelectScreen.test.js
+│       ├── MenuScreen.test.js
+│       ├── ItemDetailScreen.test.js
+│       ├── CartScreen.test.js
+│       └── OrderCompleteScreen.test.js
+└── services/
     └── __tests__/
-        └── (画面のテストファイル)
+        └── api.test.js
 ```
 
 ### バックエンド
@@ -72,9 +82,16 @@ functions/
     │   └── index.js
     ├── translation/
     │   └── index.js
+    ├── morphological/
+    │   ├── index.js
+    │   └── synonyms.js
+    ├── utils/
+    │   └── data-consolidator.js
     └── __tests__/
         ├── orders.test.js
-        └── translation.test.js
+        ├── morphological.test.js
+        ├── synonyms.test.js
+        └── data-consolidator.test.js
 ```
 
 ---

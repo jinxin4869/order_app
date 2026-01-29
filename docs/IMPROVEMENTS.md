@@ -103,31 +103,15 @@ npm start
 
 ### 3. テストカバレッジの向上
 
-**現状:**
+**現状（2026-01-27更新）:**
 
-- テストファイルは3つのみ（ErrorBoundary、useCart、useNetworkStatus）
-- 画面コンポーネントやAPIサービスのテストが不足
+- フロントエンドテスト: 11ファイル（ErrorBoundary、useCart、useLanguage、useNetworkStatus、全6画面、api）
+- バックエンドテスト: 4ファイル（orders、morphological、synonyms、data-consolidator）
+- 主要な画面・フック・サービスのテストは実装済み
 
 **推奨対応:**
 
-1. **優先的にテストを追加すべき箇所:**
-
-   ```
-   src/screens/
-   ├── MenuScreen.test.js          # 重要: メニュー表示
-   ├── CartScreen.test.js          # 重要: カート機能
-   ├── ItemDetailScreen.test.js   # 重要: 商品追加
-   └── OrderCompleteScreen.test.js
-
-   src/services/
-   ├── api.test.js                 # Cloud Functions呼び出し
-   └── firebase.test.js            # Firebase初期化
-
-   src/hooks/
-   └── useLanguage.test.js         # 多言語切り替え
-   ```
-
-2. **テストカバレッジ目標:**
+1. **テストカバレッジ目標:**
 
    ```bash
    # カバレッジ計測
@@ -140,27 +124,20 @@ npm start
 
 ## 🟡 優先度: 中（計画的に対応）
 
-### 4. エラーハンドリングの強化
+### 4. エラーハンドリングの強化 ✅ 対応済み
 
-**推奨対応:**
+**対応済み（2026-01-27）:**
 
-1. **グローバルエラーハンドラーの追加**
+- `src/utils/errorHandler.js` を作成済み（Sentry統合、リトライロジック含む）
+- `initializeSentry()`, `captureError()`, `setUser()`, `addBreadcrumb()` を実装
+- `withRetry()` による指数バックオフ付きリトライロジック実装済み
+- `App.js` でSentry初期化を呼び出し済み
+- 環境変数 `SENTRY_DSN` で本番環境を有効化
 
-   ```javascript
-   // src/utils/errorHandler.js を作成
-   export const logError = (error, context) => {
-     console.error(`[${context}]`, error);
-     // 本番環境ではSentryなどのエラートラッキングサービスに送信
-   };
-   ```
+**残りの推奨対応:**
 
-2. **ネットワークエラーのリトライロジック**
-   - API呼び出し失敗時の自動リトライ
-   - オフライン時のキュー機能
-
-3. **エラートラッキングサービスの導入（本番運用時）**
-   - Sentry
-   - Firebase Crashlytics
+1. **オフライン時のキュー機能**
+   - API呼び出し失敗時のオフラインキュー（未実装）
 
 ---
 
@@ -277,11 +254,11 @@ jobs:
 - [ ] 環境変数のセキュリティ対策（expo-secure-store導入）
 - [ ] `.env` ファイルの `.gitignore` 確認
 - [ ] Firebase v12へのアップデート計画
-- [ ] 主要画面のテスト追加（MenuScreen, CartScreen）
+- [x] 主要画面のテスト追加（全6画面テスト実装済み）
 
 ### 1週間以内に対応
 
-- [ ] エラーハンドリングの強化
+- [x] エラーハンドリングの強化（Sentry統合済み）
 - [ ] 依存関係の段階的アップデート
 - [ ] テストカバレッジ70%達成
 
