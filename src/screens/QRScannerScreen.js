@@ -17,6 +17,23 @@ const QRScannerScreen = ({ navigation }) => {
   const [scanned, setScanned] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
 
+  const handleDebugSkip = () => {
+    navigation.navigate("LanguageSelect", {
+      restaurantId: "rest001",
+      tableId: "table001",
+      restaurant: {
+        id: "rest001",
+        name: "和食レストラン 桜",
+        default_language: "ja",
+        supported_languages: ["ja", "en", "zh"],
+      },
+      table: {
+        id: "table001",
+        table_number: "1",
+      },
+    });
+  };
+
   useEffect(() => {
     if (!permission) {
       requestPermission();
@@ -151,6 +168,11 @@ const QRScannerScreen = ({ navigation }) => {
           <Text style={styles.rescanButtonText}>再スキャン / Scan Again</Text>
         </TouchableOpacity>
       )}
+
+      {/* デモ用スキップボタン */}
+      <TouchableOpacity style={styles.debugButton} onPress={handleDebugSkip}>
+        <Text style={styles.debugButtonText}>[Demo] Skip Scan</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -274,6 +296,21 @@ const styles = StyleSheet.create({
   rescanButtonText: {
     color: COLORS.surface,
     fontSize: FONT_SIZES.md,
+    fontWeight: "bold",
+  },
+  debugButton: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    backgroundColor: "rgba(76, 175, 80, 0.9)",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    zIndex: 10,
+  },
+  debugButtonText: {
+    color: COLORS.surface,
+    fontSize: FONT_SIZES.sm,
     fontWeight: "bold",
   },
 });

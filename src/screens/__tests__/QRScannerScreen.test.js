@@ -232,17 +232,40 @@ describe("QRScannerScreen", () => {
     });
   });
 
-  describe("デバッグボタンの削除確認", () => {
-    it("デバッグスキップボタンが存在しない", () => {
+  describe("デモ用スキップボタン", () => {
+    it("デモ用スキップボタンが表示される", () => {
       useCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
 
-      const { queryByText } = render(
+      const { getByText } = render(
         <QRScannerScreen navigation={mockNavigation} />
       );
 
-      // デバッグボタンが削除されていることを確認
-      expect(queryByText("[Debug] Skip Scan")).toBeNull();
-      expect(queryByText(/Debug/)).toBeNull();
+      expect(getByText("[Demo] Skip Scan")).toBeTruthy();
+    });
+
+    it("デモ用スキップボタンを押すと言語選択画面に遷移する", () => {
+      useCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
+
+      const { getByText } = render(
+        <QRScannerScreen navigation={mockNavigation} />
+      );
+
+      fireEvent.press(getByText("[Demo] Skip Scan"));
+
+      expect(mockNavigation.navigate).toHaveBeenCalledWith("LanguageSelect", {
+        restaurantId: "rest001",
+        tableId: "table001",
+        restaurant: {
+          id: "rest001",
+          name: "和食レストラン 桜",
+          default_language: "ja",
+          supported_languages: ["ja", "en", "zh"],
+        },
+        table: {
+          id: "table001",
+          table_number: "1",
+        },
+      });
     });
   });
 });
