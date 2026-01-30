@@ -27,7 +27,7 @@ const LanguageSelectScreen = ({ navigation, route }) => {
           {restaurant?.name || "レストラン"}
         </Text>
         <Text style={styles.tableInfo}>
-          テーブル {table?.table_number || tableId}
+          Table {table?.table_number || tableId}
         </Text>
       </View>
 

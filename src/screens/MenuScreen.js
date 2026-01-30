@@ -17,8 +17,14 @@ import { getMenuWithTranslation } from "../services/api";
 
 const MenuScreen = ({ navigation, route }) => {
   const { restaurantId, tableId, restaurant, table } = route.params;
-  const { currentLanguage, getItemName, getItemDescription, getCategoryName } =
-    useLanguage();
+  const {
+    currentLanguage,
+    getItemName,
+    getItemDescription,
+    getCategoryName,
+    translationMode,
+    setTranslationMode,
+  } = useLanguage();
   const { isOnline } = useNetworkStatus();
 
   const [categories, setCategories] = useState([]);
@@ -61,7 +67,9 @@ const MenuScreen = ({ navigation, route }) => {
         }
       } catch (err) {
         console.error("Menu load error:", err);
-        const errorMessage = err.message || "メニューの読み込みに失敗しました";
+        const errorMessage =
+          err.message ||
+          "メニューの読み込みに失敗しました\nFailed to load menu\n菜单加载失败";
         setError(errorMessage);
       } finally {
         setIsLoading(false);
@@ -141,7 +149,13 @@ const MenuScreen = ({ navigation, route }) => {
           </Text>
           {item.is_popular && (
             <View style={styles.popularBadge}>
-              <Text style={styles.popularText}>人気</Text>
+              <Text style={styles.popularText}>
+                {currentLanguage === "zh"
+                  ? "人气"
+                  : currentLanguage === "en"
+                    ? "Popular"
+                    : "人気"}
+              </Text>
             </View>
           )}
         </View>
@@ -174,7 +188,13 @@ const MenuScreen = ({ navigation, route }) => {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>メニューを読み込み中...</Text>
+        <Text style={styles.loadingText}>
+          {currentLanguage === "zh"
+            ? "正在加载菜单..."
+            : currentLanguage === "en"
+              ? "Loading menu..."
+              : "メニューを読み込み中..."}
+        </Text>
       </View>
     );
   }
@@ -186,7 +206,13 @@ const MenuScreen = ({ navigation, route }) => {
         <Text style={styles.errorIcon}>😔</Text>
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => loadMenu()}>
-          <Text style={styles.retryButtonText}>再読み込み</Text>
+          <Text style={styles.retryButtonText}>
+            {currentLanguage === "zh"
+              ? "重新加载"
+              : currentLanguage === "en"
+                ? "Retry"
+                : "再読み込み"}
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -218,8 +244,54 @@ const MenuScreen = ({ navigation, route }) => {
       {!isOnline && (
         <View style={styles.offlineBanner}>
           <Text style={styles.offlineBannerText}>
-            📡 オフライン - ネットワーク接続を確認してください
+            {currentLanguage === "zh"
+              ? "📡 离线 - 请检查网络连接"
+              : currentLanguage === "en"
+                ? "📡 Offline - Please check your network connection"
+                : "📡 オフライン - ネットワーク接続を確認してください"}
           </Text>
+        </View>
+      )}
+
+      {/* 翻訳モード切替（日本語以外のみ表示） */}
+      {currentLanguage !== "ja" && (
+        <View style={styles.translationModeContainer}>
+          <TouchableOpacity
+            style={[
+              styles.translationModeButton,
+              translationMode === "dictionary" &&
+                styles.translationModeButtonActive,
+            ]}
+            onPress={() => setTranslationMode("dictionary")}
+          >
+            <Text
+              style={[
+                styles.translationModeText,
+                translationMode === "dictionary" &&
+                  styles.translationModeTextActive,
+              ]}
+            >
+              DeepL + Dict
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.translationModeButton,
+              translationMode === "deepl_only" &&
+                styles.translationModeButtonActive,
+            ]}
+            onPress={() => setTranslationMode("deepl_only")}
+          >
+            <Text
+              style={[
+                styles.translationModeText,
+                translationMode === "deepl_only" &&
+                  styles.translationModeTextActive,
+              ]}
+            >
+              DeepL API Only
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -250,7 +322,11 @@ const MenuScreen = ({ navigation, route }) => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
-              このカテゴリにはメニューがありません
+              {currentLanguage === "zh"
+                ? "此分类暂无菜品"
+                : currentLanguage === "en"
+                  ? "No items in this category"
+                  : "このカテゴリにはメニューがありません"}
             </Text>
           </View>
         }
@@ -258,7 +334,13 @@ const MenuScreen = ({ navigation, route }) => {
 
       {/* カートボタン */}
       <TouchableOpacity style={styles.cartButton} onPress={handleCartPress}>
-        <Text style={styles.cartButtonText}>🛒 カートを見る</Text>
+        <Text style={styles.cartButtonText}>
+          {currentLanguage === "zh"
+            ? "🛒 查看购物车"
+            : currentLanguage === "en"
+              ? "🛒 View Cart"
+              : "🛒 カートを見る"}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -318,6 +400,36 @@ const styles = StyleSheet.create({
   offlineBannerText: {
     color: COLORS.surface,
     fontSize: FONT_SIZES.sm,
+    fontWeight: "bold",
+  },
+  translationModeContainer: {
+    flexDirection: "row",
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 15,
+    paddingTop: 10,
+    paddingBottom: 5,
+    gap: 8,
+  },
+  translationModeButton: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: COLORS.background,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.background,
+  },
+  translationModeButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  translationModeText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    fontWeight: "600",
+  },
+  translationModeTextActive: {
+    color: COLORS.surface,
     fontWeight: "bold",
   },
   categoryList: {

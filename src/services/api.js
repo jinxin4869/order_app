@@ -38,11 +38,16 @@ export const translateText = async (text, targetLang, options = {}) => {
  * @param {string} targetLang - 翻訳先言語
  * @returns {Promise<{count: number, items: Array}>}
  */
-export const batchTranslateMenu = async (restaurantId, targetLang) => {
+export const batchTranslateMenu = async (
+  restaurantId,
+  targetLang,
+  options = {}
+) => {
+  const { generateBothModes = false } = options;
   try {
     const batchFunction = httpsCallable(functions, "batchTranslateMenu");
     const result = await withRetry(
-      () => batchFunction({ restaurantId, targetLang }),
+      () => batchFunction({ restaurantId, targetLang, generateBothModes }),
       2,
       1000
     );

@@ -67,6 +67,8 @@ describe("MenuScreen", () => {
       getItemName: (item) => item.name_ja,
       getItemDescription: (item) => item.description_ja,
       getCategoryName: (category) => category.name_ja,
+      translationMode: "dictionary",
+      setTranslationMode: jest.fn(),
     });
 
     useNetworkStatus.mockReturnValue({
@@ -262,6 +264,8 @@ describe("MenuScreen", () => {
       getItemName: (item) => item.name_en,
       getItemDescription: (item) => item.description_en || item.description_ja,
       getCategoryName: (category) => category.name_en,
+      translationMode: "dictionary",
+      setTranslationMode: jest.fn(),
     });
 
     const { getByText } = render(

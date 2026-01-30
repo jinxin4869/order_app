@@ -132,8 +132,8 @@ describe("QRScannerScreen", () => {
 
       await waitFor(() => {
         expect(Alert.alert).toHaveBeenCalledWith(
-          "エラー",
-          "無効なQRコードです。\nInvalid QR code.",
+          "エラー / Error / 错误",
+          "無効なQRコードです。\nInvalid QR code.\n无效的二维码。",
           expect.any(Array)
         );
       });
@@ -163,7 +163,7 @@ describe("QRScannerScreen", () => {
 
       await waitFor(() => {
         expect(Alert.alert).toHaveBeenCalledWith(
-          "エラー",
+          "エラー / Error / 错误",
           "テーブルが見つかりません",
           expect.any(Array)
         );
@@ -189,8 +189,8 @@ describe("QRScannerScreen", () => {
 
       await waitFor(() => {
         expect(Alert.alert).toHaveBeenCalledWith(
-          "エラー",
-          "接続エラーが発生しました。\nConnection error occurred.",
+          "エラー / Error / 错误",
+          "接続エラーが発生しました。\nConnection error occurred.\n连接出错。",
           expect.any(Array)
         );
       });
@@ -243,7 +243,7 @@ describe("QRScannerScreen", () => {
       expect(getByText("[Demo] Skip Scan")).toBeTruthy();
     });
 
-    it("デモ用スキップボタンを押すと言語選択画面に遷移する", () => {
+    it("デモ用スキップボタンを押すとレストラン選択モーダルが表示される", () => {
       useCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
 
       const { getByText } = render(
@@ -252,12 +252,29 @@ describe("QRScannerScreen", () => {
 
       fireEvent.press(getByText("[Demo] Skip Scan"));
 
+      // モーダルにレストラン一覧が表示される
+      expect(getByText("デモ用レストラン選択")).toBeTruthy();
+      expect(getByText("和食レストラン 桜")).toBeTruthy();
+      expect(getByText("寿司処 鮨一")).toBeTruthy();
+      expect(getByText("カフェ＆ダイニング HANA")).toBeTruthy();
+    });
+
+    it("モーダルからレストランを選択すると言語選択画面に遷移する", () => {
+      useCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
+
+      const { getByText } = render(
+        <QRScannerScreen navigation={mockNavigation} />
+      );
+
+      fireEvent.press(getByText("[Demo] Skip Scan"));
+      fireEvent.press(getByText("寿司処 鮨一"));
+
       expect(mockNavigation.navigate).toHaveBeenCalledWith("LanguageSelect", {
-        restaurantId: "rest001",
+        restaurantId: "rest003",
         tableId: "table001",
         restaurant: {
-          id: "rest001",
-          name: "和食レストラン 桜",
+          id: "rest003",
+          name: "寿司処 鮨一",
           default_language: "ja",
           supported_languages: ["ja", "en", "zh"],
         },

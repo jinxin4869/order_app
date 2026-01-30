@@ -40,7 +40,4 @@ export const functions = getFunctions(
   FIREBASE_FUNCTIONS_REGION || "asia-northeast1"
 );
 
-// 開発環境でエミュレータを使用する場合（オプション）
-// connectFunctionsEmulator(functions, "localhost", 5001);
-
 export default app;

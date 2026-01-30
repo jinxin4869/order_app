@@ -18,7 +18,7 @@ import { createOrder } from "../services/api";
 
 const CartScreen = ({ navigation, route }) => {
   const { restaurantId, tableId, restaurant, table } = route.params;
-  const { currentLanguage } = useLanguage();
+  const { currentLanguage, translationMode } = useLanguage();
   const {
     items,
     updateQuantity,
@@ -41,6 +41,13 @@ const CartScreen = ({ navigation, route }) => {
 
   // カートアイテムの名前を現在の言語で取得
   const getItemDisplayName = (item) => {
+    if (currentLanguage === "ja") {
+      return item.name_ja || item.name;
+    }
+    if (translationMode === "deepl_only") {
+      const nodicKey = `name_${currentLanguage}_nodic`;
+      if (item[nodicKey]) return item[nodicKey];
+    }
     if (currentLanguage === "zh" && item.name_zh) {
       return item.name_zh;
     }

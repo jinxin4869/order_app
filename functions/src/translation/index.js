@@ -405,7 +405,11 @@ exports.translateText = onCall(
 exports.batchTranslateMenu = onCall(
   { region: "asia-northeast1" },
   async (request) => {
-    const { restaurantId, targetLang } = request.data;
+    const {
+      restaurantId,
+      targetLang,
+      generateBothModes = false,
+    } = request.data;
 
     // バリデーション
     if (!restaurantId) {
@@ -472,6 +476,31 @@ exports.batchTranslateMenu = onCall(
             }
           }
           updateData[`name_${targetLang}`] = nameTranslation;
+
+          // 辞書なし翻訳も生成（A/Bテスト用）
+          if (generateBothModes) {
+            const nodicCacheKey = `__nodic__${menuItem.name_ja}`;
+            const cachedNodic = await checkCache(nodicCacheKey, targetLang);
+            if (cachedNodic) {
+              updateData[`name_${targetLang}_nodic`] = cachedNodic;
+            } else {
+              try {
+                const nodicTranslation = await translateWithDeepL(
+                  menuItem.name_ja,
+                  targetLang
+                );
+                updateData[`name_${targetLang}_nodic`] = nodicTranslation;
+                await saveToCache(
+                  nodicCacheKey,
+                  targetLang,
+                  nodicTranslation,
+                  "deepl_only"
+                );
+              } catch (apiError) {
+                updateData[`name_${targetLang}_nodic`] = nameTranslation;
+              }
+            }
+          }
         }
 
         // 説明を翻訳
@@ -515,6 +544,32 @@ exports.batchTranslateMenu = onCall(
             }
           }
           updateData[`description_${targetLang}`] = descTranslation;
+
+          // 辞書なし翻訳も生成（A/Bテスト用）
+          if (generateBothModes) {
+            const nodicCacheKey = `__nodic__${menuItem.description_ja}`;
+            const cachedNodic = await checkCache(nodicCacheKey, targetLang);
+            if (cachedNodic) {
+              updateData[`description_${targetLang}_nodic`] = cachedNodic;
+            } else {
+              try {
+                const nodicTranslation = await translateWithDeepL(
+                  menuItem.description_ja,
+                  targetLang
+                );
+                updateData[`description_${targetLang}_nodic`] =
+                  nodicTranslation;
+                await saveToCache(
+                  nodicCacheKey,
+                  targetLang,
+                  nodicTranslation,
+                  "deepl_only"
+                );
+              } catch (apiError) {
+                updateData[`description_${targetLang}_nodic`] = descTranslation;
+              }
+            }
+          }
         }
 
         if (Object.keys(updateData).length > 0) {

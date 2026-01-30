@@ -252,6 +252,89 @@ describe("useLanguage", () => {
     console.error = consoleError;
   });
 
+  test("翻訳モードのデフォルトはdictionary", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    expect(result.current.translationMode).toBe("dictionary");
+  });
+
+  test("setTranslationModeで翻訳モードを切り替えられる", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    act(() => {
+      result.current.setTranslationMode("deepl_only");
+    });
+
+    expect(result.current.translationMode).toBe("deepl_only");
+  });
+
+  test("deepl_onlyモードではgetItemNameが_nodicフィールドを優先する", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    const item = {
+      name_ja: "枝豆",
+      name_en: "Edamame (dict)",
+      name_zh: "毛豆 (dict)",
+      name_en_nodic: "Green soybeans",
+      name_zh_nodic: "青大豆",
+    };
+
+    act(() => {
+      result.current.changeLanguage("en");
+      result.current.setTranslationMode("deepl_only");
+    });
+
+    expect(result.current.getItemName(item)).toBe("Green soybeans");
+  });
+
+  test("deepl_onlyモードでも日本語は影響を受けない", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    const item = {
+      name_ja: "枝豆",
+      name_en: "Edamame",
+      name_en_nodic: "Green soybeans",
+    };
+
+    act(() => {
+      result.current.setTranslationMode("deepl_only");
+    });
+
+    expect(result.current.getItemName(item)).toBe("枝豆");
+  });
+
+  test("deepl_onlyモードで_nodicフィールドがない場合は通常フィールドにフォールバック", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    const item = {
+      name_ja: "枝豆",
+      name_en: "Edamame",
+    };
+
+    act(() => {
+      result.current.changeLanguage("en");
+      result.current.setTranslationMode("deepl_only");
+    });
+
+    expect(result.current.getItemName(item)).toBe("Edamame");
+  });
+
+  test("dictionaryモードでは_nodicフィールドを使用しない", () => {
+    const { result } = renderHook(() => useLanguage(), { wrapper });
+
+    const item = {
+      name_ja: "枝豆",
+      name_en: "Edamame (dict)",
+      name_en_nodic: "Green soybeans",
+    };
+
+    act(() => {
+      result.current.changeLanguage("en");
+    });
+
+    expect(result.current.getItemName(item)).toBe("Edamame (dict)");
+  });
+
   test("複数回言語を切り替えても正しく動作する", () => {
     const { result } = renderHook(() => useLanguage(), { wrapper });
 

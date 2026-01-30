@@ -76,9 +76,15 @@ exports.getMenuWithTranslation = onCall(
             name_ja: data.name_ja,
             name_en: data.name_en || data.name_ja,
             name_zh: data.name_zh || data.name_ja,
+            name_en_nodic: data.name_en_nodic || data.name_en || data.name_ja,
+            name_zh_nodic: data.name_zh_nodic || data.name_zh || data.name_ja,
             description_ja: data.description_ja,
             description_en: data.description_en,
             description_zh: data.description_zh,
+            description_en_nodic:
+              data.description_en_nodic || data.description_en,
+            description_zh_nodic:
+              data.description_zh_nodic || data.description_zh,
             icon: data.icon,
             order: data.order || 0,
           };
@@ -111,9 +117,15 @@ exports.getMenuWithTranslation = onCall(
             name_ja: data.name_ja,
             name_en: data.name_en || data.name_ja,
             name_zh: data.name_zh || data.name_ja,
+            name_en_nodic: data.name_en_nodic || data.name_en || data.name_ja,
+            name_zh_nodic: data.name_zh_nodic || data.name_zh || data.name_ja,
             description_ja: data.description_ja,
             description_en: data.description_en,
             description_zh: data.description_zh,
+            description_en_nodic:
+              data.description_en_nodic || data.description_en,
+            description_zh_nodic:
+              data.description_zh_nodic || data.description_zh,
             price: data.price,
             image_url: data.image_url,
             allergens: data.allergens || [],

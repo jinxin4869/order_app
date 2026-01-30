@@ -58,6 +58,7 @@ describe("API Service", () => {
       expect(mockFunction).toHaveBeenCalledWith({
         text: "こんにちは",
         targetLang: "en",
+        useDictionary: true,
       });
       expect(result).toEqual(mockResult.data);
     });
@@ -91,6 +92,29 @@ describe("API Service", () => {
 
       expect(result.fromCache).toBe(true);
     });
+
+    test("辞書なしで翻訳する（A/Bテスト用）", async () => {
+      const mockResult = {
+        data: {
+          translatedText: "Hello",
+          fromCache: false,
+        },
+      };
+
+      const mockFunction = jest.fn().mockResolvedValue(mockResult);
+      httpsCallable.mockReturnValue(mockFunction);
+
+      const result = await translateText("こんにちは", "en", {
+        useDictionary: false,
+      });
+
+      expect(mockFunction).toHaveBeenCalledWith({
+        text: "こんにちは",
+        targetLang: "en",
+        useDictionary: false,
+      });
+      expect(result).toEqual(mockResult.data);
+    });
   });
 
   describe("batchTranslateMenu", () => {
@@ -114,6 +138,7 @@ describe("API Service", () => {
       expect(mockFunction).toHaveBeenCalledWith({
         restaurantId: "restaurant_01",
         targetLang: "en",
+        generateBothModes: false,
       });
       expect(result).toEqual(mockResult.data);
     });

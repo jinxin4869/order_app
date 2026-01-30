@@ -58,7 +58,7 @@ describe("LanguageSelectScreen", () => {
     );
 
     expect(getByText("テストレストラン")).toBeTruthy();
-    expect(getByText("テーブル 1")).toBeTruthy();
+    expect(getByText(/Table\s*1/)).toBeTruthy();
   });
 
   it("利用可能な言語がすべて表示される", () => {
@@ -161,7 +161,7 @@ describe("LanguageSelectScreen", () => {
       />
     );
 
-    expect(getByText("テーブル table_01")).toBeTruthy();
+    expect(getByText(/Table\s*table_01/)).toBeTruthy();
   });
 
   it("フッターテキストが表示される", () => {

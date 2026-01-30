@@ -48,6 +48,8 @@ const ItemDetailScreen = ({ navigation, route }) => {
         name_ja: item.name_ja,
         name_en: item.name_en,
         name_zh: item.name_zh,
+        name_en_nodic: item.name_en_nodic,
+        name_zh_nodic: item.name_zh_nodic,
         price: item.price,
         image_url: item.image_url,
       },
