@@ -302,11 +302,14 @@ export const handleError = (error, context = {}) => {
 
   // ネットワークエラーの場合
   if (errorType === ErrorTypes.NETWORK) {
-    return "ネットワーク接続を確認してください";
+    return "ネットワーク接続を確認してください\nPlease check your network connection\n请检查网络连接";
   }
 
   // その他のエラー
-  return error.message || "エラーが発生しました。もう一度お試しください";
+  return (
+    error.message ||
+    "エラーが発生しました。もう一度お試しください\nAn error occurred. Please try again.\n发生错误，请重试。"
+  );
 };
 
 /**

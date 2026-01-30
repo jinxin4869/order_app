@@ -17,6 +17,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "11.4.1",
     "@react-navigation/native": "^6.1.9",
     "@react-navigation/native-stack": "^6.9.17",
@@ -62,6 +63,9 @@
       "src/**/*.{js,jsx}",
       "!src/**/*.test.{js,jsx}",
       "!src/**/index.{js,jsx}"
+    ],
+    "setupFiles": [
+      "./jest.setup.js"
     ],
     "setupFilesAfterEnv": [
       "@testing-library/jest-native/extend-expect"
