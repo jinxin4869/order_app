@@ -1,4 +1,9 @@
 {
+  "hosting": {
+    "public": "dist",
+    "single": true,
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+  },
   "functions": {
     "source": "functions",
     "codebase": "default",
