@@ -4,10 +4,13 @@ import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS, FONT_SIZES } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
+import { useResponsive } from "../hooks/useResponsive";
 
 const LanguageSelectScreen = ({ navigation, route }) => {
   const { restaurantId, tableId, restaurant, table } = route.params;
   const { changeLanguage, availableLanguages } = useLanguage();
+  const { width, isSmallScreen, isVerySmallScreen, scaleSize } =
+    useResponsive();
 
   const handleLanguageSelect = (langCode) => {
     changeLanguage(langCode);
@@ -19,11 +22,28 @@ const LanguageSelectScreen = ({ navigation, route }) => {
     });
   };
 
+  // 画面幅に応じてボタンサイズを計算
+  // 2列レイアウト: (画面幅 - padding - gap) / 2
+  const buttonSize = Math.min(
+    Math.floor((width - 40 - 15) / 2), // 2列に収まるサイズ
+    150 // 最大150px
+  );
+
+  // 非常に小さい画面では1列レイアウトに
+  const useOneColumn = isVerySmallScreen;
+  const oneColumnButtonWidth = width - 60;
+
   return (
     <SafeAreaView style={styles.container}>
       {/* ヘッダー */}
       <View style={styles.header}>
-        <Text style={styles.restaurantName}>
+        <Text
+          style={[
+            styles.restaurantName,
+            isSmallScreen && styles.restaurantNameSmall,
+          ]}
+          numberOfLines={2}
+        >
           {restaurant?.name || "レストラン"}
         </Text>
         <Text style={styles.tableInfo}>
@@ -33,20 +53,73 @@ const LanguageSelectScreen = ({ navigation, route }) => {
 
       {/* 言語選択 */}
       <View style={styles.content}>
-        <Text style={styles.title}>言語を選択してください</Text>
-        <Text style={styles.subtitle}>Select your language</Text>
-        <Text style={styles.subtitle}>请选择语言</Text>
+        <Text
+          style={[styles.title, isSmallScreen && styles.titleSmall]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+        >
+          言語を選択してください
+        </Text>
+        <Text style={[styles.subtitle, isSmallScreen && styles.subtitleSmall]}>
+          Select your language
+        </Text>
+        <Text style={[styles.subtitle, isSmallScreen && styles.subtitleSmall]}>
+          请选择语言
+        </Text>
 
-        <View style={styles.languageGrid}>
+        <View
+          style={[
+            styles.languageGrid,
+            useOneColumn && styles.languageGridColumn,
+          ]}
+        >
           {availableLanguages.map((lang) => (
             <TouchableOpacity
               key={lang.code}
-              style={styles.languageButton}
+              style={[
+                styles.languageButton,
+                useOneColumn
+                  ? {
+                      width: oneColumnButtonWidth,
+                      height: scaleSize(100, 80, 120),
+                      flexDirection: "row",
+                      justifyContent: "flex-start",
+                      paddingHorizontal: 20,
+                    }
+                  : {
+                      width: buttonSize,
+                      height: buttonSize,
+                    },
+              ]}
               onPress={() => handleLanguageSelect(lang.code)}
             >
-              <Text style={styles.languageFlag}>{lang.flag}</Text>
-              <Text style={styles.languageName}>{lang.nativeName}</Text>
-              <Text style={styles.languageEnglish}>{lang.name}</Text>
+              <Text
+                style={[
+                  styles.languageFlag,
+                  useOneColumn && styles.languageFlagRow,
+                  { fontSize: scaleSize(50, 36, 50) },
+                ]}
+              >
+                {lang.flag}
+              </Text>
+              <View style={useOneColumn && styles.languageTextContainer}>
+                <Text
+                  style={[
+                    styles.languageName,
+                    { fontSize: scaleSize(FONT_SIZES.xl, 16, 20) },
+                  ]}
+                >
+                  {lang.nativeName}
+                </Text>
+                <Text
+                  style={[
+                    styles.languageEnglish,
+                    { fontSize: scaleSize(FONT_SIZES.sm, 12, 14) },
+                  ]}
+                >
+                  {lang.name}
+                </Text>
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -74,6 +147,10 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.xxl,
     fontWeight: "bold",
     color: COLORS.surface,
+    textAlign: "center",
+  },
+  restaurantNameSmall: {
+    fontSize: FONT_SIZES.xl,
   },
   tableInfo: {
     fontSize: FONT_SIZES.lg,
@@ -92,22 +169,33 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: COLORS.text,
     marginBottom: 10,
+    textAlign: "center",
+  },
+  titleSmall: {
+    fontSize: FONT_SIZES.lg,
   },
   subtitle: {
     fontSize: FONT_SIZES.lg,
     color: COLORS.textSecondary,
     marginBottom: 5,
   },
+  subtitleSmall: {
+    fontSize: FONT_SIZES.md,
+  },
   languageGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
-    marginTop: 40,
+    marginTop: 30,
     gap: 15,
   },
+  languageGridColumn: {
+    flexDirection: "column",
+    alignItems: "center",
+    marginTop: 20,
+    gap: 12,
+  },
   languageButton: {
-    width: 150,
-    height: 150,
     backgroundColor: COLORS.surface,
     borderRadius: 20,
     justifyContent: "center",
@@ -117,21 +205,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    margin: 10,
   },
   languageFlag: {
-    fontSize: 50,
     marginBottom: 10,
   },
+  languageFlagRow: {
+    marginBottom: 0,
+    marginRight: 15,
+  },
+  languageTextContainer: {
+    flex: 1,
+  },
   languageName: {
-    fontSize: FONT_SIZES.xl,
     fontWeight: "bold",
     color: COLORS.text,
   },
   languageEnglish: {
-    fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
-    marginTop: 5,
+    marginTop: 3,
   },
   footer: {
     padding: 20,

@@ -10,10 +10,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS, FONT_SIZES } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
+import { useResponsive } from "../hooks/useResponsive";
 
 const OrderCompleteScreen = ({ navigation, route }) => {
   const { orderId, orderNumber, restaurant, table } = route.params;
   const { currentLanguage } = useLanguage();
+  const { isSmallScreen, scaleSize } = useResponsive();
 
   // アニメーション
   const scaleAnim = useMemo(() => new Animated.Value(0), []);
@@ -60,19 +62,39 @@ const OrderCompleteScreen = ({ navigation, route }) => {
     });
   };
 
+  // レスポンシブなサイズ
+  const iconContainerSize = scaleSize(100, 80, 110);
+  const orderNumberFontSize = scaleSize(36, 28, 40);
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+      <View style={[styles.content, isSmallScreen && styles.contentSmall]}>
         {/* 成功アイコン */}
         <Animated.View
-          style={[styles.iconContainer, { transform: [{ scale: scaleAnim }] }]}
+          style={[
+            styles.iconContainer,
+            {
+              width: iconContainerSize,
+              height: iconContainerSize,
+              borderRadius: iconContainerSize / 2,
+              transform: [{ scale: scaleAnim }],
+            },
+          ]}
         >
-          <Text style={styles.successIcon}>✓</Text>
+          <Text
+            style={[styles.successIcon, { fontSize: scaleSize(50, 40, 55) }]}
+          >
+            ✓
+          </Text>
         </Animated.View>
 
         {/* メッセージ */}
         <Animated.View style={{ opacity: fadeAnim }}>
-          <Text style={styles.title}>
+          <Text
+            style={[styles.title, isSmallScreen && styles.titleSmall]}
+            adjustsFontSizeToFit
+            numberOfLines={2}
+          >
             {t(
               "ご注文ありがとうございます！",
               "Thank you for your order!",
@@ -80,7 +102,9 @@ const OrderCompleteScreen = ({ navigation, route }) => {
             )}
           </Text>
 
-          <Text style={styles.subtitle}>
+          <Text
+            style={[styles.subtitle, isSmallScreen && styles.subtitleSmall]}
+          >
             {t(
               "ご注文を受け付けました",
               "Your order has been received",
@@ -89,38 +113,89 @@ const OrderCompleteScreen = ({ navigation, route }) => {
           </Text>
 
           {/* 注文番号 */}
-          <View style={styles.orderInfoCard}>
-            <Text style={styles.orderLabel}>
+          <View
+            style={[
+              styles.orderInfoCard,
+              isSmallScreen && styles.orderInfoCardSmall,
+            ]}
+          >
+            <Text
+              style={[
+                styles.orderLabel,
+                isSmallScreen && styles.orderLabelSmall,
+              ]}
+            >
               {t("注文番号", "Order Number", "订单号")}
             </Text>
-            <Text style={styles.orderNumber}>
+            <Text
+              style={[styles.orderNumber, { fontSize: orderNumberFontSize }]}
+            >
               {orderNumber || orderId?.slice(-6).toUpperCase()}
             </Text>
           </View>
 
           {/* 注文詳細 */}
-          <View style={styles.detailsContainer}>
+          <View
+            style={[
+              styles.detailsContainer,
+              isSmallScreen && styles.detailsContainerSmall,
+            ]}
+          >
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>
+              <Text
+                style={[
+                  styles.detailLabel,
+                  isSmallScreen && styles.detailLabelSmall,
+                ]}
+              >
                 {t("店舗", "Restaurant", "餐厅")}
               </Text>
-              <Text style={styles.detailValue}>{restaurant?.name || "-"}</Text>
+              <Text
+                style={[
+                  styles.detailValue,
+                  isSmallScreen && styles.detailValueSmall,
+                ]}
+                numberOfLines={1}
+              >
+                {restaurant?.name || "-"}
+              </Text>
             </View>
 
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>
+            <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
+              <Text
+                style={[
+                  styles.detailLabel,
+                  isSmallScreen && styles.detailLabelSmall,
+                ]}
+              >
                 {t("テーブル", "Table", "桌号")}
               </Text>
-              <Text style={styles.detailValue}>
+              <Text
+                style={[
+                  styles.detailValue,
+                  isSmallScreen && styles.detailValueSmall,
+                ]}
+              >
                 {table?.table_number || "-"}
               </Text>
             </View>
           </View>
 
           {/* メッセージ */}
-          <View style={styles.messageContainer}>
-            <Text style={styles.messageIcon}>🍽️</Text>
-            <Text style={styles.message}>
+          <View
+            style={[
+              styles.messageContainer,
+              isSmallScreen && styles.messageContainerSmall,
+            ]}
+          >
+            <Text
+              style={[styles.messageIcon, { fontSize: scaleSize(40, 32, 44) }]}
+            >
+              🍽️
+            </Text>
+            <Text
+              style={[styles.message, isSmallScreen && styles.messageSmall]}
+            >
               {t(
                 "お料理の準備ができましたらお届けします。\nしばらくお待ちください。",
                 "Your food will be served when ready.\nPlease wait for a moment.",
@@ -132,18 +207,42 @@ const OrderCompleteScreen = ({ navigation, route }) => {
       </View>
 
       {/* ボタン */}
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.primaryButton} onPress={handleNewOrder}>
-          <Text style={styles.primaryButtonText}>
+      <View
+        style={[
+          styles.buttonContainer,
+          isSmallScreen && styles.buttonContainerSmall,
+        ]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.primaryButton,
+            isSmallScreen && styles.primaryButtonSmall,
+          ]}
+          onPress={handleNewOrder}
+        >
+          <Text
+            style={[
+              styles.primaryButtonText,
+              isSmallScreen && styles.primaryButtonTextSmall,
+            ]}
+          >
             {t("追加注文する", "Add More Items", "继续点餐")}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.secondaryButton}
+          style={[
+            styles.secondaryButton,
+            isSmallScreen && styles.secondaryButtonSmall,
+          ]}
           onPress={handleStartOver}
         >
-          <Text style={styles.secondaryButtonText}>
+          <Text
+            style={[
+              styles.secondaryButtonText,
+              isSmallScreen && styles.secondaryButtonTextSmall,
+            ]}
+          >
             {t("終了する", "Finish", "结束")}
           </Text>
         </TouchableOpacity>
@@ -163,10 +262,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 30,
   },
+  contentSmall: {
+    padding: 20,
+  },
   iconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
     backgroundColor: COLORS.success,
     justifyContent: "center",
     alignItems: "center",
@@ -178,7 +277,6 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   successIcon: {
-    fontSize: 50,
     color: COLORS.surface,
     fontWeight: "bold",
   },
@@ -189,11 +287,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 10,
   },
+  titleSmall: {
+    fontSize: FONT_SIZES.xl,
+  },
   subtitle: {
     fontSize: FONT_SIZES.md,
     color: COLORS.textSecondary,
     textAlign: "center",
     marginBottom: 30,
+  },
+  subtitleSmall: {
+    fontSize: FONT_SIZES.sm,
+    marginBottom: 20,
   },
   orderInfoCard: {
     backgroundColor: COLORS.surface,
@@ -208,13 +313,19 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  orderInfoCardSmall: {
+    padding: 15,
+    marginBottom: 15,
+  },
   orderLabel: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
     marginBottom: 5,
   },
+  orderLabelSmall: {
+    fontSize: FONT_SIZES.xs,
+  },
   orderNumber: {
-    fontSize: 36,
     fontWeight: "bold",
     color: COLORS.primary,
     letterSpacing: 3,
@@ -225,6 +336,10 @@ const styles = StyleSheet.create({
     padding: 15,
     width: "100%",
     marginBottom: 20,
+  },
+  detailsContainerSmall: {
+    padding: 12,
+    marginBottom: 15,
   },
   detailRow: {
     flexDirection: "row",
@@ -237,18 +352,28 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     color: COLORS.textSecondary,
   },
+  detailLabelSmall: {
+    fontSize: FONT_SIZES.sm,
+  },
   detailValue: {
     fontSize: FONT_SIZES.md,
     color: COLORS.text,
     fontWeight: "500",
+    flex: 1,
+    textAlign: "right",
+    marginLeft: 10,
   },
-
+  detailValueSmall: {
+    fontSize: FONT_SIZES.sm,
+  },
   messageContainer: {
     alignItems: "center",
     paddingHorizontal: 20,
   },
+  messageContainerSmall: {
+    paddingHorizontal: 10,
+  },
   messageIcon: {
-    fontSize: 40,
     marginBottom: 10,
   },
   message: {
@@ -257,9 +382,17 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 24,
   },
+  messageSmall: {
+    fontSize: FONT_SIZES.sm,
+    lineHeight: 20,
+  },
   buttonContainer: {
     padding: 20,
     gap: 12,
+  },
+  buttonContainerSmall: {
+    padding: 15,
+    gap: 10,
   },
   primaryButton: {
     backgroundColor: COLORS.primary,
@@ -267,10 +400,16 @@ const styles = StyleSheet.create({
     padding: 15,
     alignItems: "center",
   },
+  primaryButtonSmall: {
+    padding: 12,
+  },
   primaryButtonText: {
     color: COLORS.surface,
     fontSize: FONT_SIZES.lg,
     fontWeight: "bold",
+  },
+  primaryButtonTextSmall: {
+    fontSize: FONT_SIZES.md,
   },
   secondaryButton: {
     backgroundColor: COLORS.surface,
@@ -280,10 +419,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+  secondaryButtonSmall: {
+    padding: 12,
+  },
   secondaryButtonText: {
     color: COLORS.textSecondary,
     fontSize: FONT_SIZES.md,
     fontWeight: "500",
+  },
+  secondaryButtonTextSmall: {
+    fontSize: FONT_SIZES.sm,
   },
 });
 

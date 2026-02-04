@@ -12,12 +12,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS, FONT_SIZES, ALLERGENS } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
+import { useResponsive } from "../hooks/useResponsive";
 import { CartContext } from "../context/CartContext";
 
 const ItemDetailScreen = ({ navigation, route }) => {
   const { item } = route.params;
   const { currentLanguage, getItemName, getItemDescription } = useLanguage();
   const { addItem } = useContext(CartContext);
+  const { isSmallScreen, scaleSize } = useResponsive();
 
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState("");
@@ -67,17 +69,24 @@ const ItemDetailScreen = ({ navigation, route }) => {
     return allergen[currentLanguage] || allergen.ja || allergenKey;
   };
 
+  // レスポンシブなサイズ
+  const imageHeight = scaleSize(250, 180, 280);
+  const quantityButtonSize = scaleSize(36, 30, 40);
+
   return (
     <SafeAreaView style={styles.container}>
       {/* ヘッダー */}
-      <View style={styles.header}>
+      <View style={[styles.header, isSmallScreen && styles.headerSmall]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
+        <Text
+          style={[styles.headerTitle, isSmallScreen && styles.headerTitleSmall]}
+          numberOfLines={1}
+        >
           {currentLanguage === "ja"
             ? "商品詳細"
             : currentLanguage === "zh"
@@ -90,21 +99,52 @@ const ItemDetailScreen = ({ navigation, route }) => {
       <ScrollView style={styles.scrollView}>
         {/* 画像 */}
         {item.image_url ? (
-          <Image source={{ uri: item.image_url }} style={styles.image} />
+          <Image
+            source={{ uri: item.image_url }}
+            style={[styles.image, { height: imageHeight }]}
+          />
         ) : (
-          <View style={[styles.image, styles.imagePlaceholder]}>
-            <Text style={styles.placeholderText}>🍽️</Text>
+          <View
+            style={[
+              styles.image,
+              styles.imagePlaceholder,
+              { height: imageHeight },
+            ]}
+          >
+            <Text
+              style={[
+                styles.placeholderText,
+                { fontSize: scaleSize(80, 60, 90) },
+              ]}
+            >
+              🍽️
+            </Text>
           </View>
         )}
 
         {/* 商品情報 */}
-        <View style={styles.content}>
+        <View style={[styles.content, isSmallScreen && styles.contentSmall]}>
           {/* 名前と価格 */}
           <View style={styles.itemHeader}>
-            <Text style={styles.name}>{itemName}</Text>
+            <Text
+              style={[styles.name, isSmallScreen && styles.nameSmall]}
+              numberOfLines={3}
+            >
+              {itemName}
+            </Text>
             {item.is_popular && (
-              <View style={styles.popularBadge}>
-                <Text style={styles.popularText}>
+              <View
+                style={[
+                  styles.popularBadge,
+                  isSmallScreen && styles.popularBadgeSmall,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.popularText,
+                    isSmallScreen && styles.popularTextSmall,
+                  ]}
+                >
                   {currentLanguage === "ja"
                     ? "人気"
                     : currentLanguage === "zh"
@@ -117,22 +157,43 @@ const ItemDetailScreen = ({ navigation, route }) => {
 
           {/* 説明 */}
           {itemDescription && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
+            <View
+              style={[styles.section, isSmallScreen && styles.sectionSmall]}
+            >
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  isSmallScreen && styles.sectionTitleSmall,
+                ]}
+              >
                 {currentLanguage === "ja"
                   ? "説明"
                   : currentLanguage === "zh"
                     ? "说明"
                     : "Description"}
               </Text>
-              <Text style={styles.description}>{itemDescription}</Text>
+              <Text
+                style={[
+                  styles.description,
+                  isSmallScreen && styles.descriptionSmall,
+                ]}
+              >
+                {itemDescription}
+              </Text>
             </View>
           )}
 
           {/* アレルゲン情報 */}
           {item.allergens?.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
+            <View
+              style={[styles.section, isSmallScreen && styles.sectionSmall]}
+            >
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  isSmallScreen && styles.sectionTitleSmall,
+                ]}
+              >
                 {currentLanguage === "ja"
                   ? "アレルゲン情報"
                   : currentLanguage === "zh"
@@ -141,11 +202,27 @@ const ItemDetailScreen = ({ navigation, route }) => {
               </Text>
               <View style={styles.allergenList}>
                 {item.allergens.map((allergen) => (
-                  <View key={allergen} style={styles.allergenItem}>
-                    <Text style={styles.allergenIcon}>
+                  <View
+                    key={allergen}
+                    style={[
+                      styles.allergenItem,
+                      isSmallScreen && styles.allergenItemSmall,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.allergenIcon,
+                        isSmallScreen && styles.allergenIconSmall,
+                      ]}
+                    >
                       {ALLERGENS[allergen]?.icon || "⚠️"}
                     </Text>
-                    <Text style={styles.allergenName}>
+                    <Text
+                      style={[
+                        styles.allergenName,
+                        isSmallScreen && styles.allergenNameSmall,
+                      ]}
+                    >
                       {getAllergenName(allergen)}
                     </Text>
                   </View>
@@ -156,10 +233,19 @@ const ItemDetailScreen = ({ navigation, route }) => {
 
           {/* 調理時間 */}
           {item.cooking_time && (
-            <View style={styles.section}>
-              <View style={styles.infoItem}>
+            <View
+              style={[styles.section, isSmallScreen && styles.sectionSmall]}
+            >
+              <View
+                style={[styles.infoItem, isSmallScreen && styles.infoItemSmall]}
+              >
                 <Text style={styles.infoIcon}>⏱️</Text>
-                <Text style={styles.infoText}>
+                <Text
+                  style={[
+                    styles.infoText,
+                    isSmallScreen && styles.infoTextSmall,
+                  ]}
+                >
                   {currentLanguage === "ja"
                     ? `調理時間: 約${item.cooking_time}分`
                     : currentLanguage === "zh"
@@ -171,8 +257,13 @@ const ItemDetailScreen = ({ navigation, route }) => {
           )}
 
           {/* 特別リクエスト */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
+          <View style={[styles.section, isSmallScreen && styles.sectionSmall]}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                isSmallScreen && styles.sectionTitleSmall,
+              ]}
+            >
               {currentLanguage === "ja"
                 ? "ご要望（任意）"
                 : currentLanguage === "zh"
@@ -180,7 +271,10 @@ const ItemDetailScreen = ({ navigation, route }) => {
                   : "Special Requests (Optional)"}
             </Text>
             <TextInput
-              style={styles.notesInput}
+              style={[
+                styles.notesInput,
+                isSmallScreen && styles.notesInputSmall,
+              ]}
               placeholder={
                 currentLanguage === "ja"
                   ? "例: わさび抜き、少なめなど"
@@ -199,11 +293,23 @@ const ItemDetailScreen = ({ navigation, route }) => {
       </ScrollView>
 
       {/* 注文バー */}
-      <View style={styles.orderBar}>
+      <View style={[styles.orderBar, isSmallScreen && styles.orderBarSmall]}>
         {/* 数量選択 */}
-        <View style={styles.quantitySelector}>
+        <View
+          style={[
+            styles.quantitySelector,
+            isSmallScreen && styles.quantitySelectorSmall,
+          ]}
+        >
           <TouchableOpacity
-            style={styles.quantityButton}
+            style={[
+              styles.quantityButton,
+              {
+                width: quantityButtonSize,
+                height: quantityButtonSize,
+                borderRadius: quantityButtonSize / 2,
+              },
+            ]}
             onPress={decrementQuantity}
             disabled={quantity <= 1}
           >
@@ -211,26 +317,56 @@ const ItemDetailScreen = ({ navigation, route }) => {
               style={[
                 styles.quantityButtonText,
                 quantity <= 1 && styles.quantityButtonDisabled,
+                { fontSize: scaleSize(FONT_SIZES.xl, 16, 22) },
               ]}
             >
               −
             </Text>
           </TouchableOpacity>
 
-          <Text style={styles.quantityText}>{quantity}</Text>
+          <Text
+            style={[
+              styles.quantityText,
+              isSmallScreen && styles.quantityTextSmall,
+            ]}
+          >
+            {quantity}
+          </Text>
 
           <TouchableOpacity
-            style={styles.quantityButton}
+            style={[
+              styles.quantityButton,
+              {
+                width: quantityButtonSize,
+                height: quantityButtonSize,
+                borderRadius: quantityButtonSize / 2,
+              },
+            ]}
             onPress={incrementQuantity}
             disabled={quantity >= 99}
           >
-            <Text style={styles.quantityButtonText}>+</Text>
+            <Text
+              style={[
+                styles.quantityButtonText,
+                { fontSize: scaleSize(FONT_SIZES.xl, 16, 22) },
+              ]}
+            >
+              +
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* カートに追加ボタン */}
-        <TouchableOpacity style={styles.addButton} onPress={handleAddToCart}>
-          <Text style={styles.addButtonText}>
+        <TouchableOpacity
+          style={[styles.addButton, isSmallScreen && styles.addButtonSmall]}
+          onPress={handleAddToCart}
+        >
+          <Text
+            style={[
+              styles.addButtonText,
+              isSmallScreen && styles.addButtonTextSmall,
+            ]}
+          >
             {currentLanguage === "ja"
               ? "カートに追加"
               : currentLanguage === "zh"
@@ -256,6 +392,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 12,
   },
+  headerSmall: {
+    paddingVertical: 10,
+  },
   backButton: {
     width: 40,
     height: 40,
@@ -274,6 +413,9 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
   },
+  headerTitleSmall: {
+    fontSize: FONT_SIZES.md,
+  },
   headerSpacer: {
     width: 40,
   },
@@ -282,7 +424,6 @@ const styles = StyleSheet.create({
   },
   image: {
     width: "100%",
-    height: 250,
     resizeMode: "cover",
   },
   imagePlaceholder: {
@@ -291,14 +432,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   placeholderText: {
-    fontSize: 80,
+    // fontSize set dynamically
   },
   content: {
     padding: 20,
   },
+  contentSmall: {
+    padding: 15,
+  },
   itemHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     flexWrap: "wrap",
   },
   name: {
@@ -307,20 +451,35 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     flex: 1,
   },
+  nameSmall: {
+    fontSize: FONT_SIZES.xl,
+  },
   popularBadge: {
     backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
     marginLeft: 10,
+    marginTop: 4,
+  },
+  popularBadgeSmall: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginLeft: 8,
   },
   popularText: {
     color: COLORS.surface,
     fontSize: FONT_SIZES.sm,
     fontWeight: "bold",
   },
+  popularTextSmall: {
+    fontSize: FONT_SIZES.xs,
+  },
   section: {
     marginTop: 25,
+  },
+  sectionSmall: {
+    marginTop: 18,
   },
   sectionTitle: {
     fontSize: FONT_SIZES.md,
@@ -328,15 +487,23 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 10,
   },
+  sectionTitleSmall: {
+    fontSize: FONT_SIZES.sm,
+    marginBottom: 8,
+  },
   description: {
     fontSize: FONT_SIZES.md,
     color: COLORS.textSecondary,
     lineHeight: 24,
   },
+  descriptionSmall: {
+    fontSize: FONT_SIZES.sm,
+    lineHeight: 20,
+  },
   allergenList: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 8,
   },
   allergenItem: {
     flexDirection: "row",
@@ -348,13 +515,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+  allergenItemSmall: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
   allergenIcon: {
     fontSize: 16,
     marginRight: 5,
   },
+  allergenIconSmall: {
+    fontSize: 14,
+    marginRight: 4,
+  },
   allergenName: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.text,
+  },
+  allergenNameSmall: {
+    fontSize: FONT_SIZES.xs,
   },
   infoItem: {
     flexDirection: "row",
@@ -365,6 +543,11 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1,
     borderColor: COLORS.border,
+    alignSelf: "flex-start",
+  },
+  infoItemSmall: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   infoIcon: {
     fontSize: 16,
@@ -373,6 +556,9 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
+  },
+  infoTextSmall: {
+    fontSize: FONT_SIZES.xs,
   },
   notesInput: {
     backgroundColor: COLORS.surface,
@@ -385,6 +571,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+  notesInputSmall: {
+    padding: 12,
+    fontSize: FONT_SIZES.sm,
+    minHeight: 70,
+  },
   orderBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -392,7 +583,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    gap: 15,
+    gap: 12,
+  },
+  orderBarSmall: {
+    padding: 10,
+    gap: 8,
   },
   quantitySelector: {
     flexDirection: "row",
@@ -401,16 +596,15 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     padding: 5,
   },
+  quantitySelectorSmall: {
+    padding: 3,
+  },
   quantityButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
     backgroundColor: COLORS.surface,
     justifyContent: "center",
     alignItems: "center",
   },
   quantityButtonText: {
-    fontSize: FONT_SIZES.xl,
     color: COLORS.primary,
     fontWeight: "bold",
   },
@@ -425,19 +619,30 @@ const styles = StyleSheet.create({
     minWidth: 30,
     textAlign: "center",
   },
+  quantityTextSmall: {
+    fontSize: FONT_SIZES.md,
+    marginHorizontal: 10,
+    minWidth: 24,
+  },
   addButton: {
     flex: 1,
     backgroundColor: COLORS.primary,
     borderRadius: 25,
     padding: 15,
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
+  },
+  addButtonSmall: {
+    padding: 12,
   },
   addButtonText: {
     color: COLORS.surface,
     fontSize: FONT_SIZES.md,
     fontWeight: "bold",
+  },
+  addButtonTextSmall: {
+    fontSize: FONT_SIZES.sm,
   },
 });
 

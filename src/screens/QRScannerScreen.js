@@ -13,6 +13,7 @@ import {
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { COLORS, FONT_SIZES } from "../constants";
 import { validateQRCode } from "../services/api";
+import { useResponsive } from "../hooks/useResponsive";
 
 // デモ用レストランデータ
 const DEMO_RESTAURANTS = [
@@ -47,6 +48,10 @@ const QRScannerScreen = ({ navigation }) => {
   const [scanned, setScanned] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [showDemoModal, setShowDemoModal] = useState(false);
+  const { width, isSmallScreen, scaleSize } = useResponsive();
+
+  // レスポンシブなスキャンエリアサイズ
+  const scanAreaSize = Math.min(scaleSize(250, 180, 280), width * 0.7);
 
   const handleDemoSelect = (restaurant) => {
     setShowDemoModal(false);
@@ -130,7 +135,9 @@ const QRScannerScreen = ({ navigation }) => {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.messageText}>
+        <Text
+          style={[styles.messageText, isSmallScreen && styles.messageTextSmall]}
+        >
           カメラ権限をリクエスト中...{"\n"}
           Requesting camera permission...{"\n"}
           正在请求相机权限...
@@ -143,14 +150,20 @@ const QRScannerScreen = ({ navigation }) => {
   if (!permission.granted) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>📷</Text>
-        <Text style={styles.messageText}>
+        <Text style={[styles.errorText, { fontSize: scaleSize(60, 48, 60) }]}>
+          📷
+        </Text>
+        <Text
+          style={[styles.messageText, isSmallScreen && styles.messageTextSmall]}
+        >
           カメラへのアクセスが必要です{"\n"}
           Camera access is required{"\n"}
           需要访问相机
         </Text>
         <TouchableOpacity style={styles.button} onPress={requestPermission}>
-          <Text style={styles.buttonText}>
+          <Text
+            style={[styles.buttonText, isSmallScreen && styles.buttonTextSmall]}
+          >
             権限を許可 / Grant Permission / 授予权限
           </Text>
         </TouchableOpacity>
@@ -174,7 +187,12 @@ const QRScannerScreen = ({ navigation }) => {
         <View style={styles.overlayTop} />
         <View style={styles.overlayMiddle}>
           <View style={styles.overlaySide} />
-          <View style={styles.scanArea}>
+          <View
+            style={[
+              styles.scanArea,
+              { width: scanAreaSize, height: scanAreaSize },
+            ]}
+          >
             <View style={[styles.corner, styles.cornerTL]} />
             <View style={[styles.corner, styles.cornerTR]} />
             <View style={[styles.corner, styles.cornerBL]} />
@@ -183,7 +201,12 @@ const QRScannerScreen = ({ navigation }) => {
           <View style={styles.overlaySide} />
         </View>
         <View style={styles.overlayBottom}>
-          <Text style={styles.instructionText}>
+          <Text
+            style={[
+              styles.instructionText,
+              isSmallScreen && styles.instructionTextSmall,
+            ]}
+          >
             テーブルのQRコードをスキャンしてください{"\n"}
             Scan the QR code on your table{"\n"}
             请扫描桌上的二维码
@@ -204,10 +227,18 @@ const QRScannerScreen = ({ navigation }) => {
       {/* 再スキャンボタン */}
       {scanned && !isValidating && (
         <TouchableOpacity
-          style={styles.rescanButton}
+          style={[
+            styles.rescanButton,
+            isSmallScreen && styles.rescanButtonSmall,
+          ]}
           onPress={() => setScanned(false)}
         >
-          <Text style={styles.rescanButtonText}>
+          <Text
+            style={[
+              styles.rescanButtonText,
+              isSmallScreen && styles.rescanButtonTextSmall,
+            ]}
+          >
             再スキャン / Scan Again / 重新扫描
           </Text>
         </TouchableOpacity>
@@ -215,10 +246,17 @@ const QRScannerScreen = ({ navigation }) => {
 
       {/* デモ用スキップボタン */}
       <TouchableOpacity
-        style={styles.debugButton}
+        style={[styles.debugButton, isSmallScreen && styles.debugButtonSmall]}
         onPress={() => setShowDemoModal(true)}
       >
-        <Text style={styles.debugButtonText}>[Demo] Skip Scan</Text>
+        <Text
+          style={[
+            styles.debugButtonText,
+            isSmallScreen && styles.debugButtonTextSmall,
+          ]}
+        >
+          [Demo] Skip
+        </Text>
       </TouchableOpacity>
 
       {/* デモ用レストラン選択モーダル */}
@@ -229,8 +267,20 @@ const QRScannerScreen = ({ navigation }) => {
         onRequestClose={() => setShowDemoModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>デモ用レストラン選択</Text>
+          <View
+            style={[
+              styles.modalContent,
+              isSmallScreen && styles.modalContentSmall,
+            ]}
+          >
+            <Text
+              style={[
+                styles.modalTitle,
+                isSmallScreen && styles.modalTitleSmall,
+              ]}
+            >
+              デモ用レストラン選択
+            </Text>
             <Text style={styles.modalSubtitle}>
               Select a restaurant for demo
             </Text>
@@ -239,13 +289,35 @@ const QRScannerScreen = ({ navigation }) => {
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.restaurantOption}
+                  style={[
+                    styles.restaurantOption,
+                    isSmallScreen && styles.restaurantOptionSmall,
+                  ]}
                   onPress={() => handleDemoSelect(item)}
                 >
-                  <Text style={styles.restaurantIcon}>{item.icon}</Text>
+                  <Text
+                    style={[
+                      styles.restaurantIcon,
+                      isSmallScreen && styles.restaurantIconSmall,
+                    ]}
+                  >
+                    {item.icon}
+                  </Text>
                   <View style={styles.restaurantInfo}>
-                    <Text style={styles.restaurantName}>{item.name}</Text>
-                    <Text style={styles.restaurantDescription}>
+                    <Text
+                      style={[
+                        styles.restaurantName,
+                        isSmallScreen && styles.restaurantNameSmall,
+                      ]}
+                    >
+                      {item.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.restaurantDescription,
+                        isSmallScreen && styles.restaurantDescriptionSmall,
+                      ]}
+                    >
                       {item.description}
                     </Text>
                   </View>
@@ -285,6 +357,10 @@ const styles = StyleSheet.create({
     marginTop: 20,
     lineHeight: 28,
   },
+  messageTextSmall: {
+    fontSize: FONT_SIZES.md,
+    lineHeight: 24,
+  },
   errorText: {
     fontSize: 60,
   },
@@ -299,6 +375,9 @@ const styles = StyleSheet.create({
     color: COLORS.surface,
     fontSize: FONT_SIZES.md,
     fontWeight: "bold",
+  },
+  buttonTextSmall: {
+    fontSize: FONT_SIZES.sm,
   },
   overlay: {
     flex: 1,
@@ -315,14 +394,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.6)",
   },
   scanArea: {
-    width: 250,
-    height: 250,
     position: "relative",
   },
   corner: {
     position: "absolute",
-    width: 30,
-    height: 30,
+    width: 25,
+    height: 25,
     borderColor: COLORS.primary,
   },
   cornerTL: {
@@ -362,6 +439,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 28,
   },
+  instructionTextSmall: {
+    fontSize: FONT_SIZES.md,
+    lineHeight: 24,
+  },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.7)",
@@ -382,10 +463,18 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderRadius: 25,
   },
+  rescanButtonSmall: {
+    bottom: 40,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
   rescanButtonText: {
     color: COLORS.surface,
     fontSize: FONT_SIZES.md,
     fontWeight: "bold",
+  },
+  rescanButtonTextSmall: {
+    fontSize: FONT_SIZES.sm,
   },
   debugButton: {
     position: "absolute",
@@ -397,10 +486,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     zIndex: 10,
   },
+  debugButtonSmall: {
+    top: 45,
+    right: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
   debugButtonText: {
     color: COLORS.surface,
     fontSize: FONT_SIZES.sm,
     fontWeight: "bold",
+  },
+  debugButtonTextSmall: {
+    fontSize: FONT_SIZES.xs,
   },
   modalOverlay: {
     flex: 1,
@@ -414,11 +512,18 @@ const styles = StyleSheet.create({
     padding: 24,
     maxHeight: "70%",
   },
+  modalContentSmall: {
+    padding: 16,
+    maxHeight: "80%",
+  },
   modalTitle: {
     fontSize: FONT_SIZES.xl,
     fontWeight: "bold",
     color: COLORS.text,
     textAlign: "center",
+  },
+  modalTitleSmall: {
+    fontSize: FONT_SIZES.lg,
   },
   modalSubtitle: {
     fontSize: FONT_SIZES.sm,
@@ -435,9 +540,17 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
+  restaurantOptionSmall: {
+    padding: 12,
+    marginBottom: 10,
+  },
   restaurantIcon: {
     fontSize: 36,
     marginRight: 14,
+  },
+  restaurantIconSmall: {
+    fontSize: 28,
+    marginRight: 10,
   },
   restaurantInfo: {
     flex: 1,
@@ -447,10 +560,16 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: COLORS.text,
   },
+  restaurantNameSmall: {
+    fontSize: FONT_SIZES.sm,
+  },
   restaurantDescription: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
     marginTop: 2,
+  },
+  restaurantDescriptionSmall: {
+    fontSize: FONT_SIZES.xs,
   },
   restaurantArrow: {
     fontSize: FONT_SIZES.xl,

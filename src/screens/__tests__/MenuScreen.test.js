@@ -196,9 +196,7 @@ describe("MenuScreen", () => {
     );
 
     await waitFor(() => {
-      expect(
-        getByText("📡 オフライン - ネットワーク接続を確認してください")
-      ).toBeTruthy();
+      expect(getByText("📡 オフライン - ネットワーク接続を確認")).toBeTruthy();
     });
   });
 

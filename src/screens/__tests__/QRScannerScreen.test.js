@@ -240,7 +240,7 @@ describe("QRScannerScreen", () => {
         <QRScannerScreen navigation={mockNavigation} />
       );
 
-      expect(getByText("[Demo] Skip Scan")).toBeTruthy();
+      expect(getByText("[Demo] Skip")).toBeTruthy();
     });
 
     it("デモ用スキップボタンを押すとレストラン選択モーダルが表示される", () => {
@@ -250,7 +250,7 @@ describe("QRScannerScreen", () => {
         <QRScannerScreen navigation={mockNavigation} />
       );
 
-      fireEvent.press(getByText("[Demo] Skip Scan"));
+      fireEvent.press(getByText("[Demo] Skip"));
 
       // モーダルにレストラン一覧が表示される
       expect(getByText("デモ用レストラン選択")).toBeTruthy();
@@ -266,7 +266,7 @@ describe("QRScannerScreen", () => {
         <QRScannerScreen navigation={mockNavigation} />
       );
 
-      fireEvent.press(getByText("[Demo] Skip Scan"));
+      fireEvent.press(getByText("[Demo] Skip"));
       fireEvent.press(getByText("寿司処 鮨一"));
 
       expect(mockNavigation.navigate).toHaveBeenCalledWith("LanguageSelect", {

@@ -13,12 +13,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS, FONT_SIZES } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
+import { useResponsive } from "../hooks/useResponsive";
 import { CartContext } from "../context/CartContext";
 import { createOrder } from "../services/api";
 
 const CartScreen = ({ navigation, route }) => {
   const { restaurantId, tableId, restaurant, table } = route.params;
   const { currentLanguage, translationMode } = useLanguage();
+  const { isSmallScreen, isVerySmallScreen, scaleSize } = useResponsive();
   const {
     items,
     updateQuantity,
@@ -166,19 +168,45 @@ const CartScreen = ({ navigation, route }) => {
     }
   };
 
+  // レスポンシブなサイズ計算
+  const imageSize = scaleSize(60, 48, 70);
+  const quantityButtonSize = scaleSize(28, 24, 32);
+  const removeButtonSize = scaleSize(36, 30, 40);
+
   // カートアイテムをレンダリング
   const renderCartItem = ({ item }) => (
-    <View style={styles.cartItem}>
+    <View style={[styles.cartItem, isVerySmallScreen && styles.cartItemSmall]}>
+      {/* 画像 */}
       {item.image_url ? (
-        <Image source={{ uri: item.image_url }} style={styles.itemImage} />
+        <Image
+          source={{ uri: item.image_url }}
+          style={[styles.itemImage, { width: imageSize, height: imageSize }]}
+        />
       ) : (
-        <View style={[styles.itemImage, styles.imagePlaceholder]}>
-          <Text style={styles.placeholderText}>🍽️</Text>
+        <View
+          style={[
+            styles.itemImage,
+            styles.imagePlaceholder,
+            { width: imageSize, height: imageSize },
+          ]}
+        >
+          <Text
+            style={[
+              styles.placeholderText,
+              { fontSize: scaleSize(24, 18, 28) },
+            ]}
+          >
+            🍽️
+          </Text>
         </View>
       )}
 
+      {/* 商品情報 */}
       <View style={styles.itemInfo}>
-        <Text style={styles.itemName} numberOfLines={2}>
+        <Text
+          style={[styles.itemName, isSmallScreen && styles.itemNameSmall]}
+          numberOfLines={2}
+        >
           {getItemDisplayName(item)}
         </Text>
         {item.notes && (
@@ -188,33 +216,81 @@ const CartScreen = ({ navigation, route }) => {
         )}
       </View>
 
+      {/* 数量コントロール */}
       <View style={styles.quantityControl}>
         <TouchableOpacity
-          style={styles.quantityButton}
+          style={[
+            styles.quantityButton,
+            {
+              width: quantityButtonSize,
+              height: quantityButtonSize,
+              borderRadius: quantityButtonSize / 2,
+            },
+          ]}
           onPress={() => handleQuantityChange(item, -1)}
         >
-          <Text style={styles.quantityButtonText}>−</Text>
+          <Text
+            style={[
+              styles.quantityButtonText,
+              { fontSize: scaleSize(18, 14, 20) },
+            ]}
+          >
+            −
+          </Text>
         </TouchableOpacity>
 
-        <Text style={styles.quantityText}>{item.quantity}</Text>
+        <Text
+          style={[
+            styles.quantityText,
+            isSmallScreen && styles.quantityTextSmall,
+          ]}
+        >
+          {item.quantity}
+        </Text>
 
         <TouchableOpacity
-          style={styles.quantityButton}
+          style={[
+            styles.quantityButton,
+            {
+              width: quantityButtonSize,
+              height: quantityButtonSize,
+              borderRadius: quantityButtonSize / 2,
+            },
+          ]}
           onPress={() => handleQuantityChange(item, 1)}
         >
-          <Text style={styles.quantityButtonText}>+</Text>
+          <Text
+            style={[
+              styles.quantityButtonText,
+              { fontSize: scaleSize(18, 14, 20) },
+            ]}
+          >
+            +
+          </Text>
         </TouchableOpacity>
       </View>
 
+      {/* 削除ボタン */}
       <TouchableOpacity
-        style={styles.removeButton}
+        style={[
+          styles.removeButton,
+          {
+            width: removeButtonSize,
+            height: removeButtonSize,
+            borderRadius: removeButtonSize / 2,
+          },
+        ]}
         onPress={() => {
           console.log("Delete button pressed!");
           handleRemoveItem(item);
         }}
         activeOpacity={0.7}
       >
-        <Text style={styles.removeButtonText}>×</Text>
+        <Text
+          style={[styles.removeButtonText, { fontSize: scaleSize(22, 18, 24) }]}
+        >
+          ×
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -224,8 +300,12 @@ const CartScreen = ({ navigation, route }) => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>🛒</Text>
-          <Text style={styles.emptyTitle}>
+          <Text style={[styles.emptyIcon, { fontSize: scaleSize(80, 60, 80) }]}>
+            🛒
+          </Text>
+          <Text
+            style={[styles.emptyTitle, isSmallScreen && styles.emptyTitleSmall]}
+          >
             {t("カートは空です", "Cart is empty", "购物车是空的")}
           </Text>
           <Text style={styles.emptySubtitle}>
@@ -260,7 +340,12 @@ const CartScreen = ({ navigation, route }) => {
             <Text style={styles.headerBackButtonText}>←</Text>
           </TouchableOpacity>
           <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>
+            <Text
+              style={[
+                styles.headerTitle,
+                isSmallScreen && styles.headerTitleSmall,
+              ]}
+            >
               {t("カート", "Cart", "购物车")}
             </Text>
             <Text style={styles.headerSubtitle}>
@@ -275,11 +360,19 @@ const CartScreen = ({ navigation, route }) => {
         data={items}
         renderItem={renderCartItem}
         keyExtractor={(item, index) => `${item.id}-${item.notes}-${index}`}
-        contentContainerStyle={styles.cartList}
+        contentContainerStyle={[
+          styles.cartList,
+          isSmallScreen && styles.cartListSmall,
+        ]}
       />
 
       {/* 注文ボタンエリア */}
-      <View style={styles.summaryContainer}>
+      <View
+        style={[
+          styles.summaryContainer,
+          isSmallScreen && styles.summaryContainerSmall,
+        ]}
+      >
         <TouchableOpacity
           style={[
             styles.submitButton,
@@ -291,7 +384,12 @@ const CartScreen = ({ navigation, route }) => {
           {isSubmitting ? (
             <ActivityIndicator color={COLORS.surface} />
           ) : (
-            <Text style={styles.submitButtonText}>
+            <Text
+              style={[
+                styles.submitButtonText,
+                isSmallScreen && styles.submitButtonTextSmall,
+              ]}
+            >
               {t("注文を確定する", "Place Order", "确认订单")}
             </Text>
           )}
@@ -335,6 +433,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: COLORS.surface,
   },
+  headerTitleSmall: {
+    fontSize: FONT_SIZES.lg,
+  },
   headerSubtitle: {
     fontSize: FONT_SIZES.md,
     color: COLORS.surface,
@@ -342,6 +443,9 @@ const styles = StyleSheet.create({
   },
   cartList: {
     padding: 15,
+  },
+  cartListSmall: {
+    padding: 10,
   },
   cartItem: {
     flexDirection: "row",
@@ -356,9 +460,11 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  cartItemSmall: {
+    padding: 8,
+    marginBottom: 8,
+  },
   itemImage: {
-    width: 60,
-    height: 60,
     borderRadius: 8,
   },
   imagePlaceholder: {
@@ -371,12 +477,16 @@ const styles = StyleSheet.create({
   },
   itemInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 10,
+    marginRight: 5,
   },
   itemName: {
     fontSize: FONT_SIZES.md,
     fontWeight: "bold",
     color: COLORS.text,
+  },
+  itemNameSmall: {
+    fontSize: FONT_SIZES.sm,
   },
   itemNotes: {
     fontSize: FONT_SIZES.xs,
@@ -386,18 +496,13 @@ const styles = StyleSheet.create({
   quantityControl: {
     flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: 10,
   },
   quantityButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
     backgroundColor: COLORS.background,
     justifyContent: "center",
     alignItems: "center",
   },
   quantityButtonText: {
-    fontSize: FONT_SIZES.lg,
     color: COLORS.primary,
     fontWeight: "bold",
   },
@@ -405,21 +510,21 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     fontWeight: "bold",
     color: COLORS.text,
-    marginHorizontal: 10,
+    marginHorizontal: 8,
     minWidth: 20,
     textAlign: "center",
   },
+  quantityTextSmall: {
+    marginHorizontal: 5,
+    fontSize: FONT_SIZES.sm,
+  },
   removeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
     backgroundColor: "#FFE5E5",
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 8,
+    marginLeft: 6,
   },
   removeButtonText: {
-    fontSize: 22,
     color: "#FF6B6B",
     fontWeight: "bold",
     lineHeight: 24,
@@ -430,12 +535,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },
+  summaryContainerSmall: {
+    padding: 15,
+  },
   submitButton: {
     backgroundColor: COLORS.primary,
     borderRadius: 25,
     padding: 15,
     alignItems: "center",
-    marginTop: 15,
   },
   submitButtonDisabled: {
     opacity: 0.7,
@@ -445,6 +552,9 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.lg,
     fontWeight: "bold",
   },
+  submitButtonTextSmall: {
+    fontSize: FONT_SIZES.md,
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
@@ -452,7 +562,6 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   emptyIcon: {
-    fontSize: 80,
     marginBottom: 20,
   },
   emptyTitle: {
@@ -460,6 +569,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: COLORS.text,
     marginBottom: 10,
+  },
+  emptyTitleSmall: {
+    fontSize: FONT_SIZES.xl,
   },
   emptySubtitle: {
     fontSize: FONT_SIZES.md,
