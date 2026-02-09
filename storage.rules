@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // メニュー画像: 公開読み取り可、クライアント書き込み不可
+    match /menu_images/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // デフォルト: すべて拒否
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
