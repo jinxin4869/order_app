@@ -72,10 +72,10 @@ const findSpecializedTerms = async (text) => {
   const foundTerms = [];
   const seenTerms = new Set();
 
-  // 1. 形態素解析で専門用語候補を抽出
+  // 形態素解析で専門用語候補を抽出
   const candidates = await morphological.extractSpecializedTermCandidates(text);
 
-  // 2. 辞書と照合（完全一致）
+  // 辞書と照合（完全一致）
   dictionary.forEach((entry) => {
     if (text.includes(entry.term_ja)) {
       foundTerms.push({
@@ -86,7 +86,7 @@ const findSpecializedTerms = async (text) => {
     }
   });
 
-  // 3. 形態素解析の候補と辞書を照合（部分一致）
+  // 形態素解析の候補と辞書を照合（部分一致）
   candidates.forEach((candidate) => {
     dictionary.forEach((entry) => {
       if (seenTerms.has(entry.term_ja)) return;
@@ -105,7 +105,7 @@ const findSpecializedTerms = async (text) => {
     });
   });
 
-  // 4. 類義語検出（表記揺れを検出）
+  // 類義語検出（表記揺れを検出）
   candidates.forEach((candidate) => {
     const synonymMatches = synonyms.findSynonyms(candidate.term, dictionary, {
       maxResults: 5,
