@@ -19,7 +19,8 @@
     "check": "npm run lint && npm run lint --prefix functions && npm run test:all",
     "test:rules": "node test/run-rules.cjs",
     "build:web:test": "node test/build-web.cjs",
-    "test:web": "npm run build:web:test && node test/web.smoke.cjs"
+    "test:web": "npm run build:web:test && node test/web.smoke.cjs",
+    "test:demo": "node test/run-rules.cjs --demo"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

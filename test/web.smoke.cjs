@@ -253,6 +253,10 @@ const server = http.createServer((req, res) => {
         calls.filter((call) => call.name === "getMenuWithTranslation").length,
         2
       );
+      await page.screenshot({
+        path: path.join(artifacts, `order-app-menu-${viewport.width}.png`),
+        fullPage: true,
+      });
       await page.getByText("テスト料理", { exact: true }).click();
       await page.getByText("カートに追加", { exact: true }).click();
       await page.getByText("🛒 カートを見る", { exact: true }).click();
@@ -303,6 +307,13 @@ const server = http.createServer((req, res) => {
         await page.getByText("Test dish (dictionary)", { exact: true }).count(),
         0
       );
+      await page.screenshot({
+        path: path.join(
+          artifacts,
+          `order-app-translation-${viewport.width}.png`
+        ),
+        fullPage: true,
+      });
       await page
         .getByRole("button", { name: "DeepL + Dict", exact: true })
         .click();
