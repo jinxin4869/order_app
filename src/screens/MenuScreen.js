@@ -1,5 +1,5 @@
 // メニュー画面
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -14,18 +14,16 @@ import { COLORS, FONT_SIZES, ALLERGENS } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { useResponsive } from "../hooks/useResponsive";
+import {
+  translationField,
+  translationStatusLabel,
+} from "../utils/translationDisplay";
 import { getMenuWithTranslation } from "../services/api";
 
-const MenuScreen = ({ navigation, route }) => {
+const RestaurantMenu = ({ navigation, route }) => {
   const { restaurantId, tableId, restaurant, table } = route.params;
-  const {
-    currentLanguage,
-    getItemName,
-    getItemDescription,
-    getCategoryName,
-    translationMode,
-    setTranslationMode,
-  } = useLanguage();
+  const { currentLanguage, translationMode, setTranslationMode } =
+    useLanguage();
   const { isOnline } = useNetworkStatus();
   const { isSmallScreen, isVerySmallScreen, scaleSize } = useResponsive();
 
@@ -36,54 +34,60 @@ const MenuScreen = ({ navigation, route }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  // メニューを読み込み
+  const requestVersion = useRef(0);
+  // The API returns every language; category and language switches are local.
   const loadMenu = useCallback(
     async (showRefresh = false) => {
-      console.log(
-        `Loading menu for restaurant: ${restaurantId}, lang: ${currentLanguage}`
-      );
+      const request = ++requestVersion.current;
+      if (showRefresh) setIsRefreshing(true);
+      else setIsLoading(true);
+      setError(null);
       try {
-        if (showRefresh) {
-          setIsRefreshing(true);
-        } else {
-          setIsLoading(true);
-        }
-        setError(null);
-
-        const result = await getMenuWithTranslation(
-          restaurantId,
-          currentLanguage
-        );
-
-        console.log(
-          "Menu loaded successfully:",
-          result.categories?.length,
-          "categories"
-        );
-
-        setCategories(result.categories || []);
+        const result = await getMenuWithTranslation(restaurantId);
+        if (request !== requestVersion.current) return;
+        const nextCategories = result.categories || [];
+        setCategories(nextCategories);
         setMenuItems(result.items || []);
-
-        if (result.categories?.length > 0 && !selectedCategory) {
-          setSelectedCategory(result.categories[0].id);
-        }
-      } catch (err) {
-        console.error("Menu load error:", err);
-        const errorMessage =
-          err.message ||
-          "メニューの読み込みに失敗しました\nFailed to load menu\n菜单加载失败";
-        setError(errorMessage);
+        setSelectedCategory((previous) =>
+          nextCategories.some((category) => category.id === previous)
+            ? previous
+            : nextCategories[0]?.id || null
+        );
+      } catch (failure) {
+        if (request === requestVersion.current)
+          setError(
+            failure.message ||
+              "メニューの読み込みに失敗しました / Failed to load menu / 菜单加载失败"
+          );
       } finally {
-        setIsLoading(false);
-        setIsRefreshing(false);
+        if (request === requestVersion.current) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
       }
     },
-    [restaurantId, currentLanguage, selectedCategory]
+    [restaurantId]
   );
-
   useEffect(() => {
     loadMenu();
+    const version = requestVersion;
+    return () => {
+      version.current++;
+    };
   }, [loadMenu]);
+
+  const fieldState = (entity, field) =>
+    translationField(entity, field, currentLanguage, translationMode);
+  const fieldLabel = (entity, field) => {
+    const state = fieldState(entity, field);
+    return state.text
+      ? translationStatusLabel(state.status, currentLanguage)
+      : "";
+  };
+  const renderTranslationStatus = (entity, field) => {
+    const label = fieldLabel(entity, field);
+    return label ? <Text style={styles.provenance}>{label}</Text> : null;
+  };
 
   // カテゴリでフィルタリングされたメニュー
   const filteredItems = menuItems.filter(
@@ -111,7 +115,8 @@ const MenuScreen = ({ navigation, route }) => {
 
   // レスポンシブなサイズ
   const itemImageSize = scaleSize(100, 70, 110);
-  const categoryTabHeight = scaleSize(80, 65, 85);
+  const categoryTabHeight =
+    currentLanguage === "ja" ? scaleSize(80, 65, 85) : scaleSize(92, 90, 96);
 
   // カテゴリタブをレンダリング
   const renderCategoryTab = ({ item }) => (
@@ -123,21 +128,40 @@ const MenuScreen = ({ navigation, route }) => {
       ]}
       onPress={() => setSelectedCategory(item.id)}
     >
-      <Text
-        style={[styles.categoryIcon, isSmallScreen && styles.categoryIconSmall]}
+      <View
+        style={{ flexDirection: "row", alignItems: "center", maxWidth: "100%" }}
       >
-        {item.icon || "🍽️"}
-      </Text>
-      <Text
-        style={[
-          styles.categoryText,
-          selectedCategory === item.id && styles.categoryTextActive,
-          isSmallScreen && styles.categoryTextSmall,
-        ]}
-        numberOfLines={1}
-      >
-        {getCategoryName(item)}
-      </Text>
+        <Text
+          style={[
+            styles.categoryIcon,
+            isSmallScreen && styles.categoryIconSmall,
+          ]}
+        >
+          {item.icon || "🍽️"}
+        </Text>
+        <Text
+          style={[
+            styles.categoryText,
+            selectedCategory === item.id && styles.categoryTextActive,
+            isSmallScreen && styles.categoryTextSmall,
+          ]}
+          numberOfLines={1}
+        >
+          {fieldState(item, "name").text}
+        </Text>
+      </View>
+      {!!fieldLabel(item, "name") && (
+        <Text
+          style={[
+            styles.categoryProvenance,
+            selectedCategory === item.id && { color: COLORS.surface },
+          ]}
+        >
+          {currentLanguage === "zh"
+            ? "日文参考・不可比较"
+            : "Japanese reference"}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 
@@ -180,7 +204,7 @@ const MenuScreen = ({ navigation, route }) => {
             style={[styles.itemName, isSmallScreen && styles.itemNameSmall]}
             numberOfLines={2}
           >
-            {getItemName(item)}
+            {fieldState(item, "name").text}
           </Text>
           {item.is_popular && (
             <View
@@ -205,6 +229,7 @@ const MenuScreen = ({ navigation, route }) => {
           )}
         </View>
 
+        {renderTranslationStatus(item, "name")}
         <Text
           style={[
             styles.itemDescription,
@@ -212,9 +237,10 @@ const MenuScreen = ({ navigation, route }) => {
           ]}
           numberOfLines={2}
         >
-          {getItemDescription(item)}
+          {fieldState(item, "description").text}
         </Text>
 
+        {renderTranslationStatus(item, "description")}
         {/* アレルゲン表示 */}
         {item.allergens?.length > 0 && (
           <View style={styles.allergenContainer}>
@@ -300,6 +326,29 @@ const MenuScreen = ({ navigation, route }) => {
               Table {table?.table_number || tableId}
             </Text>
           </View>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityState={{ disabled: isRefreshing }}
+            disabled={isRefreshing}
+            onPress={() => loadMenu(true)}
+            style={{
+              minWidth: 44,
+              minHeight: 44,
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: 12,
+            }}
+          >
+            <Text style={{ color: COLORS.surface, fontSize: 16 }}>
+              {isRefreshing
+                ? "…"
+                : currentLanguage === "en"
+                  ? "Refresh"
+                  : currentLanguage === "zh"
+                    ? "刷新"
+                    : "更新"}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -395,7 +444,14 @@ const MenuScreen = ({ navigation, route }) => {
         keyExtractor={(item) => item.id}
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={[styles.categoryList, { height: categoryTabHeight }]}
+        style={[
+          styles.categoryList,
+          {
+            height: categoryTabHeight,
+            maxHeight: categoryTabHeight,
+            flexBasis: categoryTabHeight,
+          },
+        ]}
         contentContainerStyle={styles.categoryListContent}
       />
 
@@ -463,7 +519,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   header: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#B71C1C",
     padding: 15,
     paddingTop: 50,
   },
@@ -539,8 +595,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.background,
   },
   translationModeButtonActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: "#B71C1C",
+    borderColor: "#B71C1C",
   },
   translationModeText: {
     fontSize: FONT_SIZES.sm,
@@ -556,19 +612,35 @@ const styles = StyleSheet.create({
   },
   categoryList: {
     backgroundColor: COLORS.surface,
+    flexGrow: 0,
     flexShrink: 0,
   },
   categoryListContent: {
     paddingHorizontal: 10,
     paddingVertical: 10,
   },
+  provenance: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#666666",
+    marginBottom: 6,
+    flexShrink: 1,
+  },
+  categoryProvenance: {
+    fontSize: 11,
+    lineHeight: 15,
+    color: "#333333",
+    maxWidth: 170,
+    textAlign: "center",
+  },
   categoryTab: {
+    maxWidth: 200,
     paddingHorizontal: 15,
     paddingVertical: 10,
     marginHorizontal: 5,
     borderRadius: 20,
     backgroundColor: COLORS.background,
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     minHeight: 44,
@@ -579,7 +651,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 3,
   },
   categoryTabActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#B71C1C",
   },
   categoryIcon: {
     fontSize: 18,
@@ -590,6 +662,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   categoryText: {
+    flexShrink: 1,
     fontSize: FONT_SIZES.sm,
     color: COLORS.text,
     textAlign: "center",
@@ -650,7 +723,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
   },
   popularBadge: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#B71C1C",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
@@ -699,7 +772,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 20,
     right: 20,
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#B71C1C",
     padding: 15,
     borderRadius: 25,
     alignItems: "center",
@@ -739,7 +812,7 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     marginTop: 20,
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#B71C1C",
     paddingHorizontal: 30,
     paddingVertical: 12,
     borderRadius: 20,
@@ -760,4 +833,8 @@ const styles = StyleSheet.create({
   },
 });
 
+// Keying by store discards the previous catalog before the new store renders.
+const MenuScreen = (props) => (
+  <RestaurantMenu key={props.route.params.restaurantId} {...props} />
+);
 export default MenuScreen;

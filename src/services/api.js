@@ -130,7 +130,7 @@ export const getStaffOrder = async (orderId) => {
  * @param {string} language - 言語コード
  * @returns {Promise<{categories: Array, items: Array}>}
  */
-export const getMenuWithTranslation = async (restaurantId, language) => {
+export const getMenuWithTranslation = async (restaurantId, language = "ja") => {
   try {
     const getMenuFunction = httpsCallable(functions, "getMenuWithTranslation");
     const result = await withRetry(

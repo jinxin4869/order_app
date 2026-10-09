@@ -30,14 +30,8 @@ export const translationField = (
   return { text, status: metadata.status };
 };
 
-export const translationDisplay = (
-  entity,
-  field,
-  language,
-  mode = "dictionary"
-) => {
-  const { text, status } = translationField(entity, field, language, mode);
-  if (!text || ["original", "ready"].includes(status)) return text;
+export const translationStatusLabel = (status, language) => {
+  if (["original", "ready"].includes(status)) return "";
   const labels = {
     en: {
       missing: "Translation unavailable; Japanese original",
@@ -52,5 +46,15 @@ export const translationDisplay = (
       partial: "含原文的参考翻译；不可比较",
     },
   };
-  return `${text} [${labels[language]?.[status] || "原文を含む参考表示・比較不可"}]`;
+  return labels[language]?.[status] || "原文を含む参考表示・比較不可";
+};
+export const translationDisplay = (
+  entity,
+  field,
+  language,
+  mode = "dictionary"
+) => {
+  const { text, status } = translationField(entity, field, language, mode);
+  const label = translationStatusLabel(status, language);
+  return text && label ? `${text} [${label}]` : text;
 };

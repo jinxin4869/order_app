@@ -4,6 +4,7 @@ const { tmpdir } = require("node:os");
 const { join, resolve } = require("node:path");
 
 // A fresh CLI config prevents tests from using a developer's Firebase login.
+const demo = process.argv.includes("--demo");
 const config = mkdtempSync(join(tmpdir(), "order-app-test-config-"));
 const result = spawnSync(
   process.execPath,
@@ -13,10 +14,12 @@ const result = spawnSync(
     "--project",
     "demo-order-app",
     "--config",
-    "firebase.test.json",
+    demo ? "firebase.demo.json" : "firebase.test.json",
     "--only",
-    "firestore",
-    "node test/firestore.rules.test.cjs",
+    demo ? "firestore,auth" : "firestore",
+    demo
+      ? "node scripts/seed-demo.cjs --verify"
+      : "node test/firestore.rules.test.cjs",
   ],
   {
     cwd: resolve(__dirname, ".."),
