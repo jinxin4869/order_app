@@ -354,3 +354,63 @@ test("kana variants apply only to an actual matched span", async () => {
       .translatedText
   ).toBe("Ramen");
 });
+test("both-mode generation covers categories, names and descriptions with separate provenance and caches", async () => {
+  dictionary();
+  mockTranslate.mockImplementation(async (input, source, lang, options) => ({
+    text: options.ignoreTags ? input : "Plain API result",
+  }));
+  mockDb.seed("restaurants/rest-test", { is_active: true });
+  for (const collection of ["menu_items", "menu_categories"])
+    mockDb.seed(`restaurants/rest-test/${collection}/entry`, {
+      name_ja: "親子丼",
+      description_ja: "親子丼",
+      is_available: true,
+    });
+  const result = await api.batchTranslateMenu({
+    auth: staff(),
+    data: {
+      restaurantId: "rest-test",
+      targetLang: "en",
+      generateBothModes: true,
+    },
+  });
+  expect(result.count).toBe(2);
+  expect(mockTranslate).toHaveBeenCalledTimes(2);
+  const menu = await require("../menu").getMenuWithTranslation({
+    data: { restaurantId: "rest-test" },
+  });
+  for (const record of [...menu.categories, ...menu.items])
+    for (const field of ["name", "description"]) {
+      expect(record[`${field}_en`]).toBe("Oyakodon");
+      expect(record[`${field}_en_nodic`]).toBe("Plain API result");
+      expect(record[`${field}_en_translation`]).toMatchObject({
+        mode: "dictionary",
+        status: "ready",
+        usedDictionary: true,
+        sourceText: "親子丼",
+      });
+      expect(record[`${field}_en_nodic_translation`]).toMatchObject({
+        mode: "deepl_only",
+        status: "ready",
+        usedDictionary: false,
+        sourceText: "親子丼",
+      });
+    }
+});
+test("menu API never fills absent no-dictionary fields with hybrid values", async () => {
+  mockDb.seed("restaurants/rest-test", { is_active: true });
+  for (const collection of ["menu_items", "menu_categories"])
+    mockDb.seed(`restaurants/rest-test/${collection}/entry`, {
+      name_ja: "原文",
+      name_en: "Hybrid only",
+      description_en: "Hybrid description",
+      is_available: true,
+    });
+  const menu = await require("../menu").getMenuWithTranslation({
+    data: { restaurantId: "rest-test" },
+  });
+  for (const record of [...menu.categories, ...menu.items]) {
+    expect(record.name_en_nodic).toBe("");
+    expect(record.description_en_nodic).toBe("");
+  }
+});

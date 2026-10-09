@@ -10,6 +10,16 @@ const admin = require("firebase-admin");
 const { parseQRCode } = require("../utils/qr");
 
 const db = admin.firestore();
+const translationMetadata = (data) => {
+  const metadata = {};
+  for (const field of ["name", "description"])
+    for (const lang of ["en", "zh"])
+      for (const suffix of ["", "_nodic"]) {
+        const key = `${field}_${lang}${suffix}_translation`;
+        if (data[key]) metadata[key] = data[key];
+      }
+  return metadata;
+};
 
 /**
  * メニューを取得（翻訳付き）
@@ -74,18 +84,17 @@ exports.getMenuWithTranslation = onCall(
           const data = doc.data();
           return {
             id: doc.id,
+            ...translationMetadata(data),
             name_ja: data.name_ja,
-            name_en: data.name_en || data.name_ja,
-            name_zh: data.name_zh || data.name_ja,
-            name_en_nodic: data.name_en_nodic || data.name_en || data.name_ja,
-            name_zh_nodic: data.name_zh_nodic || data.name_zh || data.name_ja,
+            name_en: data.name_en || "",
+            name_zh: data.name_zh || "",
+            name_en_nodic: data.name_en_nodic || "",
+            name_zh_nodic: data.name_zh_nodic || "",
             description_ja: data.description_ja,
             description_en: data.description_en,
             description_zh: data.description_zh,
-            description_en_nodic:
-              data.description_en_nodic || data.description_en,
-            description_zh_nodic:
-              data.description_zh_nodic || data.description_zh,
+            description_en_nodic: data.description_en_nodic || "",
+            description_zh_nodic: data.description_zh_nodic || "",
             icon: data.icon,
             order: data.order || 0,
           };
@@ -115,18 +124,17 @@ exports.getMenuWithTranslation = onCall(
           return {
             id: doc.id,
             category_id: data.category_id,
+            ...translationMetadata(data),
             name_ja: data.name_ja,
-            name_en: data.name_en || data.name_ja,
-            name_zh: data.name_zh || data.name_ja,
-            name_en_nodic: data.name_en_nodic || data.name_en || data.name_ja,
-            name_zh_nodic: data.name_zh_nodic || data.name_zh || data.name_ja,
+            name_en: data.name_en || "",
+            name_zh: data.name_zh || "",
+            name_en_nodic: data.name_en_nodic || "",
+            name_zh_nodic: data.name_zh_nodic || "",
             description_ja: data.description_ja,
             description_en: data.description_en,
             description_zh: data.description_zh,
-            description_en_nodic:
-              data.description_en_nodic || data.description_en,
-            description_zh_nodic:
-              data.description_zh_nodic || data.description_zh,
+            description_en_nodic: data.description_en_nodic || "",
+            description_zh_nodic: data.description_zh_nodic || "",
             price: data.price,
             image_url: data.image_url,
             allergens: data.allergens || [],

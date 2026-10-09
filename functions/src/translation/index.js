@@ -425,14 +425,20 @@ exports.batchTranslateMenu = onCall(
       throw new HttpsError("invalid-argument", "翻訳条件が不正です");
     requireDeepLKey();
 
-    const menuSnapshot = await db
-      .collection("restaurants")
-      .doc(restaurantId)
-      .collection("menu_items")
-      .get();
+    const storeRef = db.collection("restaurants").doc(restaurantId);
+    const [menuSnapshot, categorySnapshot] = await Promise.all([
+      storeRef.collection("menu_items").get(),
+      storeRef.collection("menu_categories").get(),
+    ]);
+    const documents = [...menuSnapshot.docs, ...categorySnapshot.docs];
+    if (documents.length > 450)
+      throw new HttpsError(
+        "resource-exhausted",
+        "一括翻訳は料理・カテゴリ合計450件以下で実行してください"
+      );
     const batch = db.batch();
     const results = [];
-    for (const doc of menuSnapshot.docs) {
+    for (const doc of documents) {
       const menuItem = doc.data();
       const updateData = {};
       for (const field of ["name", "description"]) {
@@ -441,10 +447,26 @@ exports.batchTranslateMenu = onCall(
         for (const useDictionary of generateBothModes
           ? [true, false]
           : [true]) {
-          const result = await translate(source, targetLang, useDictionary);
+          let result;
+          try {
+            result = await translate(source, targetLang, useDictionary);
+          } catch (error) {
+            if (error instanceof HttpsError)
+              throw new HttpsError(error.code, error.message, {
+                ...error.details,
+                field,
+                mode: useDictionary ? "dictionary" : "deepl_only",
+                documentPath: doc.ref.path,
+                status: "failed",
+              });
+            throw new HttpsError("internal", "翻訳処理に失敗しました");
+          }
           const key = `${field}_${targetLang}${useDictionary ? "" : "_nodic"}`;
           updateData[key] = result.translatedText;
           updateData[`${key}_translation`] = {
+            schemaVersion: 1,
+            sourceText: source,
+            mode: useDictionary ? "dictionary" : "deepl_only",
             method: result.method,
             status: result.status,
             usedDictionary: result.usedDictionary,

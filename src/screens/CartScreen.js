@@ -14,6 +14,7 @@ import { COLORS, FONT_SIZES, MAX_ORDER_QUANTITY } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
 import { useResponsive } from "../hooks/useResponsive";
 import { CartContext } from "../context/CartContext";
+import { translationDisplay } from "../utils/translationDisplay";
 import { createOrder } from "../services/api";
 import { showAlert } from "../utils/dialogs";
 
@@ -45,22 +46,8 @@ const CartScreen = ({ navigation, route }) => {
   };
 
   // カートアイテムの名前を現在の言語で取得
-  const getItemDisplayName = (item) => {
-    if (currentLanguage === "ja") {
-      return item.name_ja || item.name;
-    }
-    if (translationMode === "deepl_only") {
-      const nodicKey = `name_${currentLanguage}_nodic`;
-      if (item[nodicKey]) return item[nodicKey];
-    }
-    if (currentLanguage === "zh" && item.name_zh) {
-      return item.name_zh;
-    }
-    if (currentLanguage === "en" && item.name_en) {
-      return item.name_en;
-    }
-    return item.name_ja || item.name;
-  };
+  const getItemDisplayName = (item) =>
+    translationDisplay(item, "name", currentLanguage, translationMode);
 
   // 数量変更
   const handleQuantityChange = (item, delta) => {
