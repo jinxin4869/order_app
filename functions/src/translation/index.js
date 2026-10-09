@@ -154,7 +154,10 @@ const checkCache = async (sourceText, targetLang) => {
       const cacheData = cacheDoc.data();
 
       // 有効期限チェック
-      if (cacheData.expires_at && cacheData.expires_at.toDate() > new Date()) {
+      const expiry = cacheData.expires_at?.toDate
+        ? cacheData.expires_at.toDate()
+        : cacheData.expires_at;
+      if (expiry instanceof Date && expiry > new Date()) {
         // ヒットカウントを更新
         await db
           .collection("translation_cache")
@@ -164,7 +167,13 @@ const checkCache = async (sourceText, targetLang) => {
             last_accessed_at: admin.firestore.FieldValue.serverTimestamp(),
           });
 
-        return cacheData.translated_text;
+        return {
+          translatedText: cacheData.translated_text,
+          method: cacheData.translation_method,
+          status: cacheData.status || "ready",
+          foundTermsCount: cacheData.found_terms_count || 0,
+          usedDictionary: cacheData.used_dictionary === true,
+        };
       }
     }
   } catch (error) {
@@ -182,7 +191,7 @@ const checkCache = async (sourceText, targetLang) => {
  * @param {string} method - 翻訳方法
  * @return {Promise<void>}
  */
-const saveToCache = async (sourceText, targetLang, translatedText, method) => {
+const saveToCache = async (sourceText, targetLang, result) => {
   const cacheId = generateCacheId(sourceText, targetLang);
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 30); // 30日後
@@ -192,8 +201,11 @@ const saveToCache = async (sourceText, targetLang, translatedText, method) => {
       source_text: sourceText,
       source_lang: "ja",
       target_lang: targetLang,
-      translated_text: translatedText,
-      translation_method: method,
+      translated_text: result.translatedText,
+      translation_method: result.method,
+      status: result.status,
+      found_terms_count: result.foundTermsCount,
+      used_dictionary: result.usedDictionary,
       hit_count: 0,
       expires_at: expiresAt,
       created_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -293,131 +305,88 @@ const translateWithDictionaryOnly = async (text, targetLang) => {
   return translatedText !== text ? translatedText : null;
 };
 
-// ===== Cloud Functions =====
+// Single and batch requests deliberately share validation, bypasses and metadata.
+const validateTranslation = (text, targetLang, useDictionary) => {
+  if (typeof text !== "string" || !text.trim() || text.length > 10000)
+    throw new HttpsError(
+      "invalid-argument",
+      "1〜10000文字のテキストが必要です"
+    );
+  if (!["en", "zh"].includes(targetLang))
+    throw new HttpsError("invalid-argument", "サポートされていない言語です");
+  if (typeof useDictionary !== "boolean")
+    throw new HttpsError("invalid-argument", "辞書使用の指定が不正です");
+};
+const translate = async (
+  text,
+  targetLang,
+  useDictionary,
+  allowFallback = false
+) => {
+  validateTranslation(text, targetLang, useDictionary);
+  if (/^[\d\s]+$/.test(text))
+    return {
+      translatedText: text,
+      fromCache: false,
+      method: "passthrough",
+      status: "ready",
+      foundTermsCount: 0,
+      usedDictionary: false,
+    };
 
-/**
- * テキスト翻訳
- *
- * @param {Object} data - {text: string, targetLang: 'en' | 'zh', useDictionary?: boolean}
- * @param {string} data.text - 翻訳対象テキスト
- * @param {string} data.targetLang - 翻訳先言語コード ('en' | 'zh')
- * @param {boolean} [data.useDictionary=true] - 専門用語辞書を使用するかどうか（A/Bテスト用）
- * @returns {Object} - {translatedText: string, fromCache: boolean, method: string}
- */
+  const cacheKey = `v2:${useDictionary ? "dictionary" : "deepl_only"}:${text}`;
+  const cached = await checkCache(cacheKey, targetLang);
+  if (cached) return { ...cached, fromCache: true };
+  const foundTerms = useDictionary ? await findSpecializedTerms(text) : [];
+  let translatedText;
+  let method = useDictionary ? "deepl_api" : "deepl_only";
+  try {
+    translatedText = await translateWithDeepL(text, targetLang);
+  } catch (error) {
+    if (
+      !allowFallback ||
+      !useDictionary ||
+      error.code === "failed-precondition"
+    )
+      throw error;
+    translatedText = await translateWithDictionaryOnly(text, targetLang);
+    if (!translatedText) throw error;
+    return {
+      translatedText,
+      fromCache: false,
+      method: "dictionary_fallback",
+      status: "partial",
+      foundTermsCount: foundTerms.length,
+      usedDictionary: true,
+    };
+  }
+  if (useDictionary && foundTerms.length) {
+    translatedText = postProcessTranslation(
+      translatedText,
+      foundTerms,
+      targetLang
+    );
+    method = "hybrid";
+  }
+  const result = {
+    translatedText,
+    method,
+    status: "ready",
+    foundTermsCount: foundTerms.length,
+    usedDictionary: useDictionary && foundTerms.length > 0,
+  };
+  await saveToCache(cacheKey, targetLang, result);
+  return { ...result, fromCache: false };
+};
+
 exports.translateText = onCall(
-  {
-    region: "asia-northeast1",
-    secrets: ["DEEPL_API_KEY"],
-    memory: "512MiB",
-  },
+  { region: "asia-northeast1", secrets: ["DEEPL_API_KEY"], memory: "512MiB" },
   async (request) => {
-    const { text, targetLang, useDictionary = true } = request.data;
-
-    // バリデーション
-    if (!text || typeof text !== "string") {
-      throw new HttpsError("invalid-argument", "テキストが必要です");
-    }
-
-    if (!["en", "zh"].includes(targetLang)) {
-      throw new HttpsError("invalid-argument", "サポートされていない言語です");
-    }
-
-    // 短いテキストや数字のみの場合はそのまま返す
-    if (text.length <= 2 || /^[\d\s]+$/.test(text)) {
-      return { translatedText: text, fromCache: false };
-    }
-
-    try {
-      // キャッシュキーに辞書使用フラグを含める（A/Bテスト時に別キャッシュとなる）
-      const cacheKey = useDictionary ? text : `__nodic__${text}`;
-
-      // Step 1: キャッシュチェック
-      const cachedTranslation = await checkCache(cacheKey, targetLang);
-      if (cachedTranslation) {
-        return {
-          translatedText: cachedTranslation,
-          fromCache: true,
-          method: useDictionary ? "hybrid_cached" : "deepl_only_cached",
-        };
-      }
-
-      // Step 2: 専門用語を抽出（辞書使用時のみ）
-      const foundTerms = useDictionary ? await findSpecializedTerms(text) : [];
-
-      // Step 3: 翻訳API呼び出し
-      let translatedText;
-      let method = useDictionary ? "deepl_api" : "deepl_only";
-
-      try {
-        translatedText = await translateWithDeepL(text, targetLang);
-      } catch (apiError) {
-        console.error("DeepL API error:", apiError);
-
-        // フォールバック: 辞書のみで翻訳（辞書使用時のみ）
-        if (useDictionary) {
-          translatedText = await translateWithDictionaryOnly(text, targetLang);
-          method = "dictionary_only";
-        }
-
-        if (!translatedText) {
-          // 最終フォールバック: 元のテキストを返す
-          return {
-            translatedText: text,
-            fromCache: false,
-            method: "fallback_original",
-            error: "Translation failed",
-          };
-        }
-      }
-
-      // Step 4: 後処理（辞書ベース補正）- 辞書使用時のみ
-      if (
-        useDictionary &&
-        foundTerms.length > 0 &&
-        method !== "dictionary_only"
-      ) {
-        translatedText = postProcessTranslation(
-          translatedText,
-          foundTerms,
-          targetLang
-        );
-        method = "hybrid";
-      }
-
-      // Step 5: キャッシュ保存
-      await saveToCache(cacheKey, targetLang, translatedText, method);
-
-      return {
-        translatedText,
-        fromCache: false,
-        method,
-        foundTermsCount: foundTerms.length,
-        usedDictionary: useDictionary,
-      };
-    } catch (error) {
-      console.error(
-        `Translation error for text "${text}" to ${targetLang}:`,
-        error
-      );
-
-      if (
-        error instanceof HttpsError ||
-        (error.code && typeof error.code === "string" && error.message)
-      ) {
-        throw error;
-      }
-
-      throw new HttpsError("internal", "翻訳処理中にエラーが発生しました。");
-    }
+    const { text, targetLang, useDictionary = true } = request.data || {};
+    return translate(text, targetLang, useDictionary, true);
   }
 );
 
-/**
- * メニュー一括翻訳（管理者用）
- *
- * @param {Object} data - {restaurantId: string, targetLang: 'en' | 'zh'}
- * @returns {Object} - {count: number, items: Array}
- */
 const {
   requireStaff,
   requireRestaurant,
@@ -432,178 +401,49 @@ exports.batchTranslateMenu = onCall(
       targetLang,
       generateBothModes = false,
     } = request.data || {};
-
-    // バリデーション
-    if (!isDocumentId(restaurantId)) {
+    if (!isDocumentId(restaurantId))
       throw new HttpsError("invalid-argument", "レストランIDが必要です");
-    }
-
     requireRestaurant(staffRestaurantId, restaurantId);
-
-    if (!["en", "zh"].includes(targetLang)) {
-      throw new HttpsError("invalid-argument", "サポートされていない言語です");
-    }
-
+    if (
+      !["en", "zh"].includes(targetLang) ||
+      typeof generateBothModes !== "boolean"
+    )
+      throw new HttpsError("invalid-argument", "翻訳条件が不正です");
     requireDeepLKey();
 
-    try {
-      // メニュー取得
-      const menuSnapshot = await db
-        .collection("restaurants")
-        .doc(restaurantId)
-        .collection("menu_items")
-        .get();
-
-      const batch = db.batch();
-      const results = [];
-
-      for (const doc of menuSnapshot.docs) {
-        const menuItem = doc.data();
-        const updateData = {};
-
-        // 名前を翻訳
-        if (menuItem.name_ja) {
-          // In v2, we need to call the function directly by importing it
-          // For internal calls, we'll create a helper function or call the logic directly
-          const cachedTranslation = await checkCache(
-            menuItem.name_ja,
-            targetLang
-          );
-          let nameTranslation;
-
-          if (cachedTranslation) {
-            nameTranslation = cachedTranslation;
-          } else {
-            const foundTerms = await findSpecializedTerms(menuItem.name_ja);
-
-            nameTranslation = await translateWithDeepL(
-              menuItem.name_ja,
-              targetLang
-            );
-            if (foundTerms.length > 0) {
-              nameTranslation = postProcessTranslation(
-                nameTranslation,
-                foundTerms,
-                targetLang
-              );
-            }
-            await saveToCache(
-              menuItem.name_ja,
-              targetLang,
-              nameTranslation,
-              foundTerms.length > 0 ? "hybrid" : "deepl_api"
-            );
-          }
-          updateData[`name_${targetLang}`] = nameTranslation;
-
-          // 辞書なし翻訳も生成（A/Bテスト用）
-          if (generateBothModes) {
-            const nodicCacheKey = `__nodic__${menuItem.name_ja}`;
-            const cachedNodic = await checkCache(nodicCacheKey, targetLang);
-            if (cachedNodic) {
-              updateData[`name_${targetLang}_nodic`] = cachedNodic;
-            } else {
-              const nodicTranslation = await translateWithDeepL(
-                menuItem.name_ja,
-                targetLang
-              );
-              updateData[`name_${targetLang}_nodic`] = nodicTranslation;
-              await saveToCache(
-                nodicCacheKey,
-                targetLang,
-                nodicTranslation,
-                "deepl_only"
-              );
-            }
-          }
-        }
-
-        // 説明を翻訳
-        if (menuItem.description_ja) {
-          const cachedTranslation = await checkCache(
-            menuItem.description_ja,
-            targetLang
-          );
-          let descTranslation;
-
-          if (cachedTranslation) {
-            descTranslation = cachedTranslation;
-          } else {
-            const foundTerms = await findSpecializedTerms(
-              menuItem.description_ja
-            );
-
-            descTranslation = await translateWithDeepL(
-              menuItem.description_ja,
-              targetLang
-            );
-            if (foundTerms.length > 0) {
-              descTranslation = postProcessTranslation(
-                descTranslation,
-                foundTerms,
-                targetLang
-              );
-            }
-            await saveToCache(
-              menuItem.description_ja,
-              targetLang,
-              descTranslation,
-              foundTerms.length > 0 ? "hybrid" : "deepl_api"
-            );
-          }
-          updateData[`description_${targetLang}`] = descTranslation;
-
-          // 辞書なし翻訳も生成（A/Bテスト用）
-          if (generateBothModes) {
-            const nodicCacheKey = `__nodic__${menuItem.description_ja}`;
-            const cachedNodic = await checkCache(nodicCacheKey, targetLang);
-            if (cachedNodic) {
-              updateData[`description_${targetLang}_nodic`] = cachedNodic;
-            } else {
-              const nodicTranslation = await translateWithDeepL(
-                menuItem.description_ja,
-                targetLang
-              );
-              updateData[`description_${targetLang}_nodic`] = nodicTranslation;
-              await saveToCache(
-                nodicCacheKey,
-                targetLang,
-                nodicTranslation,
-                "deepl_only"
-              );
-            }
-          }
-        }
-
-        if (Object.keys(updateData).length > 0) {
-          batch.update(doc.ref, updateData);
-          results.push({ id: doc.id, ...updateData });
+    const menuSnapshot = await db
+      .collection("restaurants")
+      .doc(restaurantId)
+      .collection("menu_items")
+      .get();
+    const batch = db.batch();
+    const results = [];
+    for (const doc of menuSnapshot.docs) {
+      const menuItem = doc.data();
+      const updateData = {};
+      for (const field of ["name", "description"]) {
+        const source = menuItem[`${field}_ja`];
+        if (!source) continue;
+        for (const useDictionary of generateBothModes
+          ? [true, false]
+          : [true]) {
+          const result = await translate(source, targetLang, useDictionary);
+          const key = `${field}_${targetLang}${useDictionary ? "" : "_nodic"}`;
+          updateData[key] = result.translatedText;
+          updateData[`${key}_translation`] = {
+            method: result.method,
+            status: result.status,
+            usedDictionary: result.usedDictionary,
+            foundTermsCount: result.foundTermsCount,
+          };
         }
       }
-
-      await batch.commit();
-
-      return {
-        count: results.length,
-        items: results,
-      };
-    } catch (error) {
-      console.error(
-        `Batch translation error for restaurant ${restaurantId}:`,
-        error
-      );
-
-      if (
-        error instanceof HttpsError ||
-        (error.code && typeof error.code === "string" && error.message)
-      ) {
-        throw error;
+      if (Object.keys(updateData).length) {
+        batch.update(doc.ref, updateData);
+        results.push({ id: doc.id, ...updateData });
       }
-
-      throw new HttpsError(
-        "internal",
-        "メニューの一括翻訳中にエラーが発生しました。"
-      );
     }
+    await batch.commit();
+    return { count: results.length, items: results };
   }
 );
