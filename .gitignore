@@ -62,12 +62,17 @@ node_modules/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
+# Local configuration and private credentials (including nested directories)
 .env
-.env.local
-.env.development
-.env.production
-.env.sample
+.env.*
+!.env.example
+!.env.sample
+credentials.json
+credentials-*.json
+service-account*.json
+serviceAccount*.json
+*.pem
+*.key
 
 # dataconnect generated files
 .dataconnect
@@ -85,3 +90,6 @@ node_modules/
 # Native build folders (Expo Managed Workflow)
 android/
 ios/
+
+# Generated application output
+dist/
