@@ -238,3 +238,37 @@ test("tampered client totals are rejected even when unit prices match", async ()
   await expect(api.createOrder({ data: order({ subtotal: 0, tax: 0, totalAmount: 0 }) })).rejects.toMatchObject({ code: "invalid-argument", details: { reason: "total_mismatch" } });
   expect(mockDb.writes).toHaveLength(0);
 });
+
+test("a lost response can be retried with the same request ID without another order", async () => {
+  const first = await api.createOrder({ data: order() });
+  const writes = mockDb.writes.length;
+  mockDb.seed("restaurants/rest-test/menu_items/item-test", { price: 9999, is_available: false });
+  const retry = await api.createOrder({ data: order() });
+  expect(retry).toEqual(first);
+  expect(mockDb.writes).toHaveLength(writes);
+  expect([...mockDb.all().keys()].filter(path => path.startsWith("orders/"))).toHaveLength(1);
+});
+test("concurrent duplicate submissions return one order and number", async () => {
+  const results = await Promise.all(Array.from({ length: 12 }, () => api.createOrder({ data: order() })));
+  expect(new Set(results.map(result => result.orderId)).size).toBe(1);
+  expect(new Set(results.map(result => result.orderNumber)).size).toBe(1);
+  expect([...mockDb.all().keys()].filter(path => path.startsWith("orders/"))).toHaveLength(1);
+});
+test("different payloads cannot reuse an existing request ID", async () => {
+  await api.createOrder({ data: order() });
+  const data = order(); data.items[0].notes = "Different notes";
+  await expect(api.createOrder({ data })).rejects.toMatchObject({ code: "already-exists" });
+  expect([...mockDb.all().keys()].filter(path => path.startsWith("orders/"))).toHaveLength(1);
+});
+test("table update failure rolls back order and request records together, then retry succeeds", async () => {
+  mockDb.failNextWrite("restaurants/rest-test/tables/table-test");
+  await expect(api.createOrder({ data: order() })).rejects.toMatchObject({ code: "internal" });
+  expect(mockDb.read("restaurants/rest-test/tables/table-test").status).toBe("available");
+  expect(mockDb.writes).toHaveLength(0);
+  expect([...mockDb.all().keys()].filter(path => /^(orders|order_requests)\//.test(path))).toHaveLength(0);
+  expect((await api.createOrder({ data: order() })).success).toBe(true);
+});
+test("an order must have a request ID", async () => {
+  await expect(api.createOrder({ data: order({ requestId: undefined }) })).rejects.toMatchObject({ code: "invalid-argument" });
+  expect(mockDb.writes).toHaveLength(0);
+});

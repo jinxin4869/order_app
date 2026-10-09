@@ -29,6 +29,7 @@ const CartScreen = ({ navigation, route }) => {
     tax,
     total,
     clearCart,
+    getOrderRequestId,
     isEmpty,
   } = useContext(CartContext);
 
@@ -139,6 +140,8 @@ const CartScreen = ({ navigation, route }) => {
         tax,
         totalAmount: total,
       };
+
+      orderData.requestId = getOrderRequestId(orderData);
 
       const result = await createOrder(orderData);
 

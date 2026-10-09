@@ -3,6 +3,13 @@ const createFirestore = (initial = {}) => {
   let nextId = 0;
   let tail = Promise.resolve();
   const writes = [];
+  const failures = new Map();
+  const failIfRequested = (path) => {
+    if (!failures.has(path)) return;
+    const error = failures.get(path);
+    failures.delete(path);
+    throw error;
+  };
   const snapshot = (ref) => ({
     id: ref.id,
     ref,
@@ -15,10 +22,12 @@ const createFirestore = (initial = {}) => {
     collection: (name) => collection(path + "/" + name),
     get: async () => snapshot(reference(path)),
     set: async (value) => {
+      failIfRequested(path);
       documents.set(path, value);
       writes.push({ path, value });
     },
     update: async (value) => {
+      failIfRequested(path);
       if (!documents.has(path)) throw new Error("Missing document: " + path);
       documents.set(path, { ...documents.get(path), ...value });
       writes.push({ path, value });
@@ -117,6 +126,8 @@ const createFirestore = (initial = {}) => {
     read: (path) => documents.get(path),
     all: () => new Map(documents),
     writes,
+    failNextWrite: (path, error = new Error("Synthetic write failure")) =>
+      failures.set(path, error),
   };
   return db;
 };

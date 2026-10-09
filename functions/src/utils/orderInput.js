@@ -17,8 +17,7 @@ const normalizeOrderInput = (data) => {
   if (!record(data)) fail("注文データはオブジェクトで指定してください。");
   if (!isDocumentId(data.restaurantId) || !isDocumentId(data.tableId))
     fail("店舗・テーブルIDが無効です。");
-  if (data.requestId !== undefined && !isDocumentId(data.requestId))
-    fail("リクエストIDが無効です。");
+  if (!isDocumentId(data.requestId)) fail("リクエストIDが無効です。");
   if (
     !Array.isArray(data.items) ||
     !data.items.length ||

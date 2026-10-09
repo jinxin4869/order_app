@@ -1,6 +1,7 @@
 // カート管理用カスタムフック
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { TAX_RATE } from "../constants";
+import { createRequestId } from "../utils/requestId";
 
 /**
  * カート管理フック
@@ -8,6 +9,14 @@ import { TAX_RATE } from "../constants";
  */
 export const useCart = () => {
   const [items, setItems] = useState([]);
+  const pendingRequest = useRef(null);
+  const getOrderRequestId = useCallback((orderData) => {
+    const signature = JSON.stringify(orderData);
+    if (pendingRequest.current?.signature !== signature) {
+      pendingRequest.current = { signature, id: createRequestId() };
+    }
+    return pendingRequest.current.id;
+  }, []);
 
   // 商品を追加
   const addItem = useCallback((item, quantity = 1, notes = "") => {
@@ -75,6 +84,7 @@ export const useCart = () => {
 
   // カートをクリア
   const clearCart = useCallback(() => {
+    pendingRequest.current = null;
     setItems([]);
   }, []);
 
@@ -109,6 +119,7 @@ export const useCart = () => {
     updateQuantity,
     removeItem,
     clearCart,
+    getOrderRequestId,
     subtotal,
     tax,
     total,

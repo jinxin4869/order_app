@@ -183,7 +183,7 @@ describe("API Service", () => {
         expect.anything(),
         "createOrder"
       );
-      expect(mockFunction).toHaveBeenCalledWith(mockOrderData);
+      expect(mockFunction).toHaveBeenCalledWith(expect.objectContaining({ ...mockOrderData, requestId: expect.any(String) }));
       expect(result).toEqual(mockResult.data);
       expect(result.orderId).toBe("order_123");
       expect(result.orderNumber).toBe("001");
@@ -415,4 +415,13 @@ test("createOrder preserves structured price-change errors for the screen", asyn
   httpsCallable.mockReturnValue(jest.fn().mockRejectedValue(error));
   withRetry.mockImplementation(fn => fn());
   await expect(createOrder({ items: [] })).rejects.toMatchObject({ code: error.code, details: error.details });
+});
+
+test("network retries reuse exactly the same request ID", async () => {
+  const call = jest.fn().mockRejectedValueOnce(new Error("Network error")).mockResolvedValueOnce({ data: { orderId: "order-test" } });
+  httpsCallable.mockReturnValue(call);
+  withRetry.mockImplementation(fn => fn().catch(() => fn()));
+  await createOrder({ restaurantId: "rest-test", tableId: "table-test", items: [] });
+  expect(call).toHaveBeenCalledTimes(2);
+  expect(call.mock.calls[0][0].requestId).toBe(call.mock.calls[1][0].requestId);
 });
