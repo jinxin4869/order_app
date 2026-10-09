@@ -23,8 +23,8 @@ const result = spawnSync(
     stdio: "inherit",
     env: {
       PATH: process.env.PATH,
-    ...(process.env.JAVA_HOME ? { JAVA_HOME: process.env.JAVA_HOME } : {}),
-    ...(process.env.NODE_PATH ? { NODE_PATH: process.env.NODE_PATH } : {}),
+      ...(process.env.JAVA_HOME ? { JAVA_HOME: process.env.JAVA_HOME } : {}),
+      ...(process.env.NODE_PATH ? { NODE_PATH: process.env.NODE_PATH } : {}),
       XDG_CONFIG_HOME: config,
       FIREBASE_CLI_DISABLE_USAGE_REPORTING: "1",
       FIREBASE_EMULATORS_PATH:

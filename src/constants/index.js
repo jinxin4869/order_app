@@ -1,4 +1,8 @@
 // アプリ全体で使用する定数
+export {
+  MIN_ORDER_QUANTITY,
+  MAX_ORDER_QUANTITY,
+} from "../../functions/src/utils/orderLimits";
 
 // サポートする言語
 export const LANGUAGES = {

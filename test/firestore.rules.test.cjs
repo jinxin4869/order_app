@@ -7,14 +7,11 @@ const {
   assertSucceeds,
 } = require("@firebase/rules-unit-testing");
 const { createRequire } = require("node:module");
-const rulesRequire = createRequire(require.resolve("@firebase/rules-unit-testing"));
-const {
-  doc,
-  setDoc,
-  getDoc,
-  updateDoc,
-  deleteDoc,
-} = rulesRequire("firebase/firestore");
+const rulesRequire = createRequire(
+  require.resolve("@firebase/rules-unit-testing")
+);
+const { doc, setDoc, getDoc, updateDoc, deleteDoc } =
+  rulesRequire("firebase/firestore");
 
 const projectId = "demo-order-app";
 const host = process.env.FIRESTORE_EMULATOR_HOST;
@@ -57,26 +54,36 @@ async function main() {
     await assertFails(getDoc(doc(anonymous, "dictionary/private-test")));
     await assertFails(getDoc(doc(anonymous, "translation_cache/private-test")));
     const { createOrder } = require("../functions/src/orders");
-    const result = await createOrder.run({
-      data: {
-        restaurantId: "rest-test",
-        tableId: "table-test",
-        requestId: "request-emulator-0001",
-        customerLanguage: "en",
-        items: [
-          {
-            item_id: "item-test",
-            name: "Test dish",
-            name_ja: "テスト料理",
-            price: 1000,
-            quantity: 1,
-          },
-        ],
-        subtotal: 1000,
-        tax: 100,
-        totalAmount: 1100,
-      },
-    });
+    const orderData = {
+      restaurantId: "rest-test",
+      tableId: "table-test",
+      requestId: "request-emulator-0001",
+      customerLanguage: "en",
+      items: [
+        {
+          item_id: "item-test",
+          name: "Test dish",
+          name_ja: "テスト料理",
+          price: 1000,
+          quantity: 1,
+        },
+      ],
+      subtotal: 1000,
+      tax: 100,
+      totalAmount: 1100,
+    };
+    const results = await Promise.all(
+      Array.from({ length: 6 }, () => createOrder.run({ data: orderData }))
+    );
+    const result = results[0];
+    assert.equal(new Set(results.map((order) => order.orderId)).size, 1);
+    assert.equal(new Set(results.map((order) => order.orderNumber)).size, 1);
+    assert.equal((await serverDb.collection("orders").get()).size, 1);
+    const distinct = await Promise.all(Array.from({ length: 6 }, (_, index) =>
+      createOrder.run({ data: { ...orderData, requestId: `distinct-emulator-${index}` } })
+    ));
+    assert.equal(new Set([result, ...distinct].map(order => order.orderNumber)).size, 7);
+    assert.equal((await serverDb.collection("orders").get()).size, 7);
     assert.equal(result.success, true);
     const record = await serverDb.doc("orders/" + result.orderId).get();
     assert.equal(record.data().total_amount, 1100);

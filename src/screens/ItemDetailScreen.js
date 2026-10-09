@@ -10,40 +10,68 @@ import {
   TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { COLORS, FONT_SIZES, ALLERGENS } from "../constants";
+import {
+  COLORS,
+  FONT_SIZES,
+  ALLERGENS,
+  MIN_ORDER_QUANTITY,
+  MAX_ORDER_QUANTITY,
+} from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
 import { useResponsive } from "../hooks/useResponsive";
 import { CartContext } from "../context/CartContext";
+import { showAlert } from "../utils/dialogs";
 
 const ItemDetailScreen = ({ navigation, route }) => {
-  const { item } = route.params;
+  const { item, restaurantId, tableId } = route.params;
   const { currentLanguage, getItemName, getItemDescription } = useLanguage();
-  const { addItem } = useContext(CartContext);
+  const { addItem, items = [] } = useContext(CartContext);
   const { isSmallScreen, scaleSize } = useResponsive();
 
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(MIN_ORDER_QUANTITY);
   const [notes, setNotes] = useState("");
+
+  const existingQuantity =
+    items.find((entry) => entry.id === item.id && entry.notes === notes)
+      ?.quantity || 0;
+  const remaining = Math.max(0, MAX_ORDER_QUANTITY - existingQuantity);
+  const selectedQuantity = Math.min(
+    quantity,
+    Math.max(MIN_ORDER_QUANTITY, remaining)
+  );
+  const handleNotesChange = (value) => {
+    setNotes(value);
+    const existing =
+      items.find((entry) => entry.id === item.id && entry.notes === value)
+        ?.quantity || 0;
+    setQuantity((current) =>
+      Math.min(
+        current,
+        Math.max(MIN_ORDER_QUANTITY, MAX_ORDER_QUANTITY - existing)
+      )
+    );
+  };
 
   const itemName = getItemName(item);
   const itemDescription = getItemDescription(item);
 
   // 数量を増やす
   const incrementQuantity = () => {
-    if (quantity < 99) {
-      setQuantity(quantity + 1);
+    if (selectedQuantity < remaining) {
+      setQuantity(selectedQuantity + 1);
     }
   };
 
   // 数量を減らす
   const decrementQuantity = () => {
-    if (quantity > 1) {
-      setQuantity(quantity - 1);
+    if (selectedQuantity > MIN_ORDER_QUANTITY) {
+      setQuantity(selectedQuantity - 1);
     }
   };
 
   // カートに追加
   const handleAddToCart = () => {
-    addItem(
+    const added = addItem(
       {
         id: item.id,
         name: itemName,
@@ -55,10 +83,18 @@ const ItemDetailScreen = ({ navigation, route }) => {
         price: item.price,
         image_url: item.image_url,
       },
-      quantity,
-      notes
+      selectedQuantity,
+      notes,
+      { restaurantId, tableId }
     );
 
+    if (added === false) {
+      showAlert(
+        "カートに追加できません / Unable to add / 无法添加",
+        "テーブルが変更されています。QRから開き直してください。 / Your table has changed. Open the QR link again. / 餐桌已变更，请重新打开二维码链接。"
+      );
+      return;
+    }
     navigation.goBack();
   };
 
@@ -256,6 +292,16 @@ const ItemDetailScreen = ({ navigation, route }) => {
             </View>
           )}
 
+          {existingQuantity > 0 && (
+            <Text accessibilityLiveRegion="polite" style={styles.infoText}>
+              {currentLanguage === "ja"
+                ? `同じ商品・備考は${MAX_ORDER_QUANTITY}個まで（カート内${existingQuantity}個）`
+                : currentLanguage === "zh"
+                  ? `同一商品与备注最多${MAX_ORDER_QUANTITY}份（购物车内${existingQuantity}份）`
+                  : `Maximum ${MAX_ORDER_QUANTITY} for the same item and notes (${existingQuantity} in cart)`}
+            </Text>
+          )}
+
           {/* 特別リクエスト */}
           <View style={[styles.section, isSmallScreen && styles.sectionSmall]}>
             <Text
@@ -284,7 +330,7 @@ const ItemDetailScreen = ({ navigation, route }) => {
               }
               placeholderTextColor={COLORS.disabled}
               value={notes}
-              onChangeText={setNotes}
+              onChangeText={handleNotesChange}
               multiline
               maxLength={200}
             />
@@ -311,12 +357,13 @@ const ItemDetailScreen = ({ navigation, route }) => {
               },
             ]}
             onPress={decrementQuantity}
-            disabled={quantity <= 1}
+            disabled={selectedQuantity <= MIN_ORDER_QUANTITY}
           >
             <Text
               style={[
                 styles.quantityButtonText,
-                quantity <= 1 && styles.quantityButtonDisabled,
+                selectedQuantity <= MIN_ORDER_QUANTITY &&
+                  styles.quantityButtonDisabled,
                 { fontSize: scaleSize(FONT_SIZES.xl, 16, 22) },
               ]}
             >
@@ -330,7 +377,7 @@ const ItemDetailScreen = ({ navigation, route }) => {
               isSmallScreen && styles.quantityTextSmall,
             ]}
           >
-            {quantity}
+            {selectedQuantity}
           </Text>
 
           <TouchableOpacity
@@ -343,7 +390,7 @@ const ItemDetailScreen = ({ navigation, route }) => {
               },
             ]}
             onPress={incrementQuantity}
-            disabled={quantity >= 99}
+            disabled={selectedQuantity >= remaining}
           >
             <Text
               style={[
@@ -358,7 +405,14 @@ const ItemDetailScreen = ({ navigation, route }) => {
 
         {/* カートに追加ボタン */}
         <TouchableOpacity
-          style={[styles.addButton, isSmallScreen && styles.addButtonSmall]}
+          style={[
+            styles.addButton,
+            isSmallScreen && styles.addButtonSmall,
+            remaining === 0 && { opacity: 0.5 },
+          ]}
+          disabled={remaining === 0}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: remaining === 0 }}
           onPress={handleAddToCart}
         >
           <Text

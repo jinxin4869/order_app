@@ -10,7 +10,7 @@ jest.mock("../../services/api", () => ({
 
 import React from "react";
 import { render, waitFor, fireEvent } from "@testing-library/react-native";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import CartScreen from "../CartScreen";
 import { useLanguage } from "../../hooks/useLanguage";
 import { CartContext } from "../../context/CartContext";
@@ -84,6 +84,7 @@ const createMockCartContext = (items = []) => ({
   updateQuantity: jest.fn(),
   removeItem: jest.fn(),
   clearCart: jest.fn(),
+  getOrderRequestId: jest.fn(() => "request-screen-test"),
   subtotal: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
   tax: Math.floor(
     items.reduce((sum, item) => sum + item.price * item.quantity, 0) * 0.1
@@ -98,8 +99,10 @@ const createMockCartContext = (items = []) => ({
 });
 
 describe("CartScreen", () => {
+  afterEach(() => jest.restoreAllMocks());
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Alert, "alert").mockImplementation(() => {});
 
     useLanguage.mockReturnValue({
       currentLanguage: "ja",
@@ -255,6 +258,7 @@ describe("CartScreen", () => {
 
     await waitFor(() => {
       expect(api.createOrder).toHaveBeenCalledWith({
+        requestId: "request-screen-test",
         restaurantId: "restaurant_01",
         tableId: "table_01",
         customerLanguage: "ja",
@@ -337,4 +341,64 @@ describe("CartScreen", () => {
     expect(getByText("炸鸡")).toBeTruthy();
     expect(getByText("购物车")).toBeTruthy();
   });
+
+  test("Webの確認から注文APIまで進める", async () => {
+    jest.replaceProperty(Platform, "OS", "web");
+    window.confirm = jest.fn().mockReturnValue(true);
+    const context = createMockCartContext(mockCartItems);
+    const { getByText } = render(
+      <CartContext.Provider value={context}>
+        <CartScreen navigation={mockNavigation} route={mockRoute} />
+      </CartContext.Provider>
+    );
+    fireEvent.press(getByText("注文を確定する"));
+    await waitFor(() => expect(api.createOrder).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(mockNavigation.navigate).toHaveBeenCalledWith(
+        "OrderComplete",
+        expect.objectContaining({ orderId: "order_001" })
+      )
+    );
+  });
+
+  test("Webで注文確認を取り消すとAPIを呼ばない", () => {
+    jest.replaceProperty(Platform, "OS", "web");
+    window.confirm = jest.fn().mockReturnValue(false);
+    const context = createMockCartContext(mockCartItems);
+    const { getByText } = render(
+      <CartContext.Provider value={context}>
+        <CartScreen navigation={mockNavigation} route={mockRoute} />
+      </CartContext.Provider>
+    );
+    fireEvent.press(getByText("注文を確定する"));
+    expect(api.createOrder).not.toHaveBeenCalled();
+  });
+});
+
+test("price changes prompt a fresh menu and clear the outdated cart on confirmation", async () => {
+  jest.clearAllMocks();
+  useLanguage.mockReturnValue({ currentLanguage: "ja" });
+  api.createOrder.mockRejectedValue(Object.assign(new Error("Price changed"), { details: { reason: "price_changed" } }));
+  const context = createMockCartContext(mockCartItems);
+  const navigation = { ...mockNavigation, replace: jest.fn() };
+  jest.spyOn(Alert, "alert").mockImplementation((title, message, buttons) => {
+    if (title === "注文確認") buttons[1].onPress();
+  });
+  const view = render(<CartContext.Provider value={context}><CartScreen navigation={navigation} route={mockRoute} /></CartContext.Provider>);
+  fireEvent.press(view.getByText("注文を確定する"));
+  await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith("メニュー更新が必要です", expect.any(String), expect.any(Array)));
+  const prompt = Alert.alert.mock.calls.find(([title]) => title === "メニュー更新が必要です");
+  prompt[2][0].onPress();
+  expect(context.clearCart).toHaveBeenCalledTimes(1);
+  expect(navigation.replace).toHaveBeenCalledWith("Menu", mockRoute.params);
+});
+
+test("the cart shows the quantity limit and disables further increments at 99", () => {
+  jest.clearAllMocks();
+  useLanguage.mockReturnValue({ currentLanguage: "ja" });
+  const context = createMockCartContext([{ ...mockCartItems[0], quantity: 99 }]);
+  const view = render(<CartContext.Provider value={context}><CartScreen navigation={mockNavigation} route={mockRoute} /></CartContext.Provider>);
+  expect(view.getByText("上限99個")).toBeTruthy();
+  fireEvent.press(view.getByRole("button", { name: "数量を増やす" }));
+  expect(context.updateQuantity).not.toHaveBeenCalled();
 });

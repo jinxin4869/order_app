@@ -7,9 +7,16 @@
 const { onCall } = require("firebase-functions/v2/https");
 const { HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
-const { requireStaff, requireRestaurant, isDocumentId } = require("../utils/staffAuth");
+const { createHash } = require("node:crypto");
+const {
+  requireStaff,
+  requireRestaurant,
+  isDocumentId,
+} = require("../utils/staffAuth");
 
+const { businessDay } = require("../utils/businessDay");
 const db = admin.firestore();
+const { normalizeOrderInput } = require("../utils/orderInput");
 
 // 注文ステータス定義
 const ORDER_STATUS = {
@@ -34,84 +41,6 @@ const VALID_STATUS_TRANSITIONS = {
 };
 
 /**
- * 注文番号を生成（日付 + シーケンス）
- * @param {string} restaurantId - レストランID
- * @return {Promise<string>} - 注文番号 (YYYYMMdd-XXX形式)
- */
-const generateOrderNumber = async (restaurantId) => {
-  const today = new Date();
-  const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
-
-  // 今日の注文数をカウント
-  const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-  const endOfDay = new Date(today.setHours(23, 59, 59, 999));
-
-  const ordersToday = await db
-    .collection("orders")
-    .where("restaurant_id", "==", restaurantId)
-    .where("created_at", ">=", startOfDay)
-    .where("created_at", "<=", endOfDay)
-    .get();
-
-  const sequence = (ordersToday.size + 1).toString().padStart(3, "0");
-
-  return `${dateStr}-${sequence}`;
-};
-
-/**
- * 注文データを検証
- * @param {Object} orderData - 注文データ
- * @return {Object} - {valid: boolean, errors: Array}
- */
-const validateOrderData = (orderData) => {
-  const errors = [];
-
-  if (!orderData.restaurantId) {
-    errors.push("Restaurant ID is required");
-  }
-
-  if (!orderData.tableId) {
-    errors.push("Table ID is required");
-  }
-
-  if (
-    !orderData.items ||
-    !Array.isArray(orderData.items) ||
-    orderData.items.length === 0
-  ) {
-    errors.push("At least one item is required");
-  }
-
-  if (orderData.items) {
-    orderData.items.forEach((item, index) => {
-      if (!item.item_id) {
-        errors.push(`Item ${index + 1}: item_id is required`);
-      }
-      if (!item.quantity || item.quantity < 1 || item.quantity > 99) {
-        errors.push(`Item ${index + 1}: quantity must be between 1 and 99`);
-      }
-      if (item.price === undefined || item.price < 0) {
-        errors.push(`Item ${index + 1}: valid price is required`);
-      }
-      // 特別リクエストのバリデーション
-      if (item.special_request && item.special_request.length > 200) {
-        errors.push(
-          `Item ${index + 1}: special request must be 200 characters or less`
-        );
-      }
-      // XSS対策: HTMLタグを除去（サニタイゼーション）
-      if (item.special_request) {
-        item.special_request = item.special_request
-          .replace(/<[^>]*>/g, "")
-          .trim();
-      }
-    });
-  }
-
-  return errors;
-};
-
-/**
  * 金額計算を検証
  * @param {Object} orderData - 注文データ
  * @return {boolean} - 金額が正しければtrue
@@ -127,11 +56,10 @@ const validatePriceCalculation = (orderData) => {
   const calculatedTax = Math.floor(calculatedSubtotal * TAX_RATE);
   const calculatedTotal = calculatedSubtotal + calculatedTax;
 
-  // 許容誤差1円
   const isValid =
-    Math.abs(calculatedSubtotal - orderData.subtotal) <= 1 &&
-    Math.abs(calculatedTax - orderData.tax) <= 1 &&
-    Math.abs(calculatedTotal - orderData.totalAmount) <= 1;
+    calculatedSubtotal === orderData.subtotal &&
+    calculatedTax === orderData.tax &&
+    calculatedTotal === orderData.totalAmount;
 
   return {
     isValid,
@@ -152,118 +80,213 @@ const validatePriceCalculation = (orderData) => {
  * @returns {Object} - {orderId: string, orderNumber: string}
  */
 exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
-  const data = request.data;
+  const data = normalizeOrderInput(request.data);
 
-  // データ検証
-  const validationErrors = validateOrderData(data);
-  if (validationErrors.length > 0) {
-    throw new HttpsError("invalid-argument", validationErrors.join(", "));
-  }
-
-  // 金額検証
-  const priceValidation = validatePriceCalculation(data);
-  if (!priceValidation.isValid) {
-    console.warn("Price calculation mismatch:", {
-      provided: {
-        subtotal: data.subtotal,
-        tax: data.tax,
-        total: data.totalAmount,
-      },
-      calculated: priceValidation.calculated,
-    });
-    // 警告のみ、処理は続行
-  }
-
+  const fingerprint = createHash("sha256")
+    .update(
+      JSON.stringify({
+        restaurantId: data.restaurantId,
+        tableId: data.tableId,
+        customerLanguage: data.customerLanguage,
+        customerNotes: data.customerNotes,
+        items: data.items,
+      })
+    )
+    .digest("hex");
+  const requestKey = createHash("sha256")
+    .update(JSON.stringify([data.restaurantId, data.tableId, data.requestId]))
+    .digest("hex");
+  const requestRef = db.collection("order_requests").doc(requestKey);
+  const orderRef = db.collection("orders").doc();
+  const restaurantRef = db.collection("restaurants").doc(data.restaurantId);
+  const tableRef = restaurantRef.collection("tables").doc(data.tableId);
   try {
-    // レストランとテーブルの存在確認
-    const restaurantDoc = await db
-      .collection("restaurants")
-      .doc(data.restaurantId)
-      .get();
+    return await db.runTransaction(async (transaction) => {
+      const existing = await transaction.get(requestRef);
+      if (existing.exists) {
+        const saved = existing.data();
+        if (saved.fingerprint !== fingerprint)
+          throw new HttpsError(
+            "already-exists",
+            "同じリクエストIDで異なる注文を送信することはできません。"
+          );
+        return saved.result;
+      }
+      // レストランとテーブルの存在確認
+      const restaurantDoc = await transaction.get(restaurantRef);
 
-    if (!restaurantDoc.exists) {
-      console.warn(
-        `CreateOrder failed: Restaurant ${data.restaurantId} not found`
+      if (!restaurantDoc.exists) {
+        console.warn(
+          `CreateOrder failed: Restaurant ${data.restaurantId} not found`
+        );
+        throw new HttpsError(
+          "not-found",
+          "指定されたレストランが見つかりません。"
+        );
+      }
+
+      if (restaurantDoc.data().is_active !== true) {
+        throw new HttpsError(
+          "failed-precondition",
+          "現在、この店舗は注文受付を停止しています。",
+          { reason: "restaurant_closed" }
+        );
+      }
+
+      const tableDoc = await transaction.get(tableRef);
+
+      if (!tableDoc.exists) {
+        console.warn(
+          `CreateOrder failed: Table ${data.tableId} not found in restaurant ${data.restaurantId}`
+        );
+        throw new HttpsError(
+          "not-found",
+          "指定されたテーブルが見つかりません。"
+        );
+      }
+
+      const table = tableDoc.data();
+      if (table.is_active === false || table.status === "unavailable") {
+        throw new HttpsError(
+          "failed-precondition",
+          "このテーブルは現在利用できません。",
+          { reason: "table_unavailable" }
+        );
+      }
+
+      const itemDocs = await transaction.getAll(
+        ...data.items.map((item) =>
+          db
+            .collection("restaurants")
+            .doc(data.restaurantId)
+            .collection("menu_items")
+            .doc(item.item_id)
+        )
       );
-      throw new HttpsError(
-        "not-found",
-        "指定されたレストランが見つかりません。"
-      );
-    }
+      const masterItems = itemDocs.map((doc, index) => {
+        if (!doc.exists)
+          throw new HttpsError("not-found", "商品が見つかりません。");
+        const item = doc.data();
+        if (item.is_available !== true)
+          throw new HttpsError(
+            "failed-precondition",
+            "商品が品切れまたは販売停止中です。",
+            { reason: "item_unavailable", itemId: doc.id }
+          );
+        if (
+          !Number.isSafeInteger(item.price) ||
+          item.price < 0 ||
+          typeof item.name_ja !== "string" ||
+          !item.name_ja.trim()
+        ) {
+          throw new HttpsError(
+            "failed-precondition",
+            "商品情報が未設定です。スタッフへお知らせください。",
+            { reason: "invalid_catalog", itemId: doc.id }
+          );
+        }
+        if (data.items[index].price !== item.price)
+          throw new HttpsError(
+            "failed-precondition",
+            "商品価格が変更されています。メニューを更新してください。",
+            { reason: "price_changed", itemId: doc.id, price: item.price }
+          );
 
-    const tableDoc = await db
-      .collection("restaurants")
-      .doc(data.restaurantId)
-      .collection("tables")
-      .doc(data.tableId)
-      .get();
+        return {
+          ...data.items[index],
+          price: item.price,
+          name_ja: item.name_ja || "",
+          name_en: item.name_en || null,
+          name_zh: item.name_zh || null,
+        };
+      });
 
-    if (!tableDoc.exists) {
-      console.warn(
-        `CreateOrder failed: Table ${data.tableId} not found in restaurant ${data.restaurantId}`
-      );
-      throw new HttpsError("not-found", "指定されたテーブルが見つかりません。");
-    }
+      const priceValidation = validatePriceCalculation({
+        ...data,
+        items: masterItems,
+      });
+      if (!priceValidation.isValid)
+        throw new HttpsError("invalid-argument", "注文金額が一致しません。", {
+          reason: "total_mismatch",
+        });
 
-    // 注文番号生成
-    let orderNumber;
-    try {
-      orderNumber = await generateOrderNumber(data.restaurantId);
-    } catch (e) {
-      console.error("Order number generation failed:", e);
-      throw new HttpsError(
-        "internal",
-        "注文番号の生成中にエラーが発生しました。"
-      );
-    }
+      const day = businessDay();
+      const counterRef = restaurantRef.collection("order_counters").doc(day);
+      const counterDoc = await transaction.get(counterRef);
+      if (!counterDoc.exists) {
+        // Never silently restart numbering after upgrading an existing store.
+        const legacyOrders = await transaction.get(
+          db
+            .collection("orders")
+            .where("restaurant_id", "==", data.restaurantId)
+            .where("order_number", ">=", `${day}-`)
+            .where("order_number", "<=", `${day}-\uf8ff`)
+            .limit(1)
+        );
+        if (!legacyOrders.empty)
+          throw new HttpsError(
+            "failed-precondition",
+            "本日の注文番号カウンターの初期設定が必要です。スタッフへお知らせください。",
+            { reason: "counter_initialization_required" }
+          );
+      }
+      const previous = counterDoc.exists ? counterDoc.data().last_sequence : 0;
+      if (
+        !Number.isSafeInteger(previous) ||
+        previous < 0 ||
+        previous >= Number.MAX_SAFE_INTEGER
+      ) {
+        throw new HttpsError(
+          "failed-precondition",
+          "注文番号カウンターの設定が無効です。"
+        );
+      }
+      const sequence = previous + 1;
+      const orderNumber = `${day}-${String(sequence).padStart(3, "0")}`;
 
-    // 注文データを作成
-    const orderDoc = {
-      restaurant_id: data.restaurantId,
-      table_id: data.tableId,
-      order_number: orderNumber,
-      customer_language: data.customerLanguage || "ja",
-      items: data.items.map((item) => ({
-        item_id: item.item_id,
-        name: item.name,
-        name_ja: item.name_ja || item.name,
-        quantity: item.quantity,
-        price: item.price,
-        notes: item.notes || null,
-      })),
-      subtotal: priceValidation.calculated.subtotal,
-      tax: priceValidation.calculated.tax,
-      total_amount: priceValidation.calculated.total,
-      status: ORDER_STATUS.PENDING,
-      customer_notes: data.customerNotes || null,
-      staff_notes: null,
-      created_at: admin.firestore.FieldValue.serverTimestamp(),
-      updated_at: admin.firestore.FieldValue.serverTimestamp(),
-      confirmed_at: null,
-      completed_at: null,
-    };
+      // 注文データを作成
+      const orderDoc = {
+        restaurant_id: data.restaurantId,
+        table_id: data.tableId,
+        order_number: orderNumber,
+        business_day: day,
+        customer_language: data.customerLanguage || "ja",
+        items: masterItems.map((item) => ({
+          ...item,
+          name: item[`name_${data.customerLanguage}`] || item.name_ja,
+        })),
+        subtotal: priceValidation.calculated.subtotal,
+        tax: priceValidation.calculated.tax,
+        total_amount: priceValidation.calculated.total,
+        status: ORDER_STATUS.PENDING,
+        customer_notes: data.customerNotes || null,
+        staff_notes: null,
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        confirmed_at: null,
+        completed_at: null,
+      };
 
-    // Firestoreに保存
-    const orderRef = await db.collection("orders").add(orderDoc);
-
-    // テーブルのステータスを更新
-    await db
-      .collection("restaurants")
-      .doc(data.restaurantId)
-      .collection("tables")
-      .doc(data.tableId)
-      .update({
+      const result = { success: true, orderId: orderRef.id, orderNumber };
+      transaction.set(counterRef, {
+        last_sequence: sequence,
+        business_day: day,
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      transaction.set(orderRef, orderDoc);
+      transaction.set(requestRef, {
+        restaurant_id: data.restaurantId,
+        table_id: data.tableId,
+        fingerprint,
+        result,
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      transaction.update(tableRef, {
         status: "occupied",
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
       });
-
-    console.log(`Order created: ${orderRef.id}, Number: ${orderNumber}`);
-
-    return {
-      success: true,
-      orderId: orderRef.id,
-      orderNumber: orderNumber,
-    };
+      return result;
+    });
   } catch (error) {
     console.error(
       `Create order error for restaurant ${data.restaurantId}:`,

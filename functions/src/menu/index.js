@@ -7,6 +7,7 @@
 const { onCall } = require("firebase-functions/v2/https");
 const { HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
+const { parseQRCode } = require("../utils/qr");
 
 const db = admin.firestore();
 const translationMetadata = (data) => {
@@ -187,7 +188,7 @@ exports.getMenuWithTranslation = onCall(
 exports.validateQRCode = onCall(
   { region: "asia-northeast1" },
   async (request) => {
-    const { qrData } = request.data;
+    const { qrData } = request.data || {};
 
     // バリデーション
     if (!qrData || typeof qrData !== "string") {
@@ -197,17 +198,14 @@ exports.validateQRCode = onCall(
       };
     }
 
-    // QRコードデータをパース
-    const parts = qrData.split("/");
-
-    if (parts.length !== 2) {
+    const session = parseQRCode(qrData);
+    if (!session)
       return {
         valid: false,
-        error: "Invalid QR code format: Expected restaurantId/tableId",
+        error:
+          "Invalid QR code format: Expected restaurantId/tableId or an order URL",
       };
-    }
-
-    const [restaurantId, tableId] = parts;
+    const { restaurantId, tableId } = session;
 
     try {
       // レストラン確認
@@ -256,16 +254,17 @@ exports.validateQRCode = onCall(
 
       const table = tableDoc.data();
 
-      // QRコードの一致確認（セキュリティ強化のため）
-      const expectedQRCode = `${restaurantId}/${tableId}`;
+      if (table.is_active === false || table.status === "unavailable") {
+        return { valid: false, error: "このテーブルは現在利用できません。" };
+      }
+
+      const storedSession = table.qr_code ? parseQRCode(table.qr_code) : null;
       if (
         table.qr_code &&
-        table.qr_code !== expectedQRCode &&
-        table.qr_code !== qrData
+        (!storedSession ||
+          storedSession.restaurantId !== restaurantId ||
+          storedSession.tableId !== tableId)
       ) {
-        console.warn(
-          `QR Validation failed: QR code mismatch for table ${tableId}`
-        );
         return {
           valid: false,
           error: "無効なQRコードです（データの不一致）。",
