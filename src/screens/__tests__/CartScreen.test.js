@@ -368,3 +368,13 @@ test("price changes prompt a fresh menu and clear the outdated cart on confirmat
   expect(context.clearCart).toHaveBeenCalledTimes(1);
   expect(navigation.replace).toHaveBeenCalledWith("Menu", mockRoute.params);
 });
+
+test("the cart shows the quantity limit and disables further increments at 99", () => {
+  jest.clearAllMocks();
+  useLanguage.mockReturnValue({ currentLanguage: "ja" });
+  const context = createMockCartContext([{ ...mockCartItems[0], quantity: 99 }]);
+  const view = render(<CartContext.Provider value={context}><CartScreen navigation={mockNavigation} route={mockRoute} /></CartContext.Provider>);
+  expect(view.getByText("上限99個")).toBeTruthy();
+  fireEvent.press(view.getByRole("button", { name: "数量を増やす" }));
+  expect(context.updateQuantity).not.toHaveBeenCalled();
+});

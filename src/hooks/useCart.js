@@ -1,6 +1,6 @@
 // カート管理用カスタムフック
 import { useState, useCallback, useMemo, useRef } from "react";
-import { TAX_RATE } from "../constants";
+import { TAX_RATE, MIN_ORDER_QUANTITY, MAX_ORDER_QUANTITY } from "../constants";
 import { createRequestId } from "../utils/requestId";
 import { cartSessionKey } from "../utils/cartSession";
 
@@ -47,6 +47,8 @@ export const useCart = (initialSession = null) => {
   // 商品を追加
   const addItem = useCallback(
     (item, quantity = 1, notes = "", session = null) => {
+      if (!Number.isInteger(quantity) || quantity < MIN_ORDER_QUANTITY)
+        return false;
       if (
         !sessionRef.current ||
         (session &&
@@ -64,7 +66,10 @@ export const useCart = (initialSession = null) => {
           const newItems = [...prevItems];
           newItems[existingIndex] = {
             ...newItems[existingIndex],
-            quantity: newItems[existingIndex].quantity + quantity,
+            quantity: Math.min(
+              MAX_ORDER_QUANTITY,
+              newItems[existingIndex].quantity + quantity
+            ),
           };
           return newItems;
         } else {
@@ -80,7 +85,7 @@ export const useCart = (initialSession = null) => {
               name_en_nodic: item.name_en_nodic,
               name_zh_nodic: item.name_zh_nodic,
               price: item.price,
-              quantity,
+              quantity: Math.min(MAX_ORDER_QUANTITY, quantity),
               notes,
               image_url: item.image_url,
             },
@@ -103,6 +108,7 @@ export const useCart = (initialSession = null) => {
   // 商品の数量を更新
   const updateQuantity = useCallback(
     (itemId, newQuantity, notes = "") => {
+      if (!Number.isInteger(newQuantity)) return false;
       if (newQuantity <= 0) {
         removeItem(itemId, notes);
         return;
@@ -111,7 +117,7 @@ export const useCart = (initialSession = null) => {
       setItems((prevItems) =>
         prevItems.map((item) =>
           item.id === itemId && item.notes === notes
-            ? { ...item, quantity: newQuantity }
+            ? { ...item, quantity: Math.min(MAX_ORDER_QUANTITY, newQuantity) }
             : item
         )
       );

@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { COLORS, FONT_SIZES } from "../constants";
+import { COLORS, FONT_SIZES, MAX_ORDER_QUANTITY } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
 import { useResponsive } from "../hooks/useResponsive";
 import { CartContext } from "../context/CartContext";
@@ -64,6 +64,7 @@ const CartScreen = ({ navigation, route }) => {
   // 数量変更
   const handleQuantityChange = (item, delta) => {
     const newQuantity = item.quantity + delta;
+    if (newQuantity > MAX_ORDER_QUANTITY) return;
     if (newQuantity <= 0) {
       handleRemoveItem(item);
     } else {
@@ -242,6 +243,15 @@ const CartScreen = ({ navigation, route }) => {
         >
           {getItemDisplayName(item)}
         </Text>
+        {item.quantity >= MAX_ORDER_QUANTITY && (
+          <Text accessibilityLiveRegion="polite" style={styles.itemNotes}>
+            {t(
+              `上限${MAX_ORDER_QUANTITY}個`,
+              `Maximum ${MAX_ORDER_QUANTITY} items`,
+              `最多${MAX_ORDER_QUANTITY}份`
+            )}
+          </Text>
+        )}
         {item.notes && (
           <Text style={styles.itemNotes} numberOfLines={1}>
             📝 {item.notes}
@@ -291,10 +301,21 @@ const CartScreen = ({ navigation, route }) => {
             },
           ]}
           onPress={() => handleQuantityChange(item, 1)}
+          disabled={item.quantity >= MAX_ORDER_QUANTITY || isSubmitting}
+          accessibilityRole="button"
+          accessibilityLabel={t(
+            "数量を増やす",
+            "Increase quantity",
+            "增加数量"
+          )}
+          accessibilityState={{
+            disabled: item.quantity >= MAX_ORDER_QUANTITY || isSubmitting,
+          }}
         >
           <Text
             style={[
               styles.quantityButtonText,
+              item.quantity >= MAX_ORDER_QUANTITY && { color: COLORS.disabled },
               { fontSize: scaleSize(18, 14, 20) },
             ]}
           >
