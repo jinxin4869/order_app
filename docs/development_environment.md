@@ -509,7 +509,7 @@ VSCodeで `Ctrl + ,` → 「settings.json を開く」をクリックし、以�
 
 1. **[database_design.md](./database_design.md)**: データベース実装
 2. **[dictionary_design.md](./dictionary_design.md)**: 辞書データ作成
-3. **[menu_sample_design.md](./menu_sample_design.md)**: サンプルメニュー作成
+3. **[demo_setup.md](./demo_setup.md)**: 合成サンプルデータのローカル投入
 4. **[translation_system_design.md](./translation_system_design.md)**: 翻訳システム実装
 
 ---
