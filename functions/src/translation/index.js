@@ -402,19 +402,23 @@ exports.translateText = onCall(
  * @param {Object} data - {restaurantId: string, targetLang: 'en' | 'zh'}
  * @returns {Object} - {count: number, items: Array}
  */
+const { requireStaff, requireRestaurant, isDocumentId } = require("../utils/staffAuth");
 exports.batchTranslateMenu = onCall(
   { region: "asia-northeast1" },
   async (request) => {
+    const staffRestaurantId = requireStaff(request);
     const {
       restaurantId,
       targetLang,
       generateBothModes = false,
-    } = request.data;
+    } = request.data || {};
 
     // バリデーション
-    if (!restaurantId) {
+    if (!isDocumentId(restaurantId)) {
       throw new HttpsError("invalid-argument", "レストランIDが必要です");
     }
+
+    requireRestaurant(staffRestaurantId, restaurantId);
 
     if (!["en", "zh"].includes(targetLang)) {
       throw new HttpsError("invalid-argument", "サポートされていない言語です");
