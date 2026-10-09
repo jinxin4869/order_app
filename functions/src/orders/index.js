@@ -7,6 +7,7 @@
 const { onCall } = require("firebase-functions/v2/https");
 const { HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
+const { requireStaff, requireRestaurant, isDocumentId } = require("../utils/staffAuth");
 
 const db = admin.firestore();
 
@@ -292,10 +293,11 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
 exports.updateOrderStatus = onCall(
   { region: "asia-northeast1" },
   async (request) => {
-    const { orderId, newStatus } = request.data;
+    const staffRestaurantId = requireStaff(request);
+    const { orderId, newStatus } = request.data || {};
 
     // バリデーション
-    if (!orderId) {
+    if (!isDocumentId(orderId)) {
       throw new HttpsError("invalid-argument", "注文IDが必要です");
     }
 
@@ -313,6 +315,7 @@ exports.updateOrderStatus = onCall(
       }
 
       const currentOrder = orderDoc.data();
+      requireRestaurant(staffRestaurantId, currentOrder.restaurant_id);
       const currentStatus = currentOrder.status;
 
       // ステータス遷移の検証
