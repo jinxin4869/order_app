@@ -30,6 +30,7 @@ const CartScreen = ({ navigation, route }) => {
     total,
     clearCart,
     getOrderRequestId,
+    isOrderRequestCurrent,
     isEmpty,
   } = useContext(CartContext);
 
@@ -124,6 +125,7 @@ const CartScreen = ({ navigation, route }) => {
     if (submitting.current || isEmpty) return;
     submitting.current = true;
     setIsSubmitting(true);
+    let requestId;
 
     try {
       const orderData = {
@@ -145,9 +147,11 @@ const CartScreen = ({ navigation, route }) => {
         totalAmount: total,
       };
 
-      orderData.requestId = getOrderRequestId(orderData);
+      requestId = getOrderRequestId(orderData);
+      orderData.requestId = requestId;
 
       const result = await createOrder(orderData);
+      if (!isOrderRequestCurrent(requestId)) return;
 
       clearCart();
 
@@ -161,6 +165,7 @@ const CartScreen = ({ navigation, route }) => {
         table,
       });
     } catch (error) {
+      if (requestId && !isOrderRequestCurrent(requestId)) return;
       console.error("Order submission error:", error);
       if (error.details?.reason === "price_changed") {
         showAlert(
@@ -174,6 +179,7 @@ const CartScreen = ({ navigation, route }) => {
             {
               text: t("メニューへ", "Open menu", "打开菜单"),
               onPress: () => {
+                if (!isOrderRequestCurrent(requestId)) return;
                 clearCart();
                 navigation.replace("Menu", {
                   restaurantId,

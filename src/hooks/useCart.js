@@ -44,6 +44,12 @@ export const useCart = (initialSession = null) => {
     return pendingRequest.current.id;
   }, []);
 
+  // A switched (even subsequently reopened) table must not accept an old result.
+  const isOrderRequestCurrent = useCallback(
+    (requestId) => !!requestId && pendingRequest.current?.id === requestId,
+    []
+  );
+
   // 商品を追加
   const addItem = useCallback(
     (item, quantity = 1, notes = "", session = null) => {
@@ -166,6 +172,7 @@ export const useCart = (initialSession = null) => {
     removeItem,
     clearCart,
     getOrderRequestId,
+    isOrderRequestCurrent,
     subtotal,
     tax,
     total,
