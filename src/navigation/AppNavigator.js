@@ -37,10 +37,17 @@ const QRScannerScreen = (props) => (
   </Suspense>
 );
 
+const Staff = lazy(() => import("../screens/StaffScreen"));
+const StaffScreen = (props) => (
+  <Suspense fallback={<ActivityIndicator color={COLORS.primary} />}>
+    <Staff {...props} />
+  </Suspense>
+);
+
 const Stack = createNativeStackNavigator();
 const linking = {
   prefixes: [],
-  config: { screens: { OrderEntry: "order", QRScanner: "" } },
+  config: { screens: { OrderEntry: "order", QRScanner: "", Staff: "staff" } },
   getPathFromState: (state, options) =>
     getOrderPath(state) || getPathFromState(state, options),
 };
@@ -61,6 +68,11 @@ const AppStack = () => {
         headerBackTitleVisible: false,
       }}
     >
+      <Stack.Screen
+        name="Staff"
+        component={StaffScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen
         name="OrderEntry"
         component={OrderEntryScreen}

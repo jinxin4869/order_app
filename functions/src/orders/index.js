@@ -18,27 +18,10 @@ const { businessDay } = require("../utils/businessDay");
 const db = admin.firestore();
 const { normalizeOrderInput } = require("../utils/orderInput");
 
-// 注文ステータス定義
-const ORDER_STATUS = {
-  PENDING: "pending",
-  CONFIRMED: "confirmed",
-  PREPARING: "preparing",
-  READY: "ready",
-  SERVED: "served",
-  COMPLETED: "completed",
-  CANCELLED: "cancelled",
-};
-
-// ステータス遷移の検証
-const VALID_STATUS_TRANSITIONS = {
-  [ORDER_STATUS.PENDING]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.CANCELLED],
-  [ORDER_STATUS.CONFIRMED]: [ORDER_STATUS.PREPARING, ORDER_STATUS.CANCELLED],
-  [ORDER_STATUS.PREPARING]: [ORDER_STATUS.READY, ORDER_STATUS.CANCELLED],
-  [ORDER_STATUS.READY]: [ORDER_STATUS.SERVED],
-  [ORDER_STATUS.SERVED]: [ORDER_STATUS.COMPLETED],
-  [ORDER_STATUS.COMPLETED]: [],
-  [ORDER_STATUS.CANCELLED]: [],
-};
+const {
+  ORDER_STATUS,
+  VALID_STATUS_TRANSITIONS,
+} = require("../utils/orderStatus");
 
 /**
  * 金額計算を検証
@@ -313,79 +296,140 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
  * @param {Object} data - {orderId: string, newStatus: string}
  * @returns {Object} - {success: boolean}
  */
+const orderDTO = (doc) => {
+  const data = doc.data();
+  const millis = (value) =>
+    value?.toMillis
+      ? value.toMillis()
+      : value instanceof Date
+        ? value.getTime()
+        : null;
+  return {
+    id: doc.id,
+    restaurant_id: data.restaurant_id,
+    table_id: data.table_id,
+    table_number: data.table_number || data.table_id,
+    order_number: data.order_number,
+    status: data.status,
+    customer_language: data.customer_language,
+    customer_notes: data.customer_notes || "",
+    subtotal: data.subtotal,
+    tax: data.tax,
+    total_amount: data.total_amount,
+    created_at: millis(data.created_at),
+    updated_at: millis(data.updated_at),
+    items: (data.items || []).map((item) => ({
+      item_id: item.item_id,
+      name_ja: item.name_ja,
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+      notes: item.notes || "",
+    })),
+  };
+};
+const getStaffOrderRef = async (orderId, restaurantId) => {
+  if (!isDocumentId(orderId))
+    throw new HttpsError("invalid-argument", "注文IDが不正です");
+  const doc = await db.collection("orders").doc(orderId).get();
+  if (!doc.exists) throw new HttpsError("not-found", "注文が見つかりません");
+  requireRestaurant(restaurantId, doc.data().restaurant_id);
+  return doc;
+};
+exports.getStaffOrder = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    const restaurantId = requireStaff(request);
+    return {
+      order: orderDTO(
+        await getStaffOrderRef(request.data?.orderId, restaurantId)
+      ),
+    };
+  }
+);
+exports.listStaffOrders = onCall(
+  { region: "asia-northeast1" },
+  async (request) => {
+    const restaurantId = requireStaff(request);
+    const { view = "active", cursor = null, limit = 50 } = request.data || {};
+    if (
+      !["active", "all"].includes(view) ||
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 100
+    )
+      throw new HttpsError("invalid-argument", "一覧の取得条件が不正です");
+    let query = db
+      .collection("orders")
+      .where("restaurant_id", "==", restaurantId);
+    if (view === "active")
+      query = query.where("status", "in", [
+        "pending",
+        "confirmed",
+        "preparing",
+        "ready",
+        "served",
+      ]);
+    query = query.orderBy("created_at", "desc").orderBy("__name__", "desc");
+    if (cursor !== null) {
+      const after = await getStaffOrderRef(cursor, restaurantId);
+      if (!after.data().created_at)
+        throw new HttpsError("invalid-argument", "一覧を再取得してください");
+      query = query.startAfter(after);
+    }
+    const snapshot = await query.limit(limit + 1).get();
+    const docs = snapshot.docs.slice(0, limit);
+    return {
+      restaurantId,
+      orders: docs.map(orderDTO),
+      hasMore: snapshot.docs.length > limit,
+      cursor: docs.length ? docs[docs.length - 1].id : null,
+    };
+  }
+);
 exports.updateOrderStatus = onCall(
   { region: "asia-northeast1" },
   async (request) => {
-    const staffRestaurantId = requireStaff(request);
-    const { orderId, newStatus } = request.data || {};
-
-    // バリデーション
-    if (!isDocumentId(orderId)) {
-      throw new HttpsError("invalid-argument", "注文IDが必要です");
-    }
-
-    if (!Object.values(ORDER_STATUS).includes(newStatus)) {
-      throw new HttpsError("invalid-argument", "無効なステータスです");
-    }
-
-    try {
-      // 注文を取得
-      const orderRef = db.collection("orders").doc(orderId);
-      const orderDoc = await orderRef.get();
-
-      if (!orderDoc.exists) {
+    const restaurantId = requireStaff(request);
+    const { orderId, newStatus, expectedStatus } = request.data || {};
+    if (
+      !isDocumentId(orderId) ||
+      !Object.values(ORDER_STATUS).includes(newStatus) ||
+      !Object.values(ORDER_STATUS).includes(expectedStatus)
+    )
+      throw new HttpsError(
+        "invalid-argument",
+        "注文IDと変更前後の状態が必要です"
+      );
+    const orderRef = db.collection("orders").doc(orderId);
+    return db.runTransaction(async (transaction) => {
+      const doc = await transaction.get(orderRef);
+      if (!doc.exists)
         throw new HttpsError("not-found", "注文が見つかりません");
-      }
-
-      const currentOrder = orderDoc.data();
-      requireRestaurant(staffRestaurantId, currentOrder.restaurant_id);
-      const currentStatus = currentOrder.status;
-
-      // ステータス遷移の検証
-      const validTransitions = VALID_STATUS_TRANSITIONS[currentStatus] || [];
-      if (!validTransitions.includes(newStatus)) {
+      const order = doc.data();
+      requireRestaurant(restaurantId, order.restaurant_id);
+      if (order.status !== expectedStatus)
+        throw new HttpsError(
+          "aborted",
+          "別のスタッフが更新しました。最新状態を再確認してください。",
+          { reason: "status_changed", currentStatus: order.status }
+        );
+      if (!(VALID_STATUS_TRANSITIONS[order.status] || []).includes(newStatus))
         throw new HttpsError(
           "failed-precondition",
-          `${currentStatus}から${newStatus}への変更はできません`
+          "この状態への変更はできません"
         );
-      }
-
-      // 更新データを準備
-      const updateData = {
+      const update = {
         status: newStatus,
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        updated_by: request.auth.uid,
       };
-
-      // 特定のステータスではタイムスタンプを追加
-      if (newStatus === ORDER_STATUS.CONFIRMED) {
-        updateData.confirmed_at = admin.firestore.FieldValue.serverTimestamp();
-      } else if (newStatus === ORDER_STATUS.COMPLETED) {
-        updateData.completed_at = admin.firestore.FieldValue.serverTimestamp();
-      }
-
-      // ステータス更新
-      await orderRef.update(updateData);
-
-      console.log(`Order ${orderId} status: ${currentStatus} -> ${newStatus}`);
-
-      return { success: true };
-    } catch (error) {
-      console.error(
-        `Update order status error (ID: ${orderId}, NewStatus: ${newStatus}):`,
-        error
-      );
-
-      if (
-        error instanceof HttpsError ||
-        (error.code && typeof error.code === "string" && error.message)
-      ) {
-        throw error;
-      }
-
-      throw new HttpsError(
-        "internal",
-        "注文ステータスの更新中にエラーが発生しました。"
-      );
-    }
+      if (newStatus === ORDER_STATUS.CONFIRMED)
+        update.confirmed_at = admin.firestore.FieldValue.serverTimestamp();
+      if (newStatus === ORDER_STATUS.COMPLETED)
+        update.completed_at = admin.firestore.FieldValue.serverTimestamp();
+      transaction.update(orderRef, update);
+      return { success: true, status: newStatus };
+    });
   }
 );

@@ -34,14 +34,51 @@ const createFirestore = (initial = {}) => {
     },
     delete: async () => documents.delete(path),
   });
-  const collection = (path, filters = [], maximum = Infinity) => ({
+  const collection = (
+    path,
+    filters = [],
+    maximum = Infinity,
+    ordering = [],
+    after = null
+  ) => ({
     path,
     doc: (id = "generated-" + ++nextId) => reference(path + "/" + id),
     where: (field, operator, value) =>
-      collection(path, [...filters, { field, operator, value }], maximum),
-    orderBy: () => collection(path, filters, maximum),
-    limit: (count) => collection(path, filters, count),
+      collection(
+        path,
+        [...filters, { field, operator, value }],
+        maximum,
+        ordering,
+        after
+      ),
+    orderBy: (field, direction = "asc") =>
+      collection(
+        path,
+        filters,
+        maximum,
+        [...ordering, { field, direction }],
+        after
+      ),
+    startAfter: (doc) => collection(path, filters, maximum, ordering, doc),
+    limit: (count) => collection(path, filters, count, ordering, after),
     get: async () => {
+      const value = (doc, field) => {
+        const raw = field === "__name__" ? doc.id : doc.data()[field];
+        return raw instanceof Date
+          ? raw.getTime()
+          : raw?.toMillis
+            ? raw.toMillis()
+            : raw;
+      };
+      const compare = (a, b) => {
+        for (const { field, direction } of ordering) {
+          const left = value(a, field),
+            right = value(b, field);
+          const result = left < right ? -1 : left > right ? 1 : 0;
+          if (result) return direction === "desc" ? -result : result;
+        }
+        return 0;
+      };
       const docs = [...documents.keys()]
         .filter(
           (key) =>
@@ -60,6 +97,11 @@ const createFirestore = (initial = {}) => {
             throw new Error("Unsupported filter");
           })
         )
+        .filter((doc) =>
+          ordering.every(({ field }) => value(doc, field) !== undefined)
+        )
+        .sort(compare)
+        .filter((doc) => !after || compare(doc, after) > 0)
         .slice(0, maximum);
       return { docs, size: docs.length, empty: !docs.length };
     },

@@ -50,6 +50,99 @@ beforeEach(() => {
     jest.spyOn(console, method).mockImplementation(() => {});
 });
 afterEach(() => jest.restoreAllMocks());
+test.each([
+  undefined,
+  { uid: "customer", token: { role: "customer", restaurantId: "rest-test" } },
+])("staff reads reject unauthorized callers before querying", async (auth) => {
+  const query = jest.spyOn(mockDb, "collection");
+  for (const handler of [api.listStaffOrders, api.getStaffOrder])
+    await expect(
+      handler({ auth, data: { orderId: "order-test" } })
+    ).rejects.toMatchObject({
+      code: auth ? "permission-denied" : "unauthenticated",
+    });
+  expect(query).not.toHaveBeenCalled();
+});
+test("staff list is scoped, paginated deterministically, and excludes terminal orders in active view", async () => {
+  for (const id of ["a", "b", "c"])
+    mockDb.seed(`orders/${id}`, {
+      restaurant_id: "rest-test",
+      status: "pending",
+      created_at: new Date("2026-10-09T01:00:00Z"),
+      items: [],
+    });
+  mockDb.seed("orders/foreign", {
+    restaurant_id: "other-store",
+    status: "pending",
+    created_at: new Date(),
+    items: [],
+  });
+  mockDb.seed("orders/completed", {
+    restaurant_id: "rest-test",
+    status: "completed",
+    created_at: new Date("2026-10-09T00:00:00Z"),
+    items: [],
+  });
+  const first = await api.listStaffOrders({
+    auth: staff(),
+    data: { limit: 2 },
+  });
+  expect(first.orders.map((item) => item.id)).toEqual(["c", "b"]);
+  expect(first.hasMore).toBe(true);
+  const next = await api.listStaffOrders({
+    auth: staff(),
+    data: { limit: 2, cursor: first.cursor },
+  });
+  expect(next.orders.map((item) => item.id)).toEqual(["a"]);
+  expect(next.hasMore).toBe(false);
+  const all = await api.listStaffOrders({
+    auth: staff(),
+    data: { view: "all" },
+  });
+  expect(all.orders.map((item) => item.id)).toEqual([
+    "c",
+    "b",
+    "a",
+    "completed",
+  ]);
+  await expect(
+    api.getStaffOrder({ auth: staff(), data: { orderId: "foreign" } })
+  ).rejects.toMatchObject({ code: "permission-denied" });
+  await expect(
+    api.listStaffOrders({ auth: staff(), data: { cursor: "foreign" } })
+  ).rejects.toMatchObject({ code: "permission-denied" });
+});
+test("two staff updates from the same displayed state cannot overwrite each other", async () => {
+  mockDb.seed("orders/order-test", {
+    restaurant_id: "rest-test",
+    status: "pending",
+  });
+  const results = await Promise.allSettled(
+    ["confirmed", "cancelled"].map((newStatus) =>
+      api.updateOrderStatus({
+        auth: staff(),
+        data: { orderId: "order-test", expectedStatus: "pending", newStatus },
+      })
+    )
+  );
+  expect(
+    results.filter((result) => result.status === "fulfilled")
+  ).toHaveLength(1);
+  expect(
+    results.find((result) => result.status === "rejected").reason
+  ).toMatchObject({ code: "aborted", details: { reason: "status_changed" } });
+  expect(mockDb.writes).toHaveLength(1);
+  expect(mockDb.read("orders/order-test").updated_by).toBe("staff-test");
+});
+test("status updates require the state the staff actually reviewed", async () => {
+  await expect(
+    api.updateOrderStatus({
+      auth: staff(),
+      data: { orderId: "order-test", newStatus: "confirmed" },
+    })
+  ).rejects.toMatchObject({ code: "invalid-argument" });
+  expect(mockDb.writes).toHaveLength(0);
+});
 test("real createOrder stores an order and occupies the table", async () => {
   const result = await api.createOrder({ data: order() });
   expect(result.success).toBe(true);
@@ -89,7 +182,11 @@ test("real status handler records valid transitions", async () => {
     status: "pending",
   });
   await api.updateOrderStatus({
-    data: { orderId: "order-test", newStatus: "confirmed" },
+    data: {
+      orderId: "order-test",
+      newStatus: "confirmed",
+      expectedStatus: "pending",
+    },
     auth: {
       uid: "staff-test",
       token: { role: "staff", restaurantId: "rest-test" },
@@ -107,7 +204,11 @@ test("terminal orders cannot return to confirmed", async () => {
   });
   await expect(
     api.updateOrderStatus({
-      data: { orderId: "order-test", newStatus: "confirmed" },
+      data: {
+        orderId: "order-test",
+        newStatus: "confirmed",
+        expectedStatus: "completed",
+      },
       auth: {
         uid: "staff-test",
         token: { role: "staff", restaurantId: "rest-test" },
@@ -135,7 +236,11 @@ test.each([
     await expect(
       api.updateOrderStatus({
         auth,
-        data: { orderId: "order-test", newStatus: "confirmed" },
+        data: {
+          orderId: "order-test",
+          newStatus: "confirmed",
+          expectedStatus: "pending",
+        },
       })
     ).rejects.toMatchObject({ code });
     expect(mockDb.writes).toHaveLength(0);
