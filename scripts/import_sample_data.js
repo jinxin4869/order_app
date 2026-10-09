@@ -7,12 +7,19 @@
  * 3. 実行: node scripts/import_sample_data.js
  */
 
-const admin = require("firebase-admin");
+const { createRequire } = require("node:module");
+const functionsRequire = createRequire(
+  require.resolve("../functions/package.json")
+);
+const { initializeApp } = functionsRequire("firebase-admin/app");
+const { getFirestore, FieldValue } = functionsRequire(
+  "firebase-admin/firestore"
+);
 
 // Firebase Admin初期化（サービスアカウントキーを使用）
-admin.initializeApp();
+initializeApp();
 
-const db = admin.firestore();
+const db = getFirestore();
 
 // ===== サンプルデータ定義 =====
 
@@ -666,8 +673,8 @@ async function importData() {
       .doc(restaurantData.id)
       .set({
         ...restaurantData,
-        created_at: admin.firestore.FieldValue.serverTimestamp(),
-        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        created_at: FieldValue.serverTimestamp(),
+        updated_at: FieldValue.serverTimestamp(),
       });
     console.log(`   ✅ Restaurant created: ${restaurantData.name}\n`);
 
@@ -683,8 +690,8 @@ async function importData() {
           ...table,
           qr_code: `${restaurantData.id}/${table.id}`,
           status: "available",
-          created_at: admin.firestore.FieldValue.serverTimestamp(),
-          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+          created_at: FieldValue.serverTimestamp(),
+          updated_at: FieldValue.serverTimestamp(),
         });
     }
     console.log(`   ✅ ${tablesData.length} tables created\n`);
@@ -700,8 +707,8 @@ async function importData() {
         .set({
           ...category,
           is_available: true,
-          created_at: admin.firestore.FieldValue.serverTimestamp(),
-          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+          created_at: FieldValue.serverTimestamp(),
+          updated_at: FieldValue.serverTimestamp(),
         });
     }
     console.log(`   ✅ ${categoriesData.length} categories created\n`);
@@ -722,8 +729,8 @@ async function importData() {
           calories: item.calories || null,
           image_url: null,
           tags: item.tags || [],
-          created_at: admin.firestore.FieldValue.serverTimestamp(),
-          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+          created_at: FieldValue.serverTimestamp(),
+          updated_at: FieldValue.serverTimestamp(),
         });
     }
     console.log(`   ✅ ${menuItemsData.length} menu items created\n`);
@@ -739,8 +746,8 @@ async function importData() {
           subcategory: entry.subcategory || null,
           notes: entry.notes || null,
           usage_count: 0,
-          created_at: admin.firestore.FieldValue.serverTimestamp(),
-          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+          created_at: FieldValue.serverTimestamp(),
+          updated_at: FieldValue.serverTimestamp(),
         });
     }
     console.log(`   ✅ ${dictionaryData.length} dictionary entries created\n`);

@@ -1,13 +1,13 @@
 const { createFirestore } = require("../../test-support/firestore");
 let mockDb;
 let mockTranslate;
-jest.mock("firebase-admin", () => {
+jest.mock("firebase-admin/firestore", () => {
   const firestore = () => mockDb;
   firestore.FieldValue = {
     serverTimestamp: () => new Date(),
     increment: (n) => n,
   };
-  return { firestore };
+  return { getFirestore: firestore, FieldValue: firestore.FieldValue };
 });
 jest.mock("firebase-functions/v2/https", () => {
   class HttpsError extends Error {
@@ -414,3 +414,19 @@ test("menu API never fills absent no-dictionary fields with hybrid values", asyn
     expect(record.description_en_nodic).toBe("");
   }
 });
+
+test.each([
+  ["en", "EN-US"],
+  ["zh", "ZH-HANS"],
+])(
+  "translation handler sends the supported DeepL variant for %s",
+  async (targetLang, expectedTarget) => {
+    await api.translateText({ data: { text: "テスト料理", targetLang } });
+    expect(mockTranslate).toHaveBeenCalledWith(
+      "テスト料理",
+      "JA",
+      expectedTarget,
+      expect.any(Object)
+    );
+  }
+);

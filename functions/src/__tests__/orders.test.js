@@ -1,12 +1,12 @@
 const { createFirestore, fixtures } = require("../../test-support/firestore");
 let mockDb;
-jest.mock("firebase-admin", () => {
+jest.mock("firebase-admin/firestore", () => {
   const firestore = () => mockDb;
   firestore.FieldValue = {
     serverTimestamp: () => new Date(),
     increment: (n) => n,
   };
-  return { firestore };
+  return { getFirestore: firestore, FieldValue: firestore.FieldValue };
 });
 jest.mock("firebase-functions/v2/https", () => {
   class HttpsError extends Error {

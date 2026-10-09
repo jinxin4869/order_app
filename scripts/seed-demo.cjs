@@ -3,11 +3,17 @@ const local = /^(127\.0\.0\.1|localhost):\d+$/;
 for (const name of ["FIRESTORE_EMULATOR_HOST", "FIREBASE_AUTH_EMULATOR_HOST"])
   if (!local.test(process.env[name] || ""))
     throw new Error(`${name} must be a local emulator endpoint`);
-const admin = require("../functions/node_modules/firebase-admin");
-const app = admin.initializeApp({ projectId: "demo-order-app" });
+const { createRequire } = require("node:module");
+const functionsRequire = createRequire(
+  require.resolve("../functions/package.json")
+);
+const { initializeApp, deleteApp } = functionsRequire("firebase-admin/app");
+const { getFirestore } = functionsRequire("firebase-admin/firestore");
+const { getAuth } = functionsRequire("firebase-admin/auth");
+const app = initializeApp({ projectId: "demo-order-app" });
 async function main() {
   const { fixtures } = require("../functions/test-support/firestore");
-  const db = admin.firestore(app);
+  const db = getFirestore(app);
   const data = {
     ...fixtures(),
     "restaurants/rest-test/menu_categories/dishes": {
@@ -31,7 +37,7 @@ async function main() {
   for (const [path, value] of Object.entries(data))
     batch.set(db.doc(path), value);
   await batch.commit();
-  const auth = admin.auth(app);
+  const auth = getAuth(app);
   const uid = "demo-staff";
   try {
     await auth.getUser(uid);
@@ -71,4 +77,4 @@ main()
     );
     process.exitCode = 1;
   })
-  .finally(() => app.delete());
+  .finally(() => deleteApp(app));

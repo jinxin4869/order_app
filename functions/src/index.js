@@ -4,10 +4,10 @@
  * このファイルは全てのCloud Functionsのエントリーポイントです。
  */
 
-const admin = require("firebase-admin");
+const { initializeApp } = require("firebase-admin/app");
 
 // Firebase Admin初期化
-admin.initializeApp();
+initializeApp();
 
 // 各モジュールからエクスポート
 const translation = require("./translation");
