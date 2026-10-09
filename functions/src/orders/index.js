@@ -7,9 +7,14 @@
 const { onCall } = require("firebase-functions/v2/https");
 const { HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
-const { requireStaff, requireRestaurant, isDocumentId } = require("../utils/staffAuth");
+const {
+  requireStaff,
+  requireRestaurant,
+  isDocumentId,
+} = require("../utils/staffAuth");
 
 const db = admin.firestore();
+const { normalizeOrderInput } = require("../utils/orderInput");
 
 // 注文ステータス定義
 const ORDER_STATUS = {
@@ -59,59 +64,6 @@ const generateOrderNumber = async (restaurantId) => {
 };
 
 /**
- * 注文データを検証
- * @param {Object} orderData - 注文データ
- * @return {Object} - {valid: boolean, errors: Array}
- */
-const validateOrderData = (orderData) => {
-  const errors = [];
-
-  if (!orderData.restaurantId) {
-    errors.push("Restaurant ID is required");
-  }
-
-  if (!orderData.tableId) {
-    errors.push("Table ID is required");
-  }
-
-  if (
-    !orderData.items ||
-    !Array.isArray(orderData.items) ||
-    orderData.items.length === 0
-  ) {
-    errors.push("At least one item is required");
-  }
-
-  if (orderData.items) {
-    orderData.items.forEach((item, index) => {
-      if (!item.item_id) {
-        errors.push(`Item ${index + 1}: item_id is required`);
-      }
-      if (!item.quantity || item.quantity < 1 || item.quantity > 99) {
-        errors.push(`Item ${index + 1}: quantity must be between 1 and 99`);
-      }
-      if (item.price === undefined || item.price < 0) {
-        errors.push(`Item ${index + 1}: valid price is required`);
-      }
-      // 特別リクエストのバリデーション
-      if (item.special_request && item.special_request.length > 200) {
-        errors.push(
-          `Item ${index + 1}: special request must be 200 characters or less`
-        );
-      }
-      // XSS対策: HTMLタグを除去（サニタイゼーション）
-      if (item.special_request) {
-        item.special_request = item.special_request
-          .replace(/<[^>]*>/g, "")
-          .trim();
-      }
-    });
-  }
-
-  return errors;
-};
-
-/**
  * 金額計算を検証
  * @param {Object} orderData - 注文データ
  * @return {boolean} - 金額が正しければtrue
@@ -152,13 +104,7 @@ const validatePriceCalculation = (orderData) => {
  * @returns {Object} - {orderId: string, orderNumber: string}
  */
 exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
-  const data = request.data;
-
-  // データ検証
-  const validationErrors = validateOrderData(data);
-  if (validationErrors.length > 0) {
-    throw new HttpsError("invalid-argument", validationErrors.join(", "));
-  }
+  const data = normalizeOrderInput(request.data);
 
   // 金額検証
   const priceValidation = validatePriceCalculation(data);
@@ -205,6 +151,26 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
       throw new HttpsError("not-found", "指定されたテーブルが見つかりません。");
     }
 
+    const itemDocs = await db.getAll(
+      ...data.items.map((item) =>
+        db
+          .collection("restaurants")
+          .doc(data.restaurantId)
+          .collection("menu_items")
+          .doc(item.item_id)
+      )
+    );
+    const names = itemDocs.map((doc) => {
+      if (!doc.exists)
+        throw new HttpsError("not-found", "商品が見つかりません。");
+      const item = doc.data();
+      return {
+        name_ja: item.name_ja || "",
+        name_en: item.name_en || null,
+        name_zh: item.name_zh || null,
+      };
+    });
+
     // 注文番号生成
     let orderNumber;
     try {
@@ -223,10 +189,11 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
       table_id: data.tableId,
       order_number: orderNumber,
       customer_language: data.customerLanguage || "ja",
-      items: data.items.map((item) => ({
+      items: data.items.map((item, index) => ({
         item_id: item.item_id,
-        name: item.name,
-        name_ja: item.name_ja || item.name,
+        ...names[index],
+        name:
+          names[index][`name_${data.customerLanguage}`] || names[index].name_ja,
         quantity: item.quantity,
         price: item.price,
         notes: item.notes || null,

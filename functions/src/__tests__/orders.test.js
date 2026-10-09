@@ -116,20 +116,100 @@ test("terminal orders cannot return to confirmed", async () => {
   ).rejects.toMatchObject({ code: "failed-precondition" });
 });
 
-const staff = (restaurantId = "rest-test", role = "staff") => ({ uid: "staff-test", token: { role, restaurantId } });
+const staff = (restaurantId = "rest-test", role = "staff") => ({
+  uid: "staff-test",
+  token: { role, restaurantId },
+});
 test.each([
   [undefined, "unauthenticated"],
   [staff("rest-test", "customer"), "permission-denied"],
   [staff("other-store"), "permission-denied"],
   [staff(""), "permission-denied"],
-])("status update rejects insufficient or foreign staff permissions", async (auth, code) => {
-  mockDb.seed("orders/order-test", { restaurant_id: "rest-test", status: "pending" });
-  await expect(api.updateOrderStatus({ auth, data: { orderId: "order-test", newStatus: "confirmed" } })).rejects.toMatchObject({ code });
-  expect(mockDb.writes).toHaveLength(0);
-  expect(mockDb.read("orders/order-test").status).toBe("pending");
-});
+])(
+  "status update rejects insufficient or foreign staff permissions",
+  async (auth, code) => {
+    mockDb.seed("orders/order-test", {
+      restaurant_id: "rest-test",
+      status: "pending",
+    });
+    await expect(
+      api.updateOrderStatus({
+        auth,
+        data: { orderId: "order-test", newStatus: "confirmed" },
+      })
+    ).rejects.toMatchObject({ code });
+    expect(mockDb.writes).toHaveLength(0);
+    expect(mockDb.read("orders/order-test").status).toBe("pending");
+  }
+);
 test("unauthenticated status calls fail before any database query", async () => {
   const query = jest.spyOn(mockDb, "collection");
-  await expect(api.updateOrderStatus({ data: null })).rejects.toMatchObject({ code: "unauthenticated" });
+  await expect(api.updateOrderStatus({ data: null })).rejects.toMatchObject({
+    code: "unauthenticated",
+  });
   expect(query).not.toHaveBeenCalled();
+});
+
+test.each([
+  null,
+  [],
+  "not-an-order",
+  {},
+  order({ restaurantId: "../invalid" }),
+  order({ tableId: 123 }),
+  order({ items: {} }),
+  order({ items: [null] }),
+  order({ items: [] }),
+  order({
+    items: Array(101).fill({ item_id: "item-test", price: 1000, quantity: 1 }),
+  }),
+  order({ customerLanguage: false }),
+  order({ customerLanguage: "fr" }),
+  order({ subtotal: NaN }),
+  order({ tax: Infinity }),
+  order({ totalAmount: "2200" }),
+  order({ customerNotes: "x".repeat(201) }),
+  ...[0, 100, 1.5, NaN, Infinity, "2"].map((quantity) =>
+    order({ items: [{ item_id: "item-test", price: 1000, quantity }] })
+  ),
+  ...[NaN, Infinity, -1, "1000"].map((price) =>
+    order({ items: [{ item_id: "item-test", price, quantity: 1 }] })
+  ),
+  ...[123, "x".repeat(201)].map((notes) =>
+    order({
+      items: [{ item_id: "item-test", price: 1000, quantity: 1, notes }],
+    })
+  ),
+  order({
+    items: [
+      {
+        item_id: "item-test",
+        price: 1000,
+        quantity: 1,
+        special_request: "legacy",
+      },
+    ],
+  }),
+])(
+  "invalid input consistently returns invalid-argument before writes",
+  async (data) => {
+    await expect(api.createOrder({ data })).rejects.toMatchObject({
+      code: "invalid-argument",
+    });
+    expect(mockDb.writes).toHaveLength(0);
+  }
+);
+test("notes are validated and sanitized without changing the caller, and names come from the master", async () => {
+  const data = order();
+  data.items[0].notes = " <b>No onions</b> ";
+  data.items[0].name_en = "Forged name";
+  const result = await api.createOrder({ data });
+  expect(mockDb.read("orders/" + result.orderId).items[0]).toMatchObject({
+    notes: "No onions",
+    name: "Test dish",
+    name_ja: "テスト料理",
+    name_en: "Test dish",
+    name_zh: "测试菜",
+  });
+  expect(data.items[0].notes).toBe(" <b>No onions</b> ");
 });
