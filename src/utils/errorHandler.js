@@ -234,7 +234,8 @@ export const isNetworkError = (error) => {
     error.message?.includes("network") ||
     error.message?.includes("Network") ||
     error.code === "auth/network-request-failed" ||
-    error.code === "unavailable"
+    error.code === "unavailable" ||
+    error.code === "functions/unavailable"
   );
 };
 
