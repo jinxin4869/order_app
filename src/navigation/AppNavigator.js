@@ -6,6 +6,7 @@ import { COLORS } from "../constants";
 import { LanguageProvider } from "../hooks/useLanguage";
 import { useCart } from "../hooks/useCart";
 import { CartContext } from "../context/CartContext";
+import OrderEntryScreen from "../screens/OrderEntryScreen";
 
 // スクリーンのインポート
 import {
@@ -18,6 +19,10 @@ import {
 } from "../screens";
 
 const Stack = createNativeStackNavigator();
+const linking = {
+  prefixes: [],
+  config: { screens: { OrderEntry: "order", QRScanner: "" } },
+};
 
 // ナビゲーションスタック
 const AppStack = () => {
@@ -35,6 +40,11 @@ const AppStack = () => {
         headerBackTitleVisible: false,
       }}
     >
+      <Stack.Screen
+        name="OrderEntry"
+        component={OrderEntryScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen
         name="QRScanner"
         component={QRScannerScreen}
@@ -87,7 +97,7 @@ const AppNavigator = () => {
   return (
     <LanguageProvider>
       <CartContext.Provider value={cart}>
-        <NavigationContainer>
+        <NavigationContainer linking={linking}>
           <AppStack />
         </NavigationContainer>
       </CartContext.Provider>

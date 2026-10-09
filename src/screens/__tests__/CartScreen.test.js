@@ -10,7 +10,7 @@ jest.mock("../../services/api", () => ({
 
 import React from "react";
 import { render, waitFor, fireEvent } from "@testing-library/react-native";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import CartScreen from "../CartScreen";
 import { useLanguage } from "../../hooks/useLanguage";
 import { CartContext } from "../../context/CartContext";
@@ -75,8 +75,10 @@ const createMockCartContext = (items = []) => ({
 });
 
 describe("CartScreen", () => {
+  afterEach(() => jest.restoreAllMocks());
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Alert, "alert").mockImplementation(() => {});
 
     useLanguage.mockReturnValue({
       currentLanguage: "ja",
@@ -315,6 +317,38 @@ describe("CartScreen", () => {
     expect(getByText("炸鸡")).toBeTruthy();
     expect(getByText("购物车")).toBeTruthy();
   });
+
+  test("Webの確認から注文APIまで進める", async () => {
+    jest.replaceProperty(Platform, "OS", "web");
+    window.confirm = jest.fn().mockReturnValue(true);
+    const context = createMockCartContext(mockCartItems);
+    const { getByText } = render(
+      <CartContext.Provider value={context}>
+        <CartScreen navigation={mockNavigation} route={mockRoute} />
+      </CartContext.Provider>
+    );
+    fireEvent.press(getByText("注文を確定する"));
+    await waitFor(() => expect(api.createOrder).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(mockNavigation.navigate).toHaveBeenCalledWith(
+        "OrderComplete",
+        expect.objectContaining({ orderId: "order_001" })
+      )
+    );
+  });
+
+  test("Webで注文確認を取り消すとAPIを呼ばない", () => {
+    jest.replaceProperty(Platform, "OS", "web");
+    window.confirm = jest.fn().mockReturnValue(false);
+    const context = createMockCartContext(mockCartItems);
+    const { getByText } = render(
+      <CartContext.Provider value={context}>
+        <CartScreen navigation={mockNavigation} route={mockRoute} />
+      </CartContext.Provider>
+    );
+    fireEvent.press(getByText("注文を確定する"));
+    expect(api.createOrder).not.toHaveBeenCalled();
+  });
 });
 
 test("price changes prompt a fresh menu and clear the outdated cart on confirmation", async () => {
@@ -323,7 +357,7 @@ test("price changes prompt a fresh menu and clear the outdated cart on confirmat
   api.createOrder.mockRejectedValue(Object.assign(new Error("Price changed"), { details: { reason: "price_changed" } }));
   const context = createMockCartContext(mockCartItems);
   const navigation = { ...mockNavigation, replace: jest.fn() };
-  Alert.alert.mockImplementation((title, message, buttons) => {
+  jest.spyOn(Alert, "alert").mockImplementation((title, message, buttons) => {
     if (title === "注文確認") buttons[1].onPress();
   });
   const view = render(<CartContext.Provider value={context}><CartScreen navigation={navigation} route={mockRoute} /></CartContext.Provider>);
