@@ -10,7 +10,7 @@ jest.mock("../../services/api", () => ({
 }));
 
 import React from "react";
-import { render, waitFor, fireEvent } from "@testing-library/react-native";
+import { render, waitFor, fireEvent, act } from "@testing-library/react-native";
 import MenuScreen from "../MenuScreen";
 import { useLanguage } from "../../hooks/useLanguage";
 import { useNetworkStatus } from "../../hooks/useNetworkStatus";
@@ -91,6 +91,78 @@ describe("MenuScreen", () => {
       expect(getByText("テストレストラン")).toBeTruthy();
       expect(getByText("Table 1")).toBeTruthy();
     });
+  });
+  test("category, language and translation mode switches do not refetch the catalog", async () => {
+    const screen = render(
+      <MenuScreen navigation={mockNavigation} route={mockRoute} />
+    );
+    await screen.findByText("枝豆");
+    expect(api.getMenuWithTranslation).toHaveBeenCalledTimes(1);
+    fireEvent.press(screen.getByText("メイン"));
+    expect(screen.getByText("唐揚げ")).toBeTruthy();
+    fireEvent.press(screen.getByText("前菜"));
+    useLanguage.mockReturnValue({
+      ...useLanguage(),
+      currentLanguage: "en",
+      translationMode: "deepl_only",
+    });
+    screen.rerender(
+      <MenuScreen navigation={mockNavigation} route={mockRoute} />
+    );
+    expect(screen.getByText("枝豆")).toBeTruthy();
+    expect(api.getMenuWithTranslation).toHaveBeenCalledTimes(1);
+  });
+  test("explicit refresh corrects a removed category without triggering another fetch", async () => {
+    const screen = render(
+      <MenuScreen navigation={mockNavigation} route={mockRoute} />
+    );
+    await screen.findByText("枝豆");
+    api.getMenuWithTranslation.mockResolvedValueOnce({
+      categories: [mockCategories[1]],
+      items: mockMenuItems,
+    });
+    fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    await screen.findByText("唐揚げ");
+    expect(screen.queryByText("前菜")).toBeNull();
+    expect(api.getMenuWithTranslation).toHaveBeenCalledTimes(2);
+  });
+  test("switching stores immediately hides the old menu and ignores its late response", async () => {
+    const screen = render(
+      <MenuScreen navigation={mockNavigation} route={mockRoute} />
+    );
+    await screen.findByText("枝豆");
+    let resolveOld, resolveNew;
+    api.getMenuWithTranslation.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOld = resolve;
+        })
+    );
+    fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    api.getMenuWithTranslation.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveNew = resolve;
+        })
+    );
+    const other = {
+      params: { ...mockRoute.params, restaurantId: "other-store" },
+    };
+    screen.rerender(<MenuScreen navigation={mockNavigation} route={other} />);
+    expect(screen.queryByText("枝豆")).toBeNull();
+    await act(async () =>
+      resolveOld({ categories: mockCategories, items: mockMenuItems })
+    );
+    expect(screen.queryByText("枝豆")).toBeNull();
+    await act(async () =>
+      resolveNew({
+        categories: [mockCategories[0]],
+        items: [{ ...mockMenuItems[0], name_ja: "新店舗料理" }],
+      })
+    );
+    expect(screen.getByText("新店舗料理")).toBeTruthy();
+    expect(api.getMenuWithTranslation).toHaveBeenCalledTimes(3);
+    expect(api.getMenuWithTranslation).toHaveBeenLastCalledWith("other-store");
   });
 
   test("ローディング中はローディングインジケーターを表示", () => {

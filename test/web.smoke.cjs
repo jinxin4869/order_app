@@ -148,15 +148,34 @@ const server = http.createServer((req, res) => {
         } else if (name === "getMenuWithTranslation") {
           result = {
             restaurant: { name: "テスト店舗" },
-            categories: [{ id: "test-category", name_ja: "料理" }],
+            categories: [
+              { id: "test-category", name_ja: "料理" },
+              { id: "drinks", name_ja: "飲み物" },
+            ],
             items: [
               {
                 id: "test-item",
                 category_id: "test-category",
                 name_ja: "テスト料理",
+                name_en: "Test dish (dictionary)",
+                name_en_translation: {
+                  schemaVersion: 1,
+                  sourceText: "テスト料理",
+                  mode: "dictionary",
+                  status: "ready",
+                  method: "hybrid",
+                  usedDictionary: true,
+                },
                 price: 1000,
                 is_available: true,
                 description_ja: "検証用の料理",
+              },
+              {
+                id: "tea",
+                category_id: "drinks",
+                name_ja: "お茶",
+                price: 200,
+                is_available: true,
               },
             ],
           };
@@ -221,6 +240,19 @@ const server = http.createServer((req, res) => {
       await page.getByText("言語を選択してください", { exact: true }).waitFor();
       console.log("RELOAD", viewport.width, page.url());
       await page.getByRole("button", { name: "日本語", exact: true }).click();
+      await page.getByText("飲み物", { exact: true }).click();
+      await page.getByText("お茶", { exact: true }).waitFor();
+      assert.equal(
+        calls.filter((call) => call.name === "getMenuWithTranslation").length,
+        1
+      );
+      await page.getByRole("button", { name: "更新", exact: true }).click();
+      await page.getByRole("button", { name: "更新", exact: true }).waitFor();
+      await page.getByText("料理", { exact: true }).click();
+      assert.equal(
+        calls.filter((call) => call.name === "getMenuWithTranslation").length,
+        2
+      );
       await page.getByText("テスト料理", { exact: true }).click();
       await page.getByText("カートに追加", { exact: true }).click();
       await page.getByText("🛒 カートを見る", { exact: true }).click();
@@ -254,6 +286,27 @@ const server = http.createServer((req, res) => {
         "QR reload and one order",
         calls.filter((c) => c.name === "createOrder")[0].data.requestId
       );
+      await page.goto(
+        "http://127.0.0.1:4173/order?restaurant=rest-test&table=table-test"
+      );
+      await page.getByRole("button", { name: "English", exact: true }).click();
+      await page.getByText("Test dish (dictionary)", { exact: true }).waitFor();
+      await page
+        .getByRole("button", { name: "DeepL API Only", exact: true })
+        .click();
+      await page
+        .getByText("テスト料理 [Translation unavailable; Japanese original]", {
+          exact: true,
+        })
+        .waitFor();
+      assert.equal(
+        await page.getByText("Test dish (dictionary)", { exact: true }).count(),
+        0
+      );
+      await page
+        .getByRole("button", { name: "DeepL + Dict", exact: true })
+        .click();
+      await page.getByText("Test dish (dictionary)", { exact: true }).waitFor();
       await page.goto("http://127.0.0.1:4173/order?restaurant=rest-test");
       await page
         .getByText(

@@ -1,5 +1,5 @@
 // メニュー画面
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -16,7 +16,7 @@ import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { useResponsive } from "../hooks/useResponsive";
 import { getMenuWithTranslation } from "../services/api";
 
-const MenuScreen = ({ navigation, route }) => {
+const RestaurantMenu = ({ navigation, route }) => {
   const { restaurantId, tableId, restaurant, table } = route.params;
   const {
     currentLanguage,
@@ -36,53 +36,46 @@ const MenuScreen = ({ navigation, route }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  // メニューを読み込み
+  const requestVersion = useRef(0);
+  // The API returns every language; category and language switches are local.
   const loadMenu = useCallback(
     async (showRefresh = false) => {
-      console.log(
-        `Loading menu for restaurant: ${restaurantId}, lang: ${currentLanguage}`
-      );
+      const request = ++requestVersion.current;
+      if (showRefresh) setIsRefreshing(true);
+      else setIsLoading(true);
+      setError(null);
       try {
-        if (showRefresh) {
-          setIsRefreshing(true);
-        } else {
-          setIsLoading(true);
-        }
-        setError(null);
-
-        const result = await getMenuWithTranslation(
-          restaurantId,
-          currentLanguage
-        );
-
-        console.log(
-          "Menu loaded successfully:",
-          result.categories?.length,
-          "categories"
-        );
-
-        setCategories(result.categories || []);
+        const result = await getMenuWithTranslation(restaurantId);
+        if (request !== requestVersion.current) return;
+        const nextCategories = result.categories || [];
+        setCategories(nextCategories);
         setMenuItems(result.items || []);
-
-        if (result.categories?.length > 0 && !selectedCategory) {
-          setSelectedCategory(result.categories[0].id);
-        }
-      } catch (err) {
-        console.error("Menu load error:", err);
-        const errorMessage =
-          err.message ||
-          "メニューの読み込みに失敗しました\nFailed to load menu\n菜单加载失败";
-        setError(errorMessage);
+        setSelectedCategory((previous) =>
+          nextCategories.some((category) => category.id === previous)
+            ? previous
+            : nextCategories[0]?.id || null
+        );
+      } catch (failure) {
+        if (request === requestVersion.current)
+          setError(
+            failure.message ||
+              "メニューの読み込みに失敗しました / Failed to load menu / 菜单加载失败"
+          );
       } finally {
-        setIsLoading(false);
-        setIsRefreshing(false);
+        if (request === requestVersion.current) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
       }
     },
-    [restaurantId, currentLanguage, selectedCategory]
+    [restaurantId]
   );
-
   useEffect(() => {
     loadMenu();
+    const version = requestVersion;
+    return () => {
+      version.current++;
+    };
   }, [loadMenu]);
 
   // カテゴリでフィルタリングされたメニュー
@@ -300,6 +293,29 @@ const MenuScreen = ({ navigation, route }) => {
               Table {table?.table_number || tableId}
             </Text>
           </View>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityState={{ disabled: isRefreshing }}
+            disabled={isRefreshing}
+            onPress={() => loadMenu(true)}
+            style={{
+              minWidth: 44,
+              minHeight: 44,
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: 12,
+            }}
+          >
+            <Text style={{ color: COLORS.surface, fontSize: 16 }}>
+              {isRefreshing
+                ? "…"
+                : currentLanguage === "en"
+                  ? "Refresh"
+                  : currentLanguage === "zh"
+                    ? "刷新"
+                    : "更新"}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -760,4 +776,8 @@ const styles = StyleSheet.create({
   },
 });
 
+// Keying by store discards the previous catalog before the new store renders.
+const MenuScreen = (props) => (
+  <RestaurantMenu key={props.route.params.restaurantId} {...props} />
+);
 export default MenuScreen;
