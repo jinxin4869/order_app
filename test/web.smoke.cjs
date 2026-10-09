@@ -294,7 +294,24 @@ const server = http.createServer((req, res) => {
         "http://127.0.0.1:4173/order?restaurant=rest-test&table=table-test"
       );
       await page.getByRole("button", { name: "English", exact: true }).click();
-      await page.getByText("Test dish (dictionary)", { exact: true }).waitFor();
+      await page.getByText("Test dish (dictionary)", { exact: true }).click();
+      await page.getByText("Add to Cart", { exact: true }).click();
+      await page.getByText("🛒 View Cart", { exact: true }).click();
+      await page
+        .getByText("Test dish (dictionary)", { exact: true })
+        .filter({ visible: true })
+        .waitFor();
+      assert.equal(
+        await page
+          .getByText(/Translation unverified/)
+          .filter({ visible: true })
+          .count(),
+        0
+      );
+      await page
+        .getByText("←", { exact: true })
+        .filter({ visible: true })
+        .click();
       await page
         .getByRole("button", { name: "DeepL API Only", exact: true })
         .click();
@@ -302,9 +319,13 @@ const server = http.createServer((req, res) => {
         .getByText("テスト料理", {
           exact: true,
         })
+        .filter({ visible: true })
         .waitFor();
       assert.equal(
-        await page.getByText("Test dish (dictionary)", { exact: true }).count(),
+        await page
+          .getByText("Test dish (dictionary)", { exact: true })
+          .filter({ visible: true })
+          .count(),
         0
       );
       await page
