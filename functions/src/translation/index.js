@@ -14,7 +14,14 @@ const synonyms = require("../morphological/synonyms");
 const db = admin.firestore();
 
 // DeepL API設定（環境変数から取得）
-const DEEPL_API_KEY = process.env.DEEPL_API_KEY;
+const requireDeepLKey = () => {
+  const key = process.env.DEEPL_API_KEY;
+  if (!key || !key.trim())
+    throw new HttpsError("failed-precondition", "翻訳APIの設定がありません。", {
+      reason: "translation_not_configured",
+    });
+  return key;
+};
 
 // ===== ユーティリティ関数 =====
 
@@ -204,18 +211,27 @@ const saveToCache = async (sourceText, targetLang, translatedText, method) => {
  * @return {Promise<string>} - 翻訳後テキスト
  */
 const translateWithDeepL = async (text, targetLang) => {
-  if (!DEEPL_API_KEY) {
-    throw new Error("DeepL API key not configured");
-  }
+  const key = requireDeepLKey();
 
   const deepl = require("deepl-node");
-  const translator = new deepl.Translator(DEEPL_API_KEY);
+  const translator = new deepl.Translator(key);
 
   // DeepLの言語コード変換
   const targetLangCode = targetLang === "zh" ? "ZH" : targetLang.toUpperCase();
 
-  const result = await translator.translateText(text, "JA", targetLangCode);
-  return result.text;
+  try {
+    const result = await translator.translateText(text, "JA", targetLangCode);
+    if (!result || typeof result.text !== "string" || !result.text.trim())
+      throw new Error("Empty translation");
+    return result.text;
+  } catch {
+    // Do not expose SDK errors that may contain request credentials.
+    throw new HttpsError(
+      "unavailable",
+      "翻訳APIに接続できません。時間を置いて再実行してください。",
+      { reason: "translation_api_unavailable" }
+    );
+  }
 };
 
 /**
@@ -402,9 +418,13 @@ exports.translateText = onCall(
  * @param {Object} data - {restaurantId: string, targetLang: 'en' | 'zh'}
  * @returns {Object} - {count: number, items: Array}
  */
-const { requireStaff, requireRestaurant, isDocumentId } = require("../utils/staffAuth");
+const {
+  requireStaff,
+  requireRestaurant,
+  isDocumentId,
+} = require("../utils/staffAuth");
 exports.batchTranslateMenu = onCall(
-  { region: "asia-northeast1" },
+  { region: "asia-northeast1", secrets: ["DEEPL_API_KEY"] },
   async (request) => {
     const staffRestaurantId = requireStaff(request);
     const {
@@ -423,6 +443,8 @@ exports.batchTranslateMenu = onCall(
     if (!["en", "zh"].includes(targetLang)) {
       throw new HttpsError("invalid-argument", "サポートされていない言語です");
     }
+
+    requireDeepLKey();
 
     try {
       // メニュー取得
@@ -453,31 +475,24 @@ exports.batchTranslateMenu = onCall(
             nameTranslation = cachedTranslation;
           } else {
             const foundTerms = await findSpecializedTerms(menuItem.name_ja);
-            try {
-              nameTranslation = await translateWithDeepL(
-                menuItem.name_ja,
+
+            nameTranslation = await translateWithDeepL(
+              menuItem.name_ja,
+              targetLang
+            );
+            if (foundTerms.length > 0) {
+              nameTranslation = postProcessTranslation(
+                nameTranslation,
+                foundTerms,
                 targetLang
               );
-              if (foundTerms.length > 0) {
-                nameTranslation = postProcessTranslation(
-                  nameTranslation,
-                  foundTerms,
-                  targetLang
-                );
-              }
-              await saveToCache(
-                menuItem.name_ja,
-                targetLang,
-                nameTranslation,
-                foundTerms.length > 0 ? "hybrid" : "deepl_api"
-              );
-            } catch (apiError) {
-              nameTranslation =
-                (await translateWithDictionaryOnly(
-                  menuItem.name_ja,
-                  targetLang
-                )) || menuItem.name_ja;
             }
+            await saveToCache(
+              menuItem.name_ja,
+              targetLang,
+              nameTranslation,
+              foundTerms.length > 0 ? "hybrid" : "deepl_api"
+            );
           }
           updateData[`name_${targetLang}`] = nameTranslation;
 
@@ -488,21 +503,17 @@ exports.batchTranslateMenu = onCall(
             if (cachedNodic) {
               updateData[`name_${targetLang}_nodic`] = cachedNodic;
             } else {
-              try {
-                const nodicTranslation = await translateWithDeepL(
-                  menuItem.name_ja,
-                  targetLang
-                );
-                updateData[`name_${targetLang}_nodic`] = nodicTranslation;
-                await saveToCache(
-                  nodicCacheKey,
-                  targetLang,
-                  nodicTranslation,
-                  "deepl_only"
-                );
-              } catch (apiError) {
-                updateData[`name_${targetLang}_nodic`] = nameTranslation;
-              }
+              const nodicTranslation = await translateWithDeepL(
+                menuItem.name_ja,
+                targetLang
+              );
+              updateData[`name_${targetLang}_nodic`] = nodicTranslation;
+              await saveToCache(
+                nodicCacheKey,
+                targetLang,
+                nodicTranslation,
+                "deepl_only"
+              );
             }
           }
         }
@@ -521,31 +532,24 @@ exports.batchTranslateMenu = onCall(
             const foundTerms = await findSpecializedTerms(
               menuItem.description_ja
             );
-            try {
-              descTranslation = await translateWithDeepL(
-                menuItem.description_ja,
+
+            descTranslation = await translateWithDeepL(
+              menuItem.description_ja,
+              targetLang
+            );
+            if (foundTerms.length > 0) {
+              descTranslation = postProcessTranslation(
+                descTranslation,
+                foundTerms,
                 targetLang
               );
-              if (foundTerms.length > 0) {
-                descTranslation = postProcessTranslation(
-                  descTranslation,
-                  foundTerms,
-                  targetLang
-                );
-              }
-              await saveToCache(
-                menuItem.description_ja,
-                targetLang,
-                descTranslation,
-                foundTerms.length > 0 ? "hybrid" : "deepl_api"
-              );
-            } catch (apiError) {
-              descTranslation =
-                (await translateWithDictionaryOnly(
-                  menuItem.description_ja,
-                  targetLang
-                )) || menuItem.description_ja;
             }
+            await saveToCache(
+              menuItem.description_ja,
+              targetLang,
+              descTranslation,
+              foundTerms.length > 0 ? "hybrid" : "deepl_api"
+            );
           }
           updateData[`description_${targetLang}`] = descTranslation;
 
@@ -556,22 +560,17 @@ exports.batchTranslateMenu = onCall(
             if (cachedNodic) {
               updateData[`description_${targetLang}_nodic`] = cachedNodic;
             } else {
-              try {
-                const nodicTranslation = await translateWithDeepL(
-                  menuItem.description_ja,
-                  targetLang
-                );
-                updateData[`description_${targetLang}_nodic`] =
-                  nodicTranslation;
-                await saveToCache(
-                  nodicCacheKey,
-                  targetLang,
-                  nodicTranslation,
-                  "deepl_only"
-                );
-              } catch (apiError) {
-                updateData[`description_${targetLang}_nodic`] = descTranslation;
-              }
+              const nodicTranslation = await translateWithDeepL(
+                menuItem.description_ja,
+                targetLang
+              );
+              updateData[`description_${targetLang}_nodic`] = nodicTranslation;
+              await saveToCache(
+                nodicCacheKey,
+                targetLang,
+                nodicTranslation,
+                "deepl_only"
+              );
             }
           }
         }
