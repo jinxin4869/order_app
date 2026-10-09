@@ -299,7 +299,7 @@ const server = http.createServer((req, res) => {
         .getByRole("button", { name: "DeepL API Only", exact: true })
         .click();
       await page
-        .getByText("テスト料理 [Translation unavailable; Japanese original]", {
+        .getByText("テスト料理", {
           exact: true,
         })
         .waitFor();
@@ -307,6 +307,12 @@ const server = http.createServer((req, res) => {
         await page.getByText("Test dish (dictionary)", { exact: true }).count(),
         0
       );
+      await page
+        .getByText("Translation unavailable; Japanese original", {
+          exact: true,
+        })
+        .first()
+        .waitFor();
       await page.screenshot({
         path: path.join(
           artifacts,

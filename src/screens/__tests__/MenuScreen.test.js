@@ -31,8 +31,30 @@ const mockRoute = {
 };
 
 const mockCategories = [
-  { id: "cat_01", name_ja: "前菜", name_en: "Appetizer", icon: "🥗" },
-  { id: "cat_02", name_ja: "メイン", name_en: "Main", icon: "🍖" },
+  {
+    id: "cat_01",
+    name_ja: "前菜",
+    name_en: "Appetizer",
+    name_en_translation: {
+      schemaVersion: 1,
+      sourceText: "前菜",
+      mode: "dictionary",
+      status: "ready",
+    },
+    icon: "🥗",
+  },
+  {
+    id: "cat_02",
+    name_ja: "メイン",
+    name_en: "Main",
+    name_en_translation: {
+      schemaVersion: 1,
+      sourceText: "メイン",
+      mode: "dictionary",
+      status: "ready",
+    },
+    icon: "🍖",
+  },
 ];
 
 const mockMenuItems = [
@@ -41,6 +63,12 @@ const mockMenuItems = [
     category_id: "cat_01",
     name_ja: "枝豆",
     name_en: "Edamame",
+    name_en_translation: {
+      schemaVersion: 1,
+      sourceText: "枝豆",
+      mode: "dictionary",
+      status: "ready",
+    },
     description_ja: "塩茹でした枝豆",
     price: 500,
     is_available: true,
@@ -51,6 +79,12 @@ const mockMenuItems = [
     category_id: "cat_02",
     name_ja: "唐揚げ",
     name_en: "Fried Chicken",
+    name_en_translation: {
+      schemaVersion: 1,
+      sourceText: "唐揚げ",
+      mode: "dictionary",
+      status: "ready",
+    },
     description_ja: "ジューシーな唐揚げ",
     price: 800,
     is_available: true,

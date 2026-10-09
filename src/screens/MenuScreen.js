@@ -14,18 +14,16 @@ import { COLORS, FONT_SIZES, ALLERGENS } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { useResponsive } from "../hooks/useResponsive";
+import {
+  translationField,
+  translationStatusLabel,
+} from "../utils/translationDisplay";
 import { getMenuWithTranslation } from "../services/api";
 
 const RestaurantMenu = ({ navigation, route }) => {
   const { restaurantId, tableId, restaurant, table } = route.params;
-  const {
-    currentLanguage,
-    getItemName,
-    getItemDescription,
-    getCategoryName,
-    translationMode,
-    setTranslationMode,
-  } = useLanguage();
+  const { currentLanguage, translationMode, setTranslationMode } =
+    useLanguage();
   const { isOnline } = useNetworkStatus();
   const { isSmallScreen, isVerySmallScreen, scaleSize } = useResponsive();
 
@@ -78,6 +76,19 @@ const RestaurantMenu = ({ navigation, route }) => {
     };
   }, [loadMenu]);
 
+  const fieldState = (entity, field) =>
+    translationField(entity, field, currentLanguage, translationMode);
+  const fieldLabel = (entity, field) => {
+    const state = fieldState(entity, field);
+    return state.text
+      ? translationStatusLabel(state.status, currentLanguage)
+      : "";
+  };
+  const renderTranslationStatus = (entity, field) => {
+    const label = fieldLabel(entity, field);
+    return label ? <Text style={styles.provenance}>{label}</Text> : null;
+  };
+
   // カテゴリでフィルタリングされたメニュー
   const filteredItems = menuItems.filter(
     (item) => item.category_id === selectedCategory && item.is_available
@@ -104,7 +115,8 @@ const RestaurantMenu = ({ navigation, route }) => {
 
   // レスポンシブなサイズ
   const itemImageSize = scaleSize(100, 70, 110);
-  const categoryTabHeight = scaleSize(80, 65, 85);
+  const categoryTabHeight =
+    currentLanguage === "ja" ? scaleSize(80, 65, 85) : scaleSize(92, 90, 96);
 
   // カテゴリタブをレンダリング
   const renderCategoryTab = ({ item }) => (
@@ -116,21 +128,40 @@ const RestaurantMenu = ({ navigation, route }) => {
       ]}
       onPress={() => setSelectedCategory(item.id)}
     >
-      <Text
-        style={[styles.categoryIcon, isSmallScreen && styles.categoryIconSmall]}
+      <View
+        style={{ flexDirection: "row", alignItems: "center", maxWidth: "100%" }}
       >
-        {item.icon || "🍽️"}
-      </Text>
-      <Text
-        style={[
-          styles.categoryText,
-          selectedCategory === item.id && styles.categoryTextActive,
-          isSmallScreen && styles.categoryTextSmall,
-        ]}
-        numberOfLines={1}
-      >
-        {getCategoryName(item)}
-      </Text>
+        <Text
+          style={[
+            styles.categoryIcon,
+            isSmallScreen && styles.categoryIconSmall,
+          ]}
+        >
+          {item.icon || "🍽️"}
+        </Text>
+        <Text
+          style={[
+            styles.categoryText,
+            selectedCategory === item.id && styles.categoryTextActive,
+            isSmallScreen && styles.categoryTextSmall,
+          ]}
+          numberOfLines={1}
+        >
+          {fieldState(item, "name").text}
+        </Text>
+      </View>
+      {!!fieldLabel(item, "name") && (
+        <Text
+          style={[
+            styles.categoryProvenance,
+            selectedCategory === item.id && { color: COLORS.surface },
+          ]}
+        >
+          {currentLanguage === "zh"
+            ? "日文参考・不可比较"
+            : "Japanese reference"}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 
@@ -173,7 +204,7 @@ const RestaurantMenu = ({ navigation, route }) => {
             style={[styles.itemName, isSmallScreen && styles.itemNameSmall]}
             numberOfLines={2}
           >
-            {getItemName(item)}
+            {fieldState(item, "name").text}
           </Text>
           {item.is_popular && (
             <View
@@ -198,6 +229,7 @@ const RestaurantMenu = ({ navigation, route }) => {
           )}
         </View>
 
+        {renderTranslationStatus(item, "name")}
         <Text
           style={[
             styles.itemDescription,
@@ -205,9 +237,10 @@ const RestaurantMenu = ({ navigation, route }) => {
           ]}
           numberOfLines={2}
         >
-          {getItemDescription(item)}
+          {fieldState(item, "description").text}
         </Text>
 
+        {renderTranslationStatus(item, "description")}
         {/* アレルゲン表示 */}
         {item.allergens?.length > 0 && (
           <View style={styles.allergenContainer}>
@@ -411,7 +444,14 @@ const RestaurantMenu = ({ navigation, route }) => {
         keyExtractor={(item) => item.id}
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={[styles.categoryList, { height: categoryTabHeight }]}
+        style={[
+          styles.categoryList,
+          {
+            height: categoryTabHeight,
+            maxHeight: categoryTabHeight,
+            flexBasis: categoryTabHeight,
+          },
+        ]}
         contentContainerStyle={styles.categoryListContent}
       />
 
@@ -479,7 +519,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   header: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#B71C1C",
     padding: 15,
     paddingTop: 50,
   },
@@ -555,8 +595,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.background,
   },
   translationModeButtonActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: "#B71C1C",
+    borderColor: "#B71C1C",
   },
   translationModeText: {
     fontSize: FONT_SIZES.sm,
@@ -572,19 +612,35 @@ const styles = StyleSheet.create({
   },
   categoryList: {
     backgroundColor: COLORS.surface,
+    flexGrow: 0,
     flexShrink: 0,
   },
   categoryListContent: {
     paddingHorizontal: 10,
     paddingVertical: 10,
   },
+  provenance: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#666666",
+    marginBottom: 6,
+    flexShrink: 1,
+  },
+  categoryProvenance: {
+    fontSize: 11,
+    lineHeight: 15,
+    color: "#333333",
+    maxWidth: 170,
+    textAlign: "center",
+  },
   categoryTab: {
+    maxWidth: 200,
     paddingHorizontal: 15,
     paddingVertical: 10,
     marginHorizontal: 5,
     borderRadius: 20,
     backgroundColor: COLORS.background,
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     minHeight: 44,
@@ -595,7 +651,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 3,
   },
   categoryTabActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#B71C1C",
   },
   categoryIcon: {
     fontSize: 18,
@@ -606,6 +662,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   categoryText: {
+    flexShrink: 1,
     fontSize: FONT_SIZES.sm,
     color: COLORS.text,
     textAlign: "center",
@@ -666,7 +723,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
   },
   popularBadge: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#B71C1C",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
@@ -715,7 +772,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 20,
     right: 20,
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#B71C1C",
     padding: 15,
     borderRadius: 25,
     alignItems: "center",
@@ -755,7 +812,7 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     marginTop: 20,
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#B71C1C",
     paddingHorizontal: 30,
     paddingVertical: 12,
     borderRadius: 20,
