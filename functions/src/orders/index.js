@@ -14,6 +14,7 @@ const {
   isDocumentId,
 } = require("../utils/staffAuth");
 
+const { businessDay } = require("../utils/businessDay");
 const db = admin.firestore();
 const { normalizeOrderInput } = require("../utils/orderInput");
 
@@ -37,31 +38,6 @@ const VALID_STATUS_TRANSITIONS = {
   [ORDER_STATUS.SERVED]: [ORDER_STATUS.COMPLETED],
   [ORDER_STATUS.COMPLETED]: [],
   [ORDER_STATUS.CANCELLED]: [],
-};
-
-/**
- * 注文番号を生成（日付 + シーケンス）
- * @param {string} restaurantId - レストランID
- * @return {Promise<string>} - 注文番号 (YYYYMMdd-XXX形式)
- */
-const generateOrderNumber = async (restaurantId) => {
-  const today = new Date();
-  const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
-
-  // 今日の注文数をカウント
-  const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-  const endOfDay = new Date(today.setHours(23, 59, 59, 999));
-
-  const ordersToday = await db
-    .collection("orders")
-    .where("restaurant_id", "==", restaurantId)
-    .where("created_at", ">=", startOfDay)
-    .where("created_at", "<=", endOfDay)
-    .get();
-
-  const sequence = (ordersToday.size + 1).toString().padStart(3, "0");
-
-  return `${dateStr}-${sequence}`;
 };
 
 /**
@@ -234,23 +210,46 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
           reason: "total_mismatch",
         });
 
-      // 注文番号生成
-      let orderNumber;
-      try {
-        orderNumber = await generateOrderNumber(data.restaurantId);
-      } catch (e) {
-        console.error("Order number generation failed:", e);
+      const day = businessDay();
+      const counterRef = restaurantRef.collection("order_counters").doc(day);
+      const counterDoc = await transaction.get(counterRef);
+      if (!counterDoc.exists) {
+        // Never silently restart numbering after upgrading an existing store.
+        const legacyOrders = await transaction.get(
+          db
+            .collection("orders")
+            .where("restaurant_id", "==", data.restaurantId)
+            .where("order_number", ">=", `${day}-`)
+            .where("order_number", "<=", `${day}-\uf8ff`)
+            .limit(1)
+        );
+        if (!legacyOrders.empty)
+          throw new HttpsError(
+            "failed-precondition",
+            "本日の注文番号カウンターの初期設定が必要です。スタッフへお知らせください。",
+            { reason: "counter_initialization_required" }
+          );
+      }
+      const previous = counterDoc.exists ? counterDoc.data().last_sequence : 0;
+      if (
+        !Number.isSafeInteger(previous) ||
+        previous < 0 ||
+        previous >= Number.MAX_SAFE_INTEGER
+      ) {
         throw new HttpsError(
-          "internal",
-          "注文番号の生成中にエラーが発生しました。"
+          "failed-precondition",
+          "注文番号カウンターの設定が無効です。"
         );
       }
+      const sequence = previous + 1;
+      const orderNumber = `${day}-${String(sequence).padStart(3, "0")}`;
 
       // 注文データを作成
       const orderDoc = {
         restaurant_id: data.restaurantId,
         table_id: data.tableId,
         order_number: orderNumber,
+        business_day: day,
         customer_language: data.customerLanguage || "ja",
         items: masterItems.map((item) => ({
           ...item,
@@ -269,6 +268,11 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
       };
 
       const result = { success: true, orderId: orderRef.id, orderNumber };
+      transaction.set(counterRef, {
+        last_sequence: sequence,
+        business_day: day,
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
       transaction.set(orderRef, orderDoc);
       transaction.set(requestRef, {
         restaurant_id: data.restaurantId,

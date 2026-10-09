@@ -79,6 +79,11 @@ async function main() {
     assert.equal(new Set(results.map((order) => order.orderId)).size, 1);
     assert.equal(new Set(results.map((order) => order.orderNumber)).size, 1);
     assert.equal((await serverDb.collection("orders").get()).size, 1);
+    const distinct = await Promise.all(Array.from({ length: 6 }, (_, index) =>
+      createOrder.run({ data: { ...orderData, requestId: `distinct-emulator-${index}` } })
+    ));
+    assert.equal(new Set([result, ...distinct].map(order => order.orderNumber)).size, 7);
+    assert.equal((await serverDb.collection("orders").get()).size, 7);
     assert.equal(result.success, true);
     const record = await serverDb.doc("orders/" + result.orderId).get();
     assert.equal(record.data().total_amount, 1100);
