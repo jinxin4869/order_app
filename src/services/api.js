@@ -96,22 +96,30 @@ export const createOrder = async (orderData) => {
  * @param {string} newStatus - 新しいステータス
  * @returns {Promise<{success: boolean}>}
  */
-export const updateOrderStatus = async (orderId, newStatus) => {
+export const updateOrderStatus = async (orderId, newStatus, expectedStatus) => {
   try {
     const updateFunction = httpsCallable(functions, "updateOrderStatus");
-    const result = await withRetry(
-      () => updateFunction({ orderId, newStatus }),
-      2,
-      1000
-    );
+    const result = await updateFunction({ orderId, newStatus, expectedStatus });
     return result.data;
   } catch (error) {
     const userMessage = handleError(error, {
       function: "updateOrderStatus",
-      params: { orderId, newStatus },
+      params: { orderId, newStatus, expectedStatus },
     });
-    throw new Error(userMessage);
+    throw Object.assign(new Error(userMessage), {
+      code: error.code,
+      details: error.details,
+    });
   }
+};
+
+export const listStaffOrders = async (options = {}) => {
+  const result = await httpsCallable(functions, "listStaffOrders")(options);
+  return result.data;
+};
+export const getStaffOrder = async (orderId) => {
+  const result = await httpsCallable(functions, "getStaffOrder")({ orderId });
+  return result.data;
 };
 
 // ===== メニュー関連 =====

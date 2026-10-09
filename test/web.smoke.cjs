@@ -42,9 +42,83 @@ const server = http.createServer((req, res) => {
       const errors = [];
       page.on("pageerror", (e) => errors.push(e.message));
       const calls = [];
+      let staffStatus = "pending";
+      let staffUpdates = 0;
+      const staffOrder = () => ({
+        id: "staff-order",
+        order_number: "20261009-002",
+        table_number: "2",
+        status: staffStatus,
+        total_amount: 1100,
+        created_at: Date.now(),
+        customer_language: "ja",
+        items: [
+          {
+            name_ja: "スタッフ検証料理",
+            quantity: 1,
+            price: 1000,
+            notes: "ねぎ抜き",
+          },
+        ],
+      });
+      const now = Math.floor(Date.now() / 1000);
+      const payload = {
+        aud: "demo-order-app",
+        iss: "https://securetoken.google.com/demo-order-app",
+        sub: "staff-test",
+        user_id: "staff-test",
+        iat: now,
+        auth_time: now,
+        exp: now + 3600,
+        role: "staff",
+        restaurantId: "rest-test",
+        firebase: { sign_in_provider: "password" },
+      };
+      const token = `${Buffer.from(JSON.stringify({ alg: "none" })).toString("base64url")}.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.synthetic`;
       await page.route("**/*", async (route) => {
         const url = new URL(route.request().url());
         if (url.hostname === "127.0.0.1") return route.continue();
+        if (url.hostname === "identitytoolkit.googleapis.com") {
+          if (route.request().method() === "OPTIONS")
+            return route.fulfill({
+              status: 204,
+              headers: {
+                "access-control-allow-origin": "*",
+                "access-control-allow-headers": "*",
+              },
+            });
+          const data = url.pathname.endsWith("accounts:signInWithPassword")
+            ? {
+                localId: "staff-test",
+                email: "staff@example.invalid",
+                idToken: token,
+                refreshToken: "synthetic-refresh",
+                expiresIn: "3600",
+                registered: true,
+              }
+            : {
+                users: [
+                  {
+                    localId: "staff-test",
+                    email: "staff@example.invalid",
+                    emailVerified: true,
+                    providerUserInfo: [
+                      {
+                        providerId: "password",
+                        rawId: "staff@example.invalid",
+                        email: "staff@example.invalid",
+                      },
+                    ],
+                  },
+                ],
+              };
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            headers: { "access-control-allow-origin": "*" },
+            body: JSON.stringify(data),
+          });
+        }
         if (!url.hostname.endsWith("-demo-order-app.cloudfunctions.net"))
           return route.abort();
         if (route.request().method() === "OPTIONS")
@@ -92,7 +166,45 @@ const server = http.createServer((req, res) => {
             orderId: "test-order",
             orderNumber: "20261009-001",
           };
-        else throw new Error("Unexpected callable " + name);
+        else if (
+          ["listStaffOrders", "getStaffOrder", "updateOrderStatus"].includes(
+            name
+          )
+        ) {
+          assert.ok(
+            route.request().headers().authorization?.startsWith("Bearer ")
+          );
+          if (name === "listStaffOrders")
+            result = {
+              restaurantId: "rest-test",
+              orders: [staffOrder()],
+              cursor: "staff-order",
+              hasMore: false,
+            };
+          else if (name === "getStaffOrder") result = { order: staffOrder() };
+          else {
+            staffUpdates++;
+            if (staffUpdates === 1) {
+              assert.equal(data.expectedStatus, "pending");
+              staffStatus = data.newStatus;
+              result = { success: true, status: staffStatus };
+            } else {
+              staffStatus = "ready";
+              return route.fulfill({
+                status: 409,
+                contentType: "application/json",
+                headers: { "access-control-allow-origin": "*" },
+                body: JSON.stringify({
+                  error: {
+                    status: "ABORTED",
+                    message: "Synthetic concurrent update",
+                    details: { reason: "status_changed" },
+                  },
+                }),
+              });
+            }
+          }
+        } else throw new Error("Unexpected callable " + name);
         return route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -153,6 +265,61 @@ const server = http.createServer((req, res) => {
         "http://127.0.0.1:4173/order?restaurant=rest-test&table=closed"
       );
       await page.getByText("停止中のテーブルです。", { exact: true }).waitFor();
+      await page.goto("http://127.0.0.1:4173/staff");
+      await page.getByText("スタッフログイン", { exact: true }).waitFor();
+      await page
+        .getByLabel("メールアドレス", { exact: true })
+        .fill("staff@example.invalid");
+      await page
+        .getByLabel("パスワード", { exact: true })
+        .fill("synthetic-password");
+      await page.getByRole("button", { name: "ログイン", exact: true }).click();
+      await page
+        .getByRole("button", { name: "注文 20261009-002 未受付", exact: true })
+        .click();
+      await page.getByText("要望：ねぎ抜き", { exact: true }).waitFor();
+      page.once("dialog", (dialog) => dialog.accept());
+      await page
+        .getByRole("button", { name: "注文を受け付ける", exact: true })
+        .click();
+      await page.getByText("状態を更新しました。", { exact: true }).waitFor();
+      page.once("dialog", (dialog) => dialog.accept());
+      await page
+        .getByRole("button", { name: "調理を開始する", exact: true })
+        .click();
+      await page
+        .getByText(
+          "別のスタッフが更新しました。最新状態を確認して、必要な操作を選び直してください。",
+          { exact: true }
+        )
+        .waitFor();
+      await page
+        .getByRole("button", { name: "提供済みにする", exact: true })
+        .waitFor();
+      assert.equal(staffUpdates, 2);
+      assert.equal(errors.length, 0, JSON.stringify(errors));
+      assert.ok(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth
+        )
+      );
+      await page.screenshot({
+        path: path.join(artifacts, `order-app-staff-${viewport.width}.png`),
+        fullPage: true,
+      });
+      await page
+        .getByRole("button", { name: "ログアウト", exact: true })
+        .click();
+      await page.getByText("スタッフログイン", { exact: true }).waitFor();
+      assert.equal(
+        await page.getByText("スタッフ検証料理", { exact: true }).count(),
+        0
+      );
+      console.log(
+        "PASS",
+        viewport.width,
+        "staff login, update, conflict and logout"
+      );
       await page.close();
     }
   } finally {

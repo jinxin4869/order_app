@@ -7,5 +7,6 @@ export const syncCartRoute = (route, cart) => {
   if (!route) return;
   const { restaurantId, tableId } = route.params || {};
   if (restaurantId && tableId) cart.setSession(restaurantId, tableId);
-  else if (["QRScanner", "OrderEntry"].includes(route.name)) cart.endSession();
+  else if (["QRScanner", "OrderEntry", "Staff"].includes(route.name))
+    cart.endSession();
 };

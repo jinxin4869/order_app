@@ -183,7 +183,12 @@ describe("API Service", () => {
         expect.anything(),
         "createOrder"
       );
-      expect(mockFunction).toHaveBeenCalledWith(expect.objectContaining({ ...mockOrderData, requestId: expect.any(String) }));
+      expect(mockFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ...mockOrderData,
+          requestId: expect.any(String),
+        })
+      );
       expect(result).toEqual(mockResult.data);
       expect(result.orderId).toBe("order_123");
       expect(result.orderNumber).toBe("001");
@@ -213,7 +218,11 @@ describe("API Service", () => {
       const mockFunction = jest.fn().mockResolvedValue(mockResult);
       httpsCallable.mockReturnValue(mockFunction);
 
-      const result = await updateOrderStatus("order_123", "confirmed");
+      const result = await updateOrderStatus(
+        "order_123",
+        "confirmed",
+        "pending"
+      );
 
       expect(httpsCallable).toHaveBeenCalledWith(
         expect.anything(),
@@ -222,6 +231,7 @@ describe("API Service", () => {
       expect(mockFunction).toHaveBeenCalledWith({
         orderId: "order_123",
         newStatus: "confirmed",
+        expectedStatus: "pending",
       });
       expect(result.success).toBe(true);
     });
@@ -231,9 +241,9 @@ describe("API Service", () => {
       const mockFunction = jest.fn().mockRejectedValue(mockError);
       httpsCallable.mockReturnValue(mockFunction);
 
-      await expect(updateOrderStatus("order_123", "confirmed")).rejects.toThrow(
-        "Status update failed"
-      );
+      await expect(
+        updateOrderStatus("order_123", "confirmed", "pending")
+      ).rejects.toThrow("Status update failed");
       expect(handleError).toHaveBeenCalledWith(
         mockError,
         expect.objectContaining({ function: "updateOrderStatus" })
@@ -403,25 +413,38 @@ describe("API Service", () => {
       const mockFunction = jest.fn().mockRejectedValue(mockError);
       httpsCallable.mockReturnValue(mockFunction);
 
-      await expect(updateOrderStatus("order_123", "confirmed")).rejects.toThrow(
-        "Permission denied"
-      );
+      await expect(
+        updateOrderStatus("order_123", "confirmed", "pending")
+      ).rejects.toThrow("Permission denied");
     });
   });
 });
 
 test("createOrder preserves structured price-change errors for the screen", async () => {
-  const error = Object.assign(new Error("Price changed"), { code: "functions/failed-precondition", details: { reason: "price_changed" } });
+  const error = Object.assign(new Error("Price changed"), {
+    code: "functions/failed-precondition",
+    details: { reason: "price_changed" },
+  });
   httpsCallable.mockReturnValue(jest.fn().mockRejectedValue(error));
-  withRetry.mockImplementation(fn => fn());
-  await expect(createOrder({ items: [] })).rejects.toMatchObject({ code: error.code, details: error.details });
+  withRetry.mockImplementation((fn) => fn());
+  await expect(createOrder({ items: [] })).rejects.toMatchObject({
+    code: error.code,
+    details: error.details,
+  });
 });
 
 test("network retries reuse exactly the same request ID", async () => {
-  const call = jest.fn().mockRejectedValueOnce(new Error("Network error")).mockResolvedValueOnce({ data: { orderId: "order-test" } });
+  const call = jest
+    .fn()
+    .mockRejectedValueOnce(new Error("Network error"))
+    .mockResolvedValueOnce({ data: { orderId: "order-test" } });
   httpsCallable.mockReturnValue(call);
-  withRetry.mockImplementation(fn => fn().catch(() => fn()));
-  await createOrder({ restaurantId: "rest-test", tableId: "table-test", items: [] });
+  withRetry.mockImplementation((fn) => fn().catch(() => fn()));
+  await createOrder({
+    restaurantId: "rest-test",
+    tableId: "table-test",
+    items: [],
+  });
   expect(call).toHaveBeenCalledTimes(2);
   expect(call.mock.calls[0][0].requestId).toBe(call.mock.calls[1][0].requestId);
 });

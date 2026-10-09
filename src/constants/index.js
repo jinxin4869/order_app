@@ -30,15 +30,7 @@ export const LANGUAGES = {
 export const DEFAULT_LANGUAGE = "ja";
 
 // 注文ステータス
-export const ORDER_STATUS = {
-  PENDING: "pending", // 未確認
-  CONFIRMED: "confirmed", // 確認済み
-  PREPARING: "preparing", // 調理中
-  READY: "ready", // 提供準備完了
-  SERVED: "served", // 提供済み
-  COMPLETED: "completed", // 完了
-  CANCELLED: "cancelled", // キャンセル
-};
+export { ORDER_STATUS } from "../../functions/src/utils/orderStatus";
 
 // アレルゲン情報
 export const ALLERGENS = {

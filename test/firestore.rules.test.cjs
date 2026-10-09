@@ -79,11 +79,77 @@ async function main() {
     assert.equal(new Set(results.map((order) => order.orderId)).size, 1);
     assert.equal(new Set(results.map((order) => order.orderNumber)).size, 1);
     assert.equal((await serverDb.collection("orders").get()).size, 1);
-    const distinct = await Promise.all(Array.from({ length: 6 }, (_, index) =>
-      createOrder.run({ data: { ...orderData, requestId: `distinct-emulator-${index}` } })
-    ));
-    assert.equal(new Set([result, ...distinct].map(order => order.orderNumber)).size, 7);
+    const distinct = await Promise.all(
+      Array.from({ length: 6 }, (_, index) =>
+        createOrder.run({
+          data: { ...orderData, requestId: `distinct-emulator-${index}` },
+        })
+      )
+    );
+    assert.equal(
+      new Set([result, ...distinct].map((order) => order.orderNumber)).size,
+      7
+    );
     assert.equal((await serverDb.collection("orders").get()).size, 7);
+    const {
+      listStaffOrders,
+      getStaffOrder,
+      updateOrderStatus,
+    } = require("../functions/src/orders");
+    const auth = {
+      uid: "staff-test",
+      token: { role: "staff", restaurantId: "rest-test" },
+    };
+    const first = await listStaffOrders.run({ auth, data: { limit: 3 } });
+    const second = await listStaffOrders.run({
+      auth,
+      data: { limit: 3, cursor: first.cursor },
+    });
+    const third = await listStaffOrders.run({
+      auth,
+      data: { limit: 3, cursor: second.cursor },
+    });
+    assert.equal(
+      new Set(
+        [...first.orders, ...second.orders, ...third.orders].map(
+          (order) => order.id
+        )
+      ).size,
+      7
+    );
+    assert.equal(third.hasMore, false);
+    const race = await Promise.allSettled(
+      ["confirmed", "cancelled"].map((newStatus) =>
+        updateOrderStatus.run({
+          auth,
+          data: {
+            orderId: result.orderId,
+            expectedStatus: "pending",
+            newStatus,
+          },
+        })
+      )
+    );
+    assert.equal(race.filter((item) => item.status === "fulfilled").length, 1);
+    assert.equal(
+      race.find((item) => item.status === "rejected").reason.code,
+      "aborted"
+    );
+    assert.equal(
+      (await getStaffOrder.run({ auth, data: { orderId: result.orderId } }))
+        .order.restaurant_id,
+      "rest-test"
+    );
+    await assert.rejects(
+      getStaffOrder.run({
+        auth: {
+          ...auth,
+          token: { role: "staff", restaurantId: "other-store" },
+        },
+        data: { orderId: result.orderId },
+      }),
+      { code: "permission-denied" }
+    );
     assert.equal(result.success, true);
     const record = await serverDb.doc("orders/" + result.orderId).get();
     assert.equal(record.data().total_amount, 1100);
