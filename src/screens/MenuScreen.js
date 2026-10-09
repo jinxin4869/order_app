@@ -335,6 +335,8 @@ const MenuScreen = ({ navigation, route }) => {
               translationMode === "dictionary" &&
                 styles.translationModeButtonActive,
             ]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: translationMode === "dictionary" }}
             onPress={() => setTranslationMode("dictionary")}
           >
             <Text
@@ -354,6 +356,8 @@ const MenuScreen = ({ navigation, route }) => {
               translationMode === "deepl_only" &&
                 styles.translationModeButtonActive,
             ]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: translationMode === "deepl_only" }}
             onPress={() => setTranslationMode("deepl_only")}
           >
             <Text
@@ -368,6 +372,20 @@ const MenuScreen = ({ navigation, route }) => {
             </Text>
           </TouchableOpacity>
         </View>
+      )}
+
+      {currentLanguage !== "ja" && (
+        <Text
+          style={{
+            color: COLORS.textSecondary,
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+          }}
+        >
+          {currentLanguage === "en"
+            ? "Switch modes to compare. Labeled original or partial text cannot be compared."
+            : "可切换模式进行比较。标注的原文或参考译文不可比较。"}
+        </Text>
       )}
 
       {/* カテゴリタブ */}

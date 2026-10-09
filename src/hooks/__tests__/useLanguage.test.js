@@ -7,6 +7,23 @@ import { renderHook, act } from "@testing-library/react-native";
 import { LanguageProvider, useLanguage } from "../useLanguage";
 import { LANGUAGES, DEFAULT_LANGUAGE } from "../../constants";
 
+const verified = (field, sourceText) =>
+  Object.fromEntries(
+    ["en", "zh"].flatMap((lang) =>
+      ["dictionary", "deepl_only"].map((mode) => [
+        `${field}_${lang}${mode === "deepl_only" ? "_nodic" : ""}_translation`,
+        {
+          schemaVersion: 1,
+          sourceText,
+          mode,
+          status: "ready",
+          usedDictionary: mode === "dictionary",
+          method: mode === "dictionary" ? "hybrid" : "deepl_only",
+        },
+      ])
+    )
+  );
+
 describe("useLanguage", () => {
   const wrapper = ({ children }) => (
     <LanguageProvider>{children}</LanguageProvider>
@@ -116,6 +133,7 @@ describe("useLanguage", () => {
 
     const item = {
       name_ja: "枝豆",
+      ...verified("name", "枝豆"),
       name_en: "Edamame",
       name_zh: "毛豆",
     };
@@ -140,6 +158,7 @@ describe("useLanguage", () => {
 
     const item = {
       name_ja: "枝豆",
+      ...verified("name", "枝豆"),
       name_en: "Edamame",
     };
 
@@ -147,7 +166,9 @@ describe("useLanguage", () => {
       result.current.changeLanguage("zh");
     });
 
-    expect(result.current.getItemName(item)).toBe("枝豆");
+    expect(result.current.getItemName(item)).toBe(
+      "枝豆 [未生成翻译；日文原文]"
+    );
   });
 
   test("getItemNameでname_jaもない場合はnameにフォールバック", () => {
@@ -165,6 +186,7 @@ describe("useLanguage", () => {
 
     const item = {
       description_ja: "塩茹でした枝豆",
+      ...verified("description", "塩茹でした枝豆"),
       description_en: "Salted boiled soybeans",
       description_zh: "盐水煮毛豆",
     };
@@ -191,6 +213,7 @@ describe("useLanguage", () => {
 
     const item = {
       description_ja: "塩茹でした枝豆",
+      ...verified("description", "塩茹でした枝豆"),
       description_en: "Salted boiled soybeans",
     };
 
@@ -198,7 +221,9 @@ describe("useLanguage", () => {
       result.current.changeLanguage("zh");
     });
 
-    expect(result.current.getItemDescription(item)).toBe("塩茹でした枝豆");
+    expect(result.current.getItemDescription(item)).toBe(
+      "塩茹でした枝豆 [未生成翻译；日文原文]"
+    );
   });
 
   test("getCategoryNameでカテゴリ名を取得する", () => {
@@ -206,6 +231,7 @@ describe("useLanguage", () => {
 
     const category = {
       name_ja: "前菜",
+      ...verified("name", "前菜"),
       name_en: "Appetizer",
       name_zh: "开胃菜",
     };
@@ -230,6 +256,7 @@ describe("useLanguage", () => {
 
     const category = {
       name_ja: "前菜",
+      ...verified("name", "前菜"),
       name_en: "Appetizer",
     };
 
@@ -237,7 +264,9 @@ describe("useLanguage", () => {
       result.current.changeLanguage("zh");
     });
 
-    expect(result.current.getCategoryName(category)).toBe("前菜");
+    expect(result.current.getCategoryName(category)).toBe(
+      "前菜 [未生成翻译；日文原文]"
+    );
   });
 
   test("LanguageProviderなしでuseLanguageを使うとエラー", () => {
@@ -273,6 +302,7 @@ describe("useLanguage", () => {
 
     const item = {
       name_ja: "枝豆",
+      ...verified("name", "枝豆"),
       name_en: "Edamame (dict)",
       name_zh: "毛豆 (dict)",
       name_en_nodic: "Green soybeans",
@@ -292,6 +322,7 @@ describe("useLanguage", () => {
 
     const item = {
       name_ja: "枝豆",
+      ...verified("name", "枝豆"),
       name_en: "Edamame",
       name_en_nodic: "Green soybeans",
     };
@@ -303,11 +334,12 @@ describe("useLanguage", () => {
     expect(result.current.getItemName(item)).toBe("枝豆");
   });
 
-  test("deepl_onlyモードで_nodicフィールドがない場合は通常フィールドにフォールバック", () => {
+  test("deepl_onlyモードで_nodicフィールドがない場合は日本語と未生成表示", () => {
     const { result } = renderHook(() => useLanguage(), { wrapper });
 
     const item = {
       name_ja: "枝豆",
+      ...verified("name", "枝豆"),
       name_en: "Edamame",
     };
 
@@ -316,7 +348,9 @@ describe("useLanguage", () => {
       result.current.setTranslationMode("deepl_only");
     });
 
-    expect(result.current.getItemName(item)).toBe("Edamame");
+    expect(result.current.getItemName(item)).toBe(
+      "枝豆 [Translation unavailable; Japanese original]"
+    );
   });
 
   test("dictionaryモードでは_nodicフィールドを使用しない", () => {
@@ -324,6 +358,7 @@ describe("useLanguage", () => {
 
     const item = {
       name_ja: "枝豆",
+      ...verified("name", "枝豆"),
       name_en: "Edamame (dict)",
       name_en_nodic: "Green soybeans",
     };
