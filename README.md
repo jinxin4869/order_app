@@ -33,6 +33,9 @@ npm ci --prefix functions
 
 ```bash
 npm run check
+npm run test:audit
+npm run audit:dependencies
+npm run test:sdk
 npm run test:rules
 npm run test:demo
 npx playwright install --with-deps chromium
@@ -42,6 +45,8 @@ npm run test:web
 `check`はフロントとFunctions両方のlint・単体テストです。ルートの`npm test`はフロントのみで、Functionsを含みません。`test:rules`はローカルFirestoreで直接書き込みの拒否と実注文API・スタッフAPIを検証します。`test:demo`はFirestoreとAuthエミュレーターへ合成データを投入して確認します。`test:web`は専用の合成設定でWebをビルドし、外部通信を合成応答へ置き換えてスマホ幅・デスクトップ幅の操作を検証します。既存の`.env`やFirebaseログインを使用せず、DeepLへ接続しません。
 
 ブラウザテストの出力先はOSの一時ディレクトリです。`ORDER_APP_WEB_DIR`でビルド先、`ORDER_APP_WEB_ARTIFACTS`でスクリーンショット先を指定できます。日本語表示の目視確認には実行環境の日本語フォントも必要です。
+
+依存更新の範囲・残る監査指摘・期限は[依存ライブラリ更新記録](docs/dependency_updates.md)を参照してください。
 
 詳細は[テストガイド](docs/TESTING.md)、[ローカルデモ投入](docs/demo_setup.md)を参照してください。CIでも同じ各検証を実行します。
 

@@ -1,0 +1,51 @@
+{
+  "threshold": "high",
+  "exceptions": [
+    {
+      "scope": "root",
+      "package": "basic-ftp",
+      "advisory": "https://github.com/advisories/GHSA-c475-qrg2-pj4r",
+      "versions": ["5.3.1"],
+      "paths": ["node_modules/basic-ftp"],
+      "expires": "2026-10-24T00:00:00+09:00",
+      "reason": "get-uri 6 / proxy-agent経由の開発CLI依存。修正版6.2.3は依存元の5.x契約を外れるため、FTP接続を使わずCLI系統の移行で解消する。"
+    },
+    {
+      "scope": "root",
+      "package": "braces",
+      "advisory": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+      "versions": ["3.0.3"],
+      "paths": ["node_modules/braces"],
+      "expires": "2026-10-24T00:00:00+09:00",
+      "reason": "Jest 29、Metro、chokidarのファイル選択パターン処理。現時点の最新版3.0.3も該当。利用者入力をglobへ渡さず、信頼済みのリポジトリだけを検証する。上流修正またはExpo/Jest移行で解消する。"
+    },
+    {
+      "scope": "root",
+      "package": "image-size",
+      "advisory": "https://github.com/advisories/GHSA-5p2g-fcmc-qvqq",
+      "versions": ["1.2.1"],
+      "paths": ["node_modules/image-size"],
+      "expires": "2026-10-24T00:00:00+09:00",
+      "reason": "Metroのビルド時画像メタデータ解析。修正版2.xは既存1.xのAPI契約を外れるため、信頼済みの静的画像のみビルドし、Expo/Metro移行で解消する。"
+    },
+    {
+      "scope": "root",
+      "package": "image-size",
+      "advisory": "https://github.com/advisories/GHSA-w3rx-r6r6-pgpr",
+      "versions": ["1.2.1"],
+      "paths": ["node_modules/image-size"],
+      "expires": "2026-10-24T00:00:00+09:00",
+      "reason": "Metroのビルド時画像メタデータ解析。修正版2.xは既存1.xのAPI契約を外れるため、信頼済みの静的画像のみビルドし、Expo/Metro移行で解消する。"
+    },
+    {
+      "scope": "root",
+      "package": "node-forge",
+      "advisory": "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
+      "versions": ["1.4.0"],
+      "paths": ["node_modules/node-forge"],
+      "expires": "2026-10-24T00:00:00+09:00",
+      "reason": "Expo開発CLI・コード署名証明書処理。最新版1.4.0も該当し修正版未公開。外部から提供された証明書を扱わず、上流修正を追跡する。"
+    }
+  ],
+  "trackingIssue": "https://github.com/jinxin4869/order_app/issues/40"
+}

@@ -155,3 +155,43 @@ test("refresh identifies unseen orders and pagination requests the protected cur
     await screen.findByRole("button", { name: "新着 1件を確認" })
   ).toBeTruthy();
 });
+
+test("changing the order filter clears old rows and ignores an earlier in-flight refresh", async () => {
+  const screen = render(<StaffScreen />);
+  await screen.findByRole("button", { name: "注文 20261009-001 未受付" });
+  let resolveOld, resolveNew;
+  listStaffOrders.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveOld = resolve;
+      })
+  );
+  fireEvent.press(screen.getByRole("button", { name: "更新" }));
+  listStaffOrders.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveNew = resolve;
+      })
+  );
+  fireEvent.press(screen.getByRole("button", { name: "すべて" }));
+  expect(
+    screen.queryByRole("button", { name: "注文 20261009-001 未受付" })
+  ).toBeNull();
+  await act(async () =>
+    resolveOld({ orders: [order], hasMore: false, cursor: null })
+  );
+  expect(
+    screen.queryByRole("button", { name: "注文 20261009-001 未受付" })
+  ).toBeNull();
+  await act(async () =>
+    resolveNew({
+      orders: [{ ...order, id: "completed-order", status: "completed" }],
+      hasMore: false,
+      cursor: null,
+    })
+  );
+  expect(
+    screen.getByRole("button", { name: "注文 20261009-001 対応完了" })
+  ).toBeTruthy();
+  expect(listStaffOrders).toHaveBeenLastCalledWith({ view: "all" });
+});

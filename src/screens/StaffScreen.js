@@ -83,7 +83,7 @@ const OrderConsole = ({ session }) => {
   const generation = useRef(0);
   const loading = useRef(false);
   const seen = useRef(null);
-  const selectedRef = useRef(null);
+  const [selectedId, setSelectedId] = useState(null);
   const detailRequest = useRef(0);
   const updateLock = useRef(false);
 
@@ -132,7 +132,7 @@ const OrderConsole = ({ session }) => {
           ) {
             setListing({ orders: [], hasMore: false, cursor: null });
             detailRequest.current++;
-            selectedRef.current = null;
+            setSelectedId(null);
             setSelected(null);
           }
           setError(
@@ -159,8 +159,6 @@ const OrderConsole = ({ session }) => {
     generation.current++;
     loading.current = false;
     seen.current = null;
-    setListing({ orders: [], hasMore: false, cursor: null });
-    setNewCount(0);
     refreshRef.current();
     const lifetime = generation;
     const detailLifetime = detailRequest;
@@ -174,7 +172,7 @@ const OrderConsole = ({ session }) => {
 
   const openOrder = async (id) => {
     const request = ++detailRequest.current;
-    selectedRef.current = id;
+    setSelectedId(id);
     setSelected(null);
     setNotice("注文の詳細を取得しています…");
     try {
@@ -227,11 +225,11 @@ const OrderConsole = ({ session }) => {
   };
   const hideDetail = () => {
     detailRequest.current++;
-    selectedRef.current = null;
+    setSelectedId(null);
     setSelected(null);
     setNotice("");
   };
-  const detailVisible = selected || selectedRef.current;
+  const detailVisible = selected || selectedId;
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.container}>
@@ -265,7 +263,10 @@ const OrderConsole = ({ session }) => {
               }}
               disabled={updating}
               onPress={() => {
+                if (key === view) return;
                 hideDetail();
+                setListing({ orders: [], hasMore: false, cursor: null });
+                setNewCount(0);
                 setView(key);
               }}
               style={[styles.tab, view === key && styles.tabSelected]}
