@@ -76,6 +76,8 @@ const LanguageSelectScreen = ({ navigation, route }) => {
           {availableLanguages.map((lang) => (
             <TouchableOpacity
               key={lang.code}
+              accessibilityRole="button"
+              accessibilityLabel={lang.nativeName}
               style={[
                 styles.languageButton,
                 useOneColumn
