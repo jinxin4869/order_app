@@ -2,6 +2,7 @@
 import { httpsCallable } from "firebase/functions";
 import { functions } from "./firebase";
 import { withRetry, handleError } from "../utils/errorHandler";
+import { createRequestId } from "../utils/requestId";
 
 // ===== 翻訳関連 =====
 
@@ -69,20 +70,23 @@ export const batchTranslateMenu = async (
  * @returns {Promise<{orderId: string, orderNumber: string}>}
  */
 export const createOrder = async (orderData) => {
+  const payload = {
+    ...orderData,
+    requestId: orderData.requestId || createRequestId(),
+  };
   try {
     const createOrderFunction = httpsCallable(functions, "createOrder");
-    const result = await withRetry(
-      () => createOrderFunction(orderData),
-      3,
-      1000
-    );
+    const result = await withRetry(() => createOrderFunction(payload), 3, 1000);
     return result.data;
   } catch (error) {
     const userMessage = handleError(error, {
       function: "createOrder",
       params: { itemCount: orderData.items?.length },
     });
-    throw new Error(userMessage);
+    throw Object.assign(new Error(userMessage), {
+      code: error.code,
+      details: error.details,
+    });
   }
 };
 

@@ -33,6 +33,8 @@ const mockItem = {
 const mockRoute = {
   params: {
     item: mockItem,
+    restaurantId: "rest-test",
+    tableId: "table-test",
   },
 };
 
@@ -179,7 +181,8 @@ describe("ItemDetailScreen", () => {
         image_url: "https://example.com/edamame.jpg",
       },
       1,
-      ""
+      "",
+      { restaurantId: "rest-test", tableId: "table-test" }
     );
 
     expect(mockNavigation.goBack).toHaveBeenCalled();
@@ -203,7 +206,8 @@ describe("ItemDetailScreen", () => {
     expect(mockContext.addItem).toHaveBeenCalledWith(
       expect.any(Object),
       1,
-      "わさび抜き"
+      "わさび抜き",
+      { restaurantId: "rest-test", tableId: "table-test" }
     );
   });
 
@@ -281,4 +285,24 @@ describe("ItemDetailScreen", () => {
 
     expect(getByText("🍽️")).toBeTruthy();
   });
+});
+
+test("detail quantity considers the existing cart line before adding", () => {
+  jest.clearAllMocks();
+  useLanguage.mockReturnValue({ currentLanguage: "ja", getItemName: item => item.name_ja, getItemDescription: () => "" });
+  const context = { ...createMockCartContext(), items: [{ ...mockItem, quantity: 98, notes: "" }] };
+  const view = render(<CartContext.Provider value={context}><ItemDetailScreen navigation={mockNavigation} route={mockRoute} /></CartContext.Provider>);
+  fireEvent.press(view.getByText("+"));
+  expect(view.getByText("1")).toBeTruthy();
+  expect(view.getByText("同じ商品・備考は99個まで（カート内98個）")).toBeTruthy();
+  fireEvent.press(view.getByText("カートに追加"));
+  expect(context.addItem).toHaveBeenCalledWith(expect.any(Object), 1, "", { restaurantId: "rest-test", tableId: "table-test" });
+});
+test("detail additions are disabled when the existing cart line is already 99", () => {
+  jest.clearAllMocks();
+  useLanguage.mockReturnValue({ currentLanguage: "ja", getItemName: item => item.name_ja, getItemDescription: () => "" });
+  const context = { ...createMockCartContext(), items: [{ ...mockItem, quantity: 99, notes: "" }] };
+  const view = render(<CartContext.Provider value={context}><ItemDetailScreen navigation={mockNavigation} route={mockRoute} /></CartContext.Provider>);
+  fireEvent.press(view.getByText("カートに追加"));
+  expect(context.addItem).not.toHaveBeenCalled();
 });

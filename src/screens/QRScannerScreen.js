@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
-  Alert,
   ActivityIndicator,
   View,
   Text,
@@ -13,6 +12,8 @@ import {
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { COLORS, FONT_SIZES } from "../constants";
 import { validateQRCode } from "../services/api";
+import { showAlert } from "../utils/dialogs";
+import { parseOrderLink } from "../utils/orderLinks";
 import { useResponsive } from "../hooks/useResponsive";
 
 // デモ用レストランデータ
@@ -85,10 +86,10 @@ const QRScannerScreen = ({ navigation }) => {
 
     try {
       // QRコードデータをパース（format: restaurantId/tableId）
-      const parts = data.split("/");
+      const session = parseOrderLink(data);
 
-      if (parts.length !== 2) {
-        Alert.alert(
+      if (!session) {
+        showAlert(
           "エラー / Error / 错误",
           "無効なQRコードです。\nInvalid QR code.\n无效的二维码。",
           [{ text: "OK", onPress: () => setScanned(false) }]
@@ -97,10 +98,10 @@ const QRScannerScreen = ({ navigation }) => {
         return;
       }
 
-      const [restaurantId, tableId] = parts;
+      const { restaurantId, tableId } = session;
 
       // Cloud Functionsで検証
-      const result = await validateQRCode(data);
+      const result = await validateQRCode(`${restaurantId}/${tableId}`);
 
       if (result.valid) {
         // 言語選択画面に遷移
@@ -111,7 +112,7 @@ const QRScannerScreen = ({ navigation }) => {
           table: result.table,
         });
       } else {
-        Alert.alert(
+        showAlert(
           "エラー / Error / 错误",
           result.error ||
             "テーブルが見つかりません。\nTable not found.\n未找到餐桌。",
@@ -120,7 +121,7 @@ const QRScannerScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error("QR validation error:", error);
-      Alert.alert(
+      showAlert(
         "エラー / Error / 错误",
         "接続エラーが発生しました。\nConnection error occurred.\n连接出错。",
         [{ text: "OK", onPress: () => setScanned(false) }]
