@@ -162,3 +162,59 @@ test("failure in the second mode cannot commit either translation to the menu", 
   ).rejects.toMatchObject({ code: "unavailable" });
   expect(mockDb.read(path)).toEqual({ name_ja: "テスト料理" });
 });
+test.each(["en", "zh"])(
+  "short Japanese names translate through the same single/batch pipeline (%s)",
+  async (targetLang) => {
+    for (const text of ["寿司", "鰻", "酢", "お茶"]) {
+      const single = await api.translateText({ data: { text, targetLang } });
+      expect(single).toMatchObject({
+        translatedText: "Synthetic translation",
+        method: "deepl_api",
+        status: "ready",
+        fromCache: false,
+      });
+      mockDb.seed(`restaurants/rest-test/menu_items/${text}`, {
+        name_ja: text,
+      });
+    }
+    const calls = mockTranslate.mock.calls.length;
+    const batch = await api.batchTranslateMenu({
+      auth: staff(),
+      data: { restaurantId: "rest-test", targetLang },
+    });
+    expect(batch.count).toBe(4);
+    expect(mockTranslate).toHaveBeenCalledTimes(calls);
+    for (const item of batch.items) {
+      expect(item[`name_${targetLang}`]).toBe("Synthetic translation");
+      expect(item[`name_${targetLang}_translation`]).toMatchObject({
+        method: "deepl_api",
+        status: "ready",
+      });
+    }
+  }
+);
+test("numeric bypass exposes truthful metadata without configuration or dictionary access", async () => {
+  delete process.env.DEEPL_API_KEY;
+  expect(
+    await api.translateText({ data: { text: "12 34", targetLang: "en" } })
+  ).toMatchObject({
+    translatedText: "12 34",
+    method: "passthrough",
+    status: "ready",
+    usedDictionary: false,
+    foundTermsCount: 0,
+  });
+  expect(mockTranslate).not.toHaveBeenCalled();
+  expect(mockDb.writes).toHaveLength(0);
+});
+test.each([
+  null,
+  {},
+  { text: "  ", targetLang: "en" },
+  { text: "寿司", targetLang: "en", useDictionary: "false" },
+])("malformed requests fail before translation", async (data) => {
+  await expect(api.translateText({ data })).rejects.toMatchObject({
+    code: "invalid-argument",
+  });
+  expect(mockTranslate).not.toHaveBeenCalled();
+});
