@@ -218,3 +218,139 @@ test.each([
   });
   expect(mockTranslate).not.toHaveBeenCalled();
 });
+
+const dictionary = () => {
+  mockDb.seed("dictionary/base", {
+    term_ja: "丼",
+    term_en: "bowl",
+    term_zh: "盖饭",
+    priority: 1,
+  });
+  mockDb.seed("dictionary/compound", {
+    term_ja: "親子丼",
+    term_en: "Oyakodon",
+    term_zh: "亲子盖饭",
+    priority: 2,
+  });
+};
+test.each([
+  ["en", "Oyakodon"],
+  ["zh", "亲子盖饭"],
+])(
+  "dictionary terms are protected against wrong or untranslated API output (%s)",
+  async (targetLang, expected) => {
+    dictionary();
+    mockTranslate.mockImplementation(async (input, source, target, options) => {
+      if (!options.ignoreTags) return { text: "Wrong dish translation" };
+      expect(options.tagHandling).toBe("xml");
+      expect(options.ignoreTags).toEqual(["d0", "d1"]);
+      expect(input).toContain(`<d0>${expected}</d0>`);
+      expect(input).not.toContain("<d0>bowl</d0>");
+      return { text: input.replace("と", " &amp; ") };
+    });
+    const result = await api.translateText({
+      data: { text: "親子丼と親子丼", targetLang },
+    });
+    expect(result).toMatchObject({
+      translatedText: `${expected} & ${expected}`,
+      method: "hybrid",
+      status: "ready",
+      usedDictionary: true,
+      foundTermsCount: 2,
+    });
+    expect(
+      await api.translateText({ data: { text: "親子丼と親子丼", targetLang } })
+    ).toEqual({ ...result, fromCache: true });
+    expect(mockTranslate).toHaveBeenCalledTimes(1);
+  }
+);
+test("literal punctuation and XML characters cannot alter dictionary matching or markup", async () => {
+  mockDb.seed("dictionary/punctuation", {
+    term_ja: "料理(特)",
+    term_en: "Special & <dish>",
+    priority: 1,
+  });
+  mockTranslate.mockImplementation(async (input) => ({ text: input }));
+  const result = await api.translateText({
+    data: { text: "料理(特) & <test>", targetLang: "en" },
+  });
+  expect(result.translatedText).toBe("Special & <dish> & <test>");
+  expect(result.method).toBe("hybrid");
+});
+test("dictionary-only fallback is partial, uncached and never a successful batch result", async () => {
+  dictionary();
+  mockTranslate.mockRejectedValue(new Error("Synthetic outage"));
+  const result = await api.translateText({
+    data: { text: "親子丼をどうぞ", targetLang: "en" },
+  });
+  expect(result).toMatchObject({
+    translatedText: "Oyakodonをどうぞ",
+    status: "partial",
+    method: "dictionary_fallback",
+  });
+  expect(mockDb.writes).toHaveLength(0);
+  mockDb.seed("restaurants/rest-test/menu_items/dish", {
+    name_ja: "親子丼をどうぞ",
+  });
+  await expect(
+    api.batchTranslateMenu({
+      auth: staff(),
+      data: { restaurantId: "rest-test", targetLang: "en" },
+    })
+  ).rejects.toMatchObject({ code: "unavailable" });
+  expect(mockDb.read("restaurants/rest-test/menu_items/dish")).toEqual({
+    name_ja: "親子丼をどうぞ",
+  });
+});
+test("lost protected tags cannot be cached or committed as hybrid success", async () => {
+  dictionary();
+  mockTranslate.mockResolvedValue({ text: "Wrong dish translation" });
+  mockDb.seed("restaurants/rest-test/menu_items/dish", { name_ja: "親子丼" });
+  await expect(
+    api.batchTranslateMenu({
+      auth: staff(),
+      data: { restaurantId: "rest-test", targetLang: "en" },
+    })
+  ).rejects.toMatchObject({ code: "unavailable" });
+  expect(mockDb.writes).toHaveLength(0);
+});
+test("dictionary revisions invalidate hybrid cache while methods without applied terms stay truthful", async () => {
+  dictionary();
+  mockTranslate.mockImplementation(async (input) => ({ text: input }));
+  expect(
+    (await api.translateText({ data: { text: "親子丼", targetLang: "en" } }))
+      .translatedText
+  ).toBe("Oyakodon");
+  mockDb.seed("dictionary/compound", {
+    term_ja: "親子丼",
+    term_en: "Chicken and egg rice bowl",
+    priority: 2,
+  });
+  jest.spyOn(Date, "now").mockReturnValue(Date.now() + 6 * 60 * 1000);
+  const changed = await api.translateText({
+    data: { text: "親子丼", targetLang: "en" },
+  });
+  expect(changed).toMatchObject({
+    translatedText: "Chicken and egg rice bowl",
+    fromCache: false,
+  });
+  expect(
+    (await api.translateText({ data: { text: "別の料理", targetLang: "en" } }))
+      .method
+  ).toBe("deepl_api");
+});
+test("kana variants apply only to an actual matched span", async () => {
+  mockDb.seed("dictionary/ramen", {
+    term_ja: "ラーメン",
+    term_en: "Ramen",
+    priority: 1,
+  });
+  require("../morphological").extractSpecializedTermCandidates.mockResolvedValue(
+    [{ term: "らーめん" }]
+  );
+  mockTranslate.mockImplementation(async (input) => ({ text: input }));
+  expect(
+    (await api.translateText({ data: { text: "らーめん", targetLang: "en" } }))
+      .translatedText
+  ).toBe("Ramen");
+});
