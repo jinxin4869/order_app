@@ -1,5 +1,6 @@
 const { HttpsError } = require("firebase-functions/v2/https");
 const { isDocumentId } = require("./staffAuth");
+const { MIN_ORDER_QUANTITY, MAX_ORDER_QUANTITY } = require("./orderLimits");
 const record = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 const money = (value) =>
@@ -35,8 +36,8 @@ const normalizeOrderInput = (data) => {
       fail("商品IDが無効です。");
     if (
       !Number.isInteger(item.quantity) ||
-      item.quantity < 1 ||
-      item.quantity > 99
+      item.quantity < MIN_ORDER_QUANTITY ||
+      item.quantity > MAX_ORDER_QUANTITY
     )
       fail("数量は1〜99の整数で指定してください。");
     if (!money(item.price)) fail("単価は有限の非負整数で指定してください。");

@@ -412,3 +412,10 @@ test("existing legacy orders require explicit counter initialization", async () 
     "20261009-041"
   );
 });
+
+test("the shared maximum quantity of 99 is accepted by the real order handler", async () => {
+  const data = order({ subtotal: 99000, tax: 9900, totalAmount: 108900 });
+  data.items[0].quantity = 99;
+  const result = await api.createOrder({ data });
+  expect(mockDb.read("orders/" + result.orderId).items[0].quantity).toBe(99);
+});

@@ -146,3 +146,20 @@ test("retries keep the order request ID across rerenders until the intent change
   act(() => result.current.clearCart());
   expect(result.current.getOrderRequestId(data)).not.toBe(next);
 });
+
+test("cart additions and updates never exceed 99, including repeated additions", () => {
+  const { result } = renderHook(() => useCart({ restaurantId: "rest-test", tableId: "table-test" }));
+  const item = { id: "item-test", name_ja: "料理", price: 1000 };
+  act(() => result.current.addItem(item, 98));
+  act(() => result.current.addItem(item, 1));
+  expect(result.current.items[0].quantity).toBe(99);
+  act(() => result.current.addItem(item, 1));
+  expect(result.current.items[0].quantity).toBe(99);
+  act(() => result.current.updateQuantity(item.id, 100));
+  expect(result.current.items[0].quantity).toBe(99);
+  act(() => result.current.updateQuantity(item.id, NaN));
+  act(() => result.current.updateQuantity(item.id, 1.5));
+  expect(result.current.items[0].quantity).toBe(99);
+  act(() => result.current.addItem(item, 100, "different notes"));
+  expect(result.current.items[1].quantity).toBe(99);
+});
