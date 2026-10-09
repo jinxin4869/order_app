@@ -1,5 +1,5 @@
 // カート画面
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,6 +15,7 @@ import { useLanguage } from "../hooks/useLanguage";
 import { useResponsive } from "../hooks/useResponsive";
 import { CartContext } from "../context/CartContext";
 import { createOrder } from "../services/api";
+import { showAlert } from "../utils/dialogs";
 
 const CartScreen = ({ navigation, route }) => {
   const { restaurantId, tableId, restaurant, table } = route.params;
@@ -33,6 +33,7 @@ const CartScreen = ({ navigation, route }) => {
   } = useContext(CartContext);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitting = useRef(false);
 
   // テキスト取得用ヘルパー
   const t = (ja, en, zh) => {
@@ -73,7 +74,7 @@ const CartScreen = ({ navigation, route }) => {
   const handleRemoveItem = (item) => {
     console.log("handleRemoveItem called for:", item.id, item.notes);
     const displayName = getItemDisplayName(item);
-    Alert.alert(
+    showAlert(
       t("削除確認", "Confirm Removal", "确认删除"),
       t(
         `「${displayName}」をカートから削除しますか？`,
@@ -99,9 +100,9 @@ const CartScreen = ({ navigation, route }) => {
 
   // 注文を確定
   const handleSubmitOrder = async () => {
-    if (isEmpty) return;
+    if (isEmpty || submitting.current) return;
 
-    Alert.alert(
+    showAlert(
       t("注文確認", "Confirm Order", "确认订单"),
       t("注文を確定しますか？", "Confirm order?", "确认订购吗？"),
       [
@@ -111,13 +112,15 @@ const CartScreen = ({ navigation, route }) => {
         },
         {
           text: t("注文する", "Place Order", "下单"),
-          onPress: submitOrder,
+          onPress: () => submitOrder(),
         },
       ]
     );
   };
 
   const submitOrder = async () => {
+    if (submitting.current || isEmpty) return;
+    submitting.current = true;
     setIsSubmitting(true);
 
     try {
@@ -156,7 +159,7 @@ const CartScreen = ({ navigation, route }) => {
     } catch (error) {
       console.error("Order submission error:", error);
       if (error.details?.reason === "price_changed") {
-        Alert.alert(
+        showAlert(
           t("メニュー更新が必要です", "Menu update needed", "请更新菜单"),
           t(
             "商品価格が変更されました。メニューを更新し、商品を選び直してください。",
@@ -181,7 +184,7 @@ const CartScreen = ({ navigation, route }) => {
         return;
       }
 
-      Alert.alert(
+      showAlert(
         t("エラー", "Error", "错误"),
         t(
           "注文の送信に失敗しました。もう一度お試しください。",
@@ -190,6 +193,7 @@ const CartScreen = ({ navigation, route }) => {
         )
       );
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
     }
   };
