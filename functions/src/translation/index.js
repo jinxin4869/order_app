@@ -76,63 +76,27 @@ const loadDictionary = async () => {
  */
 const findSpecializedTerms = async (text) => {
   const dictionary = await loadDictionary();
-  const foundTerms = [];
-  const seenTerms = new Set();
-
-  // 形態素解析で専門用語候補を抽出
   const candidates = await morphological.extractSpecializedTermCandidates(text);
-
-  // 辞書と照合（完全一致）
-  dictionary.forEach((entry) => {
-    if (text.includes(entry.term_ja)) {
-      foundTerms.push({
-        ...entry,
-        matchType: "exact",
-      });
-      seenTerms.add(entry.term_ja);
+  const found = [];
+  for (const entry of dictionary) {
+    if (typeof entry.term_ja !== "string" || !entry.term_ja) continue;
+    if (text.includes(entry.term_ja))
+      found.push({ ...entry, source: entry.term_ja, matchType: "exact" });
+  }
+  for (const candidate of candidates) {
+    if (!candidate.term || !text.includes(candidate.term)) continue;
+    for (const match of synonyms.findSynonyms(candidate.term, dictionary, {
+      minConfidence: 0.9,
+      allowPartialMatch: false,
+      reading1: candidate.reading,
+    })) {
+      // Similar spelling alone must never change the meaning of a dish.
+      if (!["exact", "kana_variant", "reading"].includes(match.matchType))
+        continue;
+      found.push({ ...match, source: candidate.term });
     }
-  });
-
-  // 形態素解析の候補と辞書を照合（部分一致）
-  candidates.forEach((candidate) => {
-    dictionary.forEach((entry) => {
-      if (seenTerms.has(entry.term_ja)) return;
-
-      if (
-        candidate.term.includes(entry.term_ja) ||
-        entry.term_ja.includes(candidate.term)
-      ) {
-        foundTerms.push({
-          ...entry,
-          matchType: "partial",
-          candidate: candidate.term,
-        });
-        seenTerms.add(entry.term_ja);
-      }
-    });
-  });
-
-  // 類義語検出（表記揺れを検出）
-  candidates.forEach((candidate) => {
-    const synonymMatches = synonyms.findSynonyms(candidate.term, dictionary, {
-      maxResults: 5,
-      minConfidence: 0.75,
-    });
-
-    synonymMatches.forEach((match) => {
-      if (seenTerms.has(match.matchedTerm)) return;
-
-      foundTerms.push({
-        ...match,
-        matchType: `synonym_${match.matchType}`,
-        candidate: candidate.term,
-      });
-      seenTerms.add(match.matchedTerm);
-    });
-  });
-
-  // 優先度順にソート（低い数字が高優先度）
-  return foundTerms.sort((a, b) => a.priority - b.priority);
+  }
+  return found;
 };
 
 /**
@@ -222,7 +186,7 @@ const saveToCache = async (sourceText, targetLang, result) => {
  * @param {string} targetLang - 翻訳先言語コード
  * @return {Promise<string>} - 翻訳後テキスト
  */
-const translateWithDeepL = async (text, targetLang) => {
+const translateWithDeepL = async (text, targetLang, options = {}) => {
   const key = requireDeepLKey();
 
   const deepl = require("deepl-node");
@@ -232,7 +196,12 @@ const translateWithDeepL = async (text, targetLang) => {
   const targetLangCode = targetLang === "zh" ? "ZH" : targetLang.toUpperCase();
 
   try {
-    const result = await translator.translateText(text, "JA", targetLangCode);
+    const result = await translator.translateText(
+      text,
+      "JA",
+      targetLangCode,
+      options
+    );
     if (!result || typeof result.text !== "string" || !result.text.trim())
       throw new Error("Empty translation");
     return result.text;
@@ -246,63 +215,108 @@ const translateWithDeepL = async (text, targetLang) => {
   }
 };
 
-/**
- * 辞書ベースで翻訳結果を補正
- * @param {string} translatedText - 翻訳後テキスト
- * @param {Array} foundTerms - 抽出された専門用語
- * @param {string} targetLang - 翻訳先言語コード
- * @return {string} - 補正後テキスト
- */
-const postProcessTranslation = (translatedText, foundTerms, targetLang) => {
-  let correctedText = translatedText;
-
-  foundTerms.forEach((term) => {
-    const expectedTranslation =
-      targetLang === "en" ? term.term_en : term.term_zh;
-
-    if (!expectedTranslation) return;
-
-    // 優先度が高い用語（1-2）のみ強制補正
-    if (term.priority <= 2) {
-      // 大文字小文字を無視して検索・置換
-      const escapedTerm = expectedTranslation.replace(
-        /[.*+?^${}()|[\]\\]/g,
-        "\\$&"
-      );
-      const regex = new RegExp(escapedTerm, "gi");
-      correctedText = correctedText.replace(regex, expectedTranslation);
+// Select literal spans, preferring longer compound names over component words.
+// All replacements use offsets, so dictionary punctuation is never a regex.
+const dictionarySpans = (text, foundTerms, targetLang) => {
+  const matches = [];
+  for (const term of foundTerms) {
+    const translation = term[`term_${targetLang}`];
+    if (typeof translation !== "string" || !translation.trim()) continue;
+    let start = text.indexOf(term.source);
+    while (start !== -1) {
+      matches.push({
+        start,
+        end: start + term.source.length,
+        translation,
+        priority: term.priority || 100,
+        term: term.term_ja,
+      });
+      start = text.indexOf(term.source, start + term.source.length);
     }
-  });
-
-  return correctedText;
-};
-
-/**
- * 辞書のみで翻訳（フォールバック用）
- * @param {string} text - 翻訳対象テキスト
- * @param {string} targetLang - 翻訳先言語コード
- * @return {Promise<string|null>} - 翻訳後テキスト（失敗時null）
- */
-const translateWithDictionaryOnly = async (text, targetLang) => {
-  const foundTerms = await findSpecializedTerms(text);
-
-  if (foundTerms.length === 0) {
-    return null;
   }
-
-  let translatedText = text;
-
-  foundTerms.forEach((term) => {
-    const translation = targetLang === "en" ? term.term_en : term.term_zh;
-    if (translation) {
-      translatedText = translatedText.replace(
-        new RegExp(term.term_ja, "g"),
-        translation
-      );
-    }
+  matches.sort(
+    (a, b) =>
+      b.end - b.start - (a.end - a.start) ||
+      a.priority - b.priority ||
+      a.start - b.start ||
+      a.term.localeCompare(b.term)
+  );
+  const selected = [];
+  for (const match of matches) {
+    if (
+      !selected.some(
+        (other) => match.start < other.end && match.end > other.start
+      )
+    )
+      selected.push(match);
+  }
+  return selected.sort((a, b) => a.start - b.start);
+};
+const escapeXML = (text) =>
+  text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+const decodeXML = (text) =>
+  text.replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (entity, name) => {
+    if (name[0] !== "#")
+      return { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" }[
+        name.toLowerCase()
+      ];
+    const point =
+      name[1].toLowerCase() === "x"
+        ? parseInt(name.slice(2), 16)
+        : Number(name.slice(1));
+    if (point < 0 || point > 0x10ffff || (point >= 0xd800 && point <= 0xdfff))
+      throw new HttpsError("unavailable", "翻訳結果の形式が不正です");
+    return String.fromCodePoint(point);
   });
-
-  return translatedText !== text ? translatedText : null;
+const replaceSpans = (text, spans, render) => {
+  let output = "",
+    offset = 0;
+  spans.forEach((span, index) => {
+    output += text.slice(offset, span.start) + render(span, index);
+    offset = span.end;
+  });
+  return output + text.slice(offset);
+};
+const protectedTranslation = async (text, spans, targetLang) => {
+  // DeepL's documented XML ignoreTags preserve our dictionary translations.
+  // https://github.com/DeepL/deepl-node#text-translation-options
+  let offset = 0,
+    xml = "<menu_text>";
+  spans.forEach((span, index) => {
+    xml +=
+      escapeXML(text.slice(offset, span.start)) +
+      `<d${index}>${escapeXML(span.translation)}</d${index}>`;
+    offset = span.end;
+  });
+  xml += escapeXML(text.slice(offset)) + "</menu_text>";
+  const translated = await translateWithDeepL(xml, targetLang, {
+    tagHandling: "xml",
+    ignoreTags: spans.map((_, index) => `d${index}`),
+  });
+  const wrapper = translated
+    .trim()
+    .match(/^<menu_text>([\s\S]*)<\/menu_text>$/);
+  if (!wrapper)
+    throw new HttpsError("unavailable", "辞書適用結果を確認できません");
+  let content = wrapper[1];
+  for (let index = 0; index < spans.length; index++) {
+    const pattern = new RegExp(`<d${index}>([\\s\\S]*?)</d${index}>`, "g");
+    const tags = [...content.matchAll(pattern)];
+    if (tags.length !== 1 || decodeXML(tags[0][1]) !== spans[index].translation)
+      throw new HttpsError("unavailable", "辞書適用結果を確認できません");
+    // Preserve encoded source characters until every generated tag is removed.
+    content = content.replace(pattern, () =>
+      escapeXML(spans[index].translation)
+    );
+  }
+  if (/[<>]/.test(content))
+    throw new HttpsError("unavailable", "翻訳結果の形式が不正です");
+  return decodeXML(content);
 };
 
 // Single and batch requests deliberately share validation, bypasses and metadata.
@@ -334,14 +348,21 @@ const translate = async (
       usedDictionary: false,
     };
 
-  const cacheKey = `v2:${useDictionary ? "dictionary" : "deepl_only"}:${text}`;
+  const foundTerms = useDictionary ? await findSpecializedTerms(text) : [];
+  const spans = dictionarySpans(text, foundTerms, targetLang);
+  const revision = crypto
+    .createHash("sha256")
+    .update(JSON.stringify(spans))
+    .digest("hex");
+  const cacheKey = `v3:${useDictionary ? `dictionary:${revision}` : "deepl_only"}:${text}`;
   const cached = await checkCache(cacheKey, targetLang);
   if (cached) return { ...cached, fromCache: true };
-  const foundTerms = useDictionary ? await findSpecializedTerms(text) : [];
   let translatedText;
   let method = useDictionary ? "deepl_api" : "deepl_only";
   try {
-    translatedText = await translateWithDeepL(text, targetLang);
+    translatedText = spans.length
+      ? await protectedTranslation(text, spans, targetLang)
+      : await translateWithDeepL(text, targetLang);
   } catch (error) {
     if (
       !allowFallback ||
@@ -349,31 +370,24 @@ const translate = async (
       error.code === "failed-precondition"
     )
       throw error;
-    translatedText = await translateWithDictionaryOnly(text, targetLang);
-    if (!translatedText) throw error;
+    if (!spans.length) throw error;
+    translatedText = replaceSpans(text, spans, (span) => span.translation);
     return {
       translatedText,
       fromCache: false,
       method: "dictionary_fallback",
       status: "partial",
-      foundTermsCount: foundTerms.length,
+      foundTermsCount: spans.length,
       usedDictionary: true,
     };
   }
-  if (useDictionary && foundTerms.length) {
-    translatedText = postProcessTranslation(
-      translatedText,
-      foundTerms,
-      targetLang
-    );
-    method = "hybrid";
-  }
+  if (spans.length) method = "hybrid";
   const result = {
     translatedText,
     method,
     status: "ready",
-    foundTermsCount: foundTerms.length,
-    usedDictionary: useDictionary && foundTerms.length > 0,
+    foundTermsCount: spans.length,
+    usedDictionary: spans.length > 0,
   };
   await saveToCache(cacheKey, targetLang, result);
   return { ...result, fromCache: false };
