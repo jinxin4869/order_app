@@ -7,6 +7,7 @@
 const { onCall } = require("firebase-functions/v2/https");
 const { HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
+const { createHash } = require("node:crypto");
 const {
   requireStaff,
   requireRestaurant,
@@ -105,165 +106,183 @@ const validatePriceCalculation = (orderData) => {
 exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
   const data = normalizeOrderInput(request.data);
 
+  const fingerprint = createHash("sha256")
+    .update(
+      JSON.stringify({
+        restaurantId: data.restaurantId,
+        tableId: data.tableId,
+        customerLanguage: data.customerLanguage,
+        customerNotes: data.customerNotes,
+        items: data.items,
+      })
+    )
+    .digest("hex");
+  const requestKey = createHash("sha256")
+    .update(JSON.stringify([data.restaurantId, data.tableId, data.requestId]))
+    .digest("hex");
+  const requestRef = db.collection("order_requests").doc(requestKey);
+  const orderRef = db.collection("orders").doc();
+  const restaurantRef = db.collection("restaurants").doc(data.restaurantId);
+  const tableRef = restaurantRef.collection("tables").doc(data.tableId);
   try {
-    // レストランとテーブルの存在確認
-    const restaurantDoc = await db
-      .collection("restaurants")
-      .doc(data.restaurantId)
-      .get();
+    return await db.runTransaction(async (transaction) => {
+      const existing = await transaction.get(requestRef);
+      if (existing.exists) {
+        const saved = existing.data();
+        if (saved.fingerprint !== fingerprint)
+          throw new HttpsError(
+            "already-exists",
+            "同じリクエストIDで異なる注文を送信することはできません。"
+          );
+        return saved.result;
+      }
+      // レストランとテーブルの存在確認
+      const restaurantDoc = await transaction.get(restaurantRef);
 
-    if (!restaurantDoc.exists) {
-      console.warn(
-        `CreateOrder failed: Restaurant ${data.restaurantId} not found`
-      );
-      throw new HttpsError(
-        "not-found",
-        "指定されたレストランが見つかりません。"
-      );
-    }
-
-    if (restaurantDoc.data().is_active !== true) {
-      throw new HttpsError(
-        "failed-precondition",
-        "現在、この店舗は注文受付を停止しています。",
-        { reason: "restaurant_closed" }
-      );
-    }
-
-    const tableDoc = await db
-      .collection("restaurants")
-      .doc(data.restaurantId)
-      .collection("tables")
-      .doc(data.tableId)
-      .get();
-
-    if (!tableDoc.exists) {
-      console.warn(
-        `CreateOrder failed: Table ${data.tableId} not found in restaurant ${data.restaurantId}`
-      );
-      throw new HttpsError("not-found", "指定されたテーブルが見つかりません。");
-    }
-
-    const table = tableDoc.data();
-    if (table.is_active === false || table.status === "unavailable") {
-      throw new HttpsError(
-        "failed-precondition",
-        "このテーブルは現在利用できません。",
-        { reason: "table_unavailable" }
-      );
-    }
-
-    const itemDocs = await db.getAll(
-      ...data.items.map((item) =>
-        db
-          .collection("restaurants")
-          .doc(data.restaurantId)
-          .collection("menu_items")
-          .doc(item.item_id)
-      )
-    );
-    const masterItems = itemDocs.map((doc, index) => {
-      if (!doc.exists)
-        throw new HttpsError("not-found", "商品が見つかりません。");
-      const item = doc.data();
-      if (item.is_available !== true)
-        throw new HttpsError(
-          "failed-precondition",
-          "商品が品切れまたは販売停止中です。",
-          { reason: "item_unavailable", itemId: doc.id }
+      if (!restaurantDoc.exists) {
+        console.warn(
+          `CreateOrder failed: Restaurant ${data.restaurantId} not found`
         );
-      if (
-        !Number.isSafeInteger(item.price) ||
-        item.price < 0 ||
-        typeof item.name_ja !== "string" ||
-        !item.name_ja.trim()
-      ) {
         throw new HttpsError(
-          "failed-precondition",
-          "商品情報が未設定です。スタッフへお知らせください。",
-          { reason: "invalid_catalog", itemId: doc.id }
+          "not-found",
+          "指定されたレストランが見つかりません。"
         );
       }
-      if (data.items[index].price !== item.price)
+
+      if (restaurantDoc.data().is_active !== true) {
         throw new HttpsError(
           "failed-precondition",
-          "商品価格が変更されています。メニューを更新してください。",
-          { reason: "price_changed", itemId: doc.id, price: item.price }
+          "現在、この店舗は注文受付を停止しています。",
+          { reason: "restaurant_closed" }
         );
+      }
 
-      return {
-        ...data.items[index],
-        price: item.price,
-        name_ja: item.name_ja || "",
-        name_en: item.name_en || null,
-        name_zh: item.name_zh || null,
-      };
-    });
+      const tableDoc = await transaction.get(tableRef);
 
-    const priceValidation = validatePriceCalculation({
-      ...data,
-      items: masterItems,
-    });
-    if (!priceValidation.isValid)
-      throw new HttpsError("invalid-argument", "注文金額が一致しません。", {
-        reason: "total_mismatch",
+      if (!tableDoc.exists) {
+        console.warn(
+          `CreateOrder failed: Table ${data.tableId} not found in restaurant ${data.restaurantId}`
+        );
+        throw new HttpsError(
+          "not-found",
+          "指定されたテーブルが見つかりません。"
+        );
+      }
+
+      const table = tableDoc.data();
+      if (table.is_active === false || table.status === "unavailable") {
+        throw new HttpsError(
+          "failed-precondition",
+          "このテーブルは現在利用できません。",
+          { reason: "table_unavailable" }
+        );
+      }
+
+      const itemDocs = await transaction.getAll(
+        ...data.items.map((item) =>
+          db
+            .collection("restaurants")
+            .doc(data.restaurantId)
+            .collection("menu_items")
+            .doc(item.item_id)
+        )
+      );
+      const masterItems = itemDocs.map((doc, index) => {
+        if (!doc.exists)
+          throw new HttpsError("not-found", "商品が見つかりません。");
+        const item = doc.data();
+        if (item.is_available !== true)
+          throw new HttpsError(
+            "failed-precondition",
+            "商品が品切れまたは販売停止中です。",
+            { reason: "item_unavailable", itemId: doc.id }
+          );
+        if (
+          !Number.isSafeInteger(item.price) ||
+          item.price < 0 ||
+          typeof item.name_ja !== "string" ||
+          !item.name_ja.trim()
+        ) {
+          throw new HttpsError(
+            "failed-precondition",
+            "商品情報が未設定です。スタッフへお知らせください。",
+            { reason: "invalid_catalog", itemId: doc.id }
+          );
+        }
+        if (data.items[index].price !== item.price)
+          throw new HttpsError(
+            "failed-precondition",
+            "商品価格が変更されています。メニューを更新してください。",
+            { reason: "price_changed", itemId: doc.id, price: item.price }
+          );
+
+        return {
+          ...data.items[index],
+          price: item.price,
+          name_ja: item.name_ja || "",
+          name_en: item.name_en || null,
+          name_zh: item.name_zh || null,
+        };
       });
 
-    // 注文番号生成
-    let orderNumber;
-    try {
-      orderNumber = await generateOrderNumber(data.restaurantId);
-    } catch (e) {
-      console.error("Order number generation failed:", e);
-      throw new HttpsError(
-        "internal",
-        "注文番号の生成中にエラーが発生しました。"
-      );
-    }
+      const priceValidation = validatePriceCalculation({
+        ...data,
+        items: masterItems,
+      });
+      if (!priceValidation.isValid)
+        throw new HttpsError("invalid-argument", "注文金額が一致しません。", {
+          reason: "total_mismatch",
+        });
 
-    // 注文データを作成
-    const orderDoc = {
-      restaurant_id: data.restaurantId,
-      table_id: data.tableId,
-      order_number: orderNumber,
-      customer_language: data.customerLanguage || "ja",
-      items: masterItems.map((item) => ({
-        ...item,
-        name: item[`name_${data.customerLanguage}`] || item.name_ja,
-      })),
-      subtotal: priceValidation.calculated.subtotal,
-      tax: priceValidation.calculated.tax,
-      total_amount: priceValidation.calculated.total,
-      status: ORDER_STATUS.PENDING,
-      customer_notes: data.customerNotes || null,
-      staff_notes: null,
-      created_at: admin.firestore.FieldValue.serverTimestamp(),
-      updated_at: admin.firestore.FieldValue.serverTimestamp(),
-      confirmed_at: null,
-      completed_at: null,
-    };
+      // 注文番号生成
+      let orderNumber;
+      try {
+        orderNumber = await generateOrderNumber(data.restaurantId);
+      } catch (e) {
+        console.error("Order number generation failed:", e);
+        throw new HttpsError(
+          "internal",
+          "注文番号の生成中にエラーが発生しました。"
+        );
+      }
 
-    // Firestoreに保存
-    const orderRef = await db.collection("orders").add(orderDoc);
+      // 注文データを作成
+      const orderDoc = {
+        restaurant_id: data.restaurantId,
+        table_id: data.tableId,
+        order_number: orderNumber,
+        customer_language: data.customerLanguage || "ja",
+        items: masterItems.map((item) => ({
+          ...item,
+          name: item[`name_${data.customerLanguage}`] || item.name_ja,
+        })),
+        subtotal: priceValidation.calculated.subtotal,
+        tax: priceValidation.calculated.tax,
+        total_amount: priceValidation.calculated.total,
+        status: ORDER_STATUS.PENDING,
+        customer_notes: data.customerNotes || null,
+        staff_notes: null,
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        confirmed_at: null,
+        completed_at: null,
+      };
 
-    // テーブルのステータスを更新
-    await db
-      .collection("restaurants")
-      .doc(data.restaurantId)
-      .collection("tables")
-      .doc(data.tableId)
-      .update({
+      const result = { success: true, orderId: orderRef.id, orderNumber };
+      transaction.set(orderRef, orderDoc);
+      transaction.set(requestRef, {
+        restaurant_id: data.restaurantId,
+        table_id: data.tableId,
+        fingerprint,
+        result,
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      transaction.update(tableRef, {
         status: "occupied",
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
       });
-
-    console.log(`Order created: ${orderRef.id}, Number: ${orderNumber}`);
-
-    return {
-      success: true,
-      orderId: orderRef.id,
-      orderNumber: orderNumber,
-    };
+      return result;
+    });
   } catch (error) {
     console.error(
       `Create order error for restaurant ${data.restaurantId}:`,

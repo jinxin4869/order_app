@@ -60,6 +60,7 @@ const createMockCartContext = (items = []) => ({
   updateQuantity: jest.fn(),
   removeItem: jest.fn(),
   clearCart: jest.fn(),
+  getOrderRequestId: jest.fn(() => "request-screen-test"),
   subtotal: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
   tax: Math.floor(
     items.reduce((sum, item) => sum + item.price * item.quantity, 0) * 0.1
@@ -233,6 +234,7 @@ describe("CartScreen", () => {
 
     await waitFor(() => {
       expect(api.createOrder).toHaveBeenCalledWith({
+        requestId: "request-screen-test",
         restaurantId: "restaurant_01",
         tableId: "table_01",
         customerLanguage: "ja",

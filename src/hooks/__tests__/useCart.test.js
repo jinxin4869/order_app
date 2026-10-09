@@ -133,3 +133,16 @@ describe("useCart", () => {
     expect(result.current.total).toBe(1098);
   });
 });
+
+test("retries keep the order request ID across rerenders until the intent changes", () => {
+  const { result, rerender } = renderHook(() => useCart());
+  const data = { restaurantId: "rest-test", tableId: "table-test", items: [{ item_id: "item-test", quantity: 1 }] };
+  let first;
+  act(() => { first = result.current.getOrderRequestId(data); });
+  rerender();
+  expect(result.current.getOrderRequestId({ ...data })).toBe(first);
+  expect(result.current.getOrderRequestId({ ...data, tableId: "other-table" })).not.toBe(first);
+  const next = result.current.getOrderRequestId(data);
+  act(() => result.current.clearCart());
+  expect(result.current.getOrderRequestId(data)).not.toBe(next);
+});
