@@ -33,6 +33,8 @@ const mockItem = {
 const mockRoute = {
   params: {
     item: mockItem,
+    restaurantId: "rest-test",
+    tableId: "table-test",
   },
 };
 
@@ -179,7 +181,8 @@ describe("ItemDetailScreen", () => {
         image_url: "https://example.com/edamame.jpg",
       },
       1,
-      ""
+      "",
+      { restaurantId: "rest-test", tableId: "table-test" }
     );
 
     expect(mockNavigation.goBack).toHaveBeenCalled();
@@ -203,7 +206,8 @@ describe("ItemDetailScreen", () => {
     expect(mockContext.addItem).toHaveBeenCalledWith(
       expect.any(Object),
       1,
-      "わさび抜き"
+      "わさび抜き",
+      { restaurantId: "rest-test", tableId: "table-test" }
     );
   });
 

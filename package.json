@@ -17,7 +17,9 @@
     "prepare": "husky",
     "test:all": "jest --runInBand && npm run test --prefix functions -- --runInBand",
     "check": "npm run lint && npm run lint --prefix functions && npm run test:all",
-    "test:rules": "node test/run-rules.cjs"
+    "test:rules": "node test/run-rules.cjs",
+    "build:web:test": "node test/build-web.cjs",
+    "test:web": "npm run build:web:test && node test/web.smoke.cjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -55,6 +57,7 @@
     "jest": "^29.7.0",
     "jest-expo": "~54.0.16",
     "lint-staged": "^15.2.0",
+    "playwright": "^1.64.0",
     "prettier": "^3.7.4",
     "react-test-renderer": "^19.1.0"
   },

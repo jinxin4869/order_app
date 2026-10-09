@@ -14,9 +14,10 @@ import { COLORS, FONT_SIZES, ALLERGENS } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
 import { useResponsive } from "../hooks/useResponsive";
 import { CartContext } from "../context/CartContext";
+import { showAlert } from "../utils/dialogs";
 
 const ItemDetailScreen = ({ navigation, route }) => {
-  const { item } = route.params;
+  const { item, restaurantId, tableId } = route.params;
   const { currentLanguage, getItemName, getItemDescription } = useLanguage();
   const { addItem } = useContext(CartContext);
   const { isSmallScreen, scaleSize } = useResponsive();
@@ -43,7 +44,7 @@ const ItemDetailScreen = ({ navigation, route }) => {
 
   // カートに追加
   const handleAddToCart = () => {
-    addItem(
+    const added = addItem(
       {
         id: item.id,
         name: itemName,
@@ -56,9 +57,17 @@ const ItemDetailScreen = ({ navigation, route }) => {
         image_url: item.image_url,
       },
       quantity,
-      notes
+      notes,
+      { restaurantId, tableId }
     );
 
+    if (added === false) {
+      showAlert(
+        "カートに追加できません / Unable to add / 无法添加",
+        "テーブルが変更されています。QRから開き直してください。 / Your table has changed. Open the QR link again. / 餐桌已变更，请重新打开二维码链接。"
+      );
+      return;
+    }
     navigation.goBack();
   };
 

@@ -1,8 +1,9 @@
 // アプリナビゲーション設定
-import React, { lazy, Suspense } from "react";
+import React, { useCallback, lazy, Suspense } from "react";
 import { ActivityIndicator, View } from "react-native";
 import {
   NavigationContainer,
+  useNavigationContainerRef,
   getPathFromState,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -11,6 +12,7 @@ import { LanguageProvider } from "../hooks/useLanguage";
 import { useCart } from "../hooks/useCart";
 import { CartContext } from "../context/CartContext";
 import OrderEntryScreen from "../screens/OrderEntryScreen";
+import { syncCartRoute } from "../utils/cartSession";
 import { getOrderPath } from "../utils/orderLinks";
 
 // スクリーンのインポート
@@ -20,7 +22,8 @@ import ItemDetailScreen from "../screens/ItemDetailScreen";
 import CartScreen from "../screens/CartScreen";
 import OrderCompleteScreen from "../screens/OrderCompleteScreen";
 
-// Do not start the camera/barcode worker when entering by a QR URL.
+// Loading the camera module eagerly starts its Web barcode worker even when
+// the customer enters by a QR URL. Load it only when the scanner is opened.
 const Scanner = lazy(() => import("../screens/QRScannerScreen"));
 const QRScannerScreen = (props) => (
   <Suspense
@@ -111,11 +114,21 @@ const AppStack = () => {
 // メインナビゲーターコンポーネント
 const AppNavigator = () => {
   const cart = useCart();
+  const navigationRef = useNavigationContainerRef();
+  const { setSession, endSession } = cart;
+  const syncSession = useCallback(() => {
+    syncCartRoute(navigationRef.getCurrentRoute(), { setSession, endSession });
+  }, [navigationRef, setSession, endSession]);
 
   return (
     <LanguageProvider>
       <CartContext.Provider value={cart}>
-        <NavigationContainer linking={linking}>
+        <NavigationContainer
+          ref={navigationRef}
+          linking={linking}
+          onReady={syncSession}
+          onStateChange={syncSession}
+        >
           <AppStack />
         </NavigationContainer>
       </CartContext.Provider>
