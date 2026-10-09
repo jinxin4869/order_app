@@ -158,6 +158,32 @@ const CartScreen = ({ navigation, route }) => {
       });
     } catch (error) {
       console.error("Order submission error:", error);
+      if (error.details?.reason === "price_changed") {
+        showAlert(
+          t("メニュー更新が必要です", "Menu update needed", "请更新菜单"),
+          t(
+            "商品価格が変更されました。メニューを更新し、商品を選び直してください。",
+            "Prices have changed. Refresh the menu and choose your items again.",
+            "商品价格已变更。请更新菜单并重新选择商品。"
+          ),
+          [
+            {
+              text: t("メニューへ", "Open menu", "打开菜单"),
+              onPress: () => {
+                clearCart();
+                navigation.replace("Menu", {
+                  restaurantId,
+                  tableId,
+                  restaurant,
+                  table,
+                });
+              },
+            },
+          ]
+        );
+        return;
+      }
+
       showAlert(
         t("エラー", "Error", "错误"),
         t(

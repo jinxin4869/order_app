@@ -409,3 +409,10 @@ describe("API Service", () => {
     });
   });
 });
+
+test("createOrder preserves structured price-change errors for the screen", async () => {
+  const error = Object.assign(new Error("Price changed"), { code: "functions/failed-precondition", details: { reason: "price_changed" } });
+  httpsCallable.mockReturnValue(jest.fn().mockRejectedValue(error));
+  withRetry.mockImplementation(fn => fn());
+  await expect(createOrder({ items: [] })).rejects.toMatchObject({ code: error.code, details: error.details });
+});

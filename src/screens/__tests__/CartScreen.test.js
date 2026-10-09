@@ -348,3 +348,21 @@ describe("CartScreen", () => {
     expect(api.createOrder).not.toHaveBeenCalled();
   });
 });
+
+test("price changes prompt a fresh menu and clear the outdated cart on confirmation", async () => {
+  jest.clearAllMocks();
+  useLanguage.mockReturnValue({ currentLanguage: "ja" });
+  api.createOrder.mockRejectedValue(Object.assign(new Error("Price changed"), { details: { reason: "price_changed" } }));
+  const context = createMockCartContext(mockCartItems);
+  const navigation = { ...mockNavigation, replace: jest.fn() };
+  jest.spyOn(Alert, "alert").mockImplementation((title, message, buttons) => {
+    if (title === "注文確認") buttons[1].onPress();
+  });
+  const view = render(<CartContext.Provider value={context}><CartScreen navigation={navigation} route={mockRoute} /></CartContext.Provider>);
+  fireEvent.press(view.getByText("注文を確定する"));
+  await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith("メニュー更新が必要です", expect.any(String), expect.any(Array)));
+  const prompt = Alert.alert.mock.calls.find(([title]) => title === "メニュー更新が必要です");
+  prompt[2][0].onPress();
+  expect(context.clearCart).toHaveBeenCalledTimes(1);
+  expect(navigation.replace).toHaveBeenCalledWith("Menu", mockRoute.params);
+});

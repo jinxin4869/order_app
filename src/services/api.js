@@ -82,7 +82,10 @@ export const createOrder = async (orderData) => {
       function: "createOrder",
       params: { itemCount: orderData.items?.length },
     });
-    throw new Error(userMessage);
+    throw Object.assign(new Error(userMessage), {
+      code: error.code,
+      details: error.details,
+    });
   }
 };
 

@@ -79,11 +79,10 @@ const validatePriceCalculation = (orderData) => {
   const calculatedTax = Math.floor(calculatedSubtotal * TAX_RATE);
   const calculatedTotal = calculatedSubtotal + calculatedTax;
 
-  // 許容誤差1円
   const isValid =
-    Math.abs(calculatedSubtotal - orderData.subtotal) <= 1 &&
-    Math.abs(calculatedTax - orderData.tax) <= 1 &&
-    Math.abs(calculatedTotal - orderData.totalAmount) <= 1;
+    calculatedSubtotal === orderData.subtotal &&
+    calculatedTax === orderData.tax &&
+    calculatedTotal === orderData.totalAmount;
 
   return {
     isValid,
@@ -106,20 +105,6 @@ const validatePriceCalculation = (orderData) => {
 exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
   const data = normalizeOrderInput(request.data);
 
-  // 金額検証
-  const priceValidation = validatePriceCalculation(data);
-  if (!priceValidation.isValid) {
-    console.warn("Price calculation mismatch:", {
-      provided: {
-        subtotal: data.subtotal,
-        tax: data.tax,
-        total: data.totalAmount,
-      },
-      calculated: priceValidation.calculated,
-    });
-    // 警告のみ、処理は続行
-  }
-
   try {
     // レストランとテーブルの存在確認
     const restaurantDoc = await db
@@ -137,6 +122,14 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
       );
     }
 
+    if (restaurantDoc.data().is_active !== true) {
+      throw new HttpsError(
+        "failed-precondition",
+        "現在、この店舗は注文受付を停止しています。",
+        { reason: "restaurant_closed" }
+      );
+    }
+
     const tableDoc = await db
       .collection("restaurants")
       .doc(data.restaurantId)
@@ -151,6 +144,15 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
       throw new HttpsError("not-found", "指定されたテーブルが見つかりません。");
     }
 
+    const table = tableDoc.data();
+    if (table.is_active === false || table.status === "unavailable") {
+      throw new HttpsError(
+        "failed-precondition",
+        "このテーブルは現在利用できません。",
+        { reason: "table_unavailable" }
+      );
+    }
+
     const itemDocs = await db.getAll(
       ...data.items.map((item) =>
         db
@@ -160,16 +162,52 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
           .doc(item.item_id)
       )
     );
-    const names = itemDocs.map((doc) => {
+    const masterItems = itemDocs.map((doc, index) => {
       if (!doc.exists)
         throw new HttpsError("not-found", "商品が見つかりません。");
       const item = doc.data();
+      if (item.is_available !== true)
+        throw new HttpsError(
+          "failed-precondition",
+          "商品が品切れまたは販売停止中です。",
+          { reason: "item_unavailable", itemId: doc.id }
+        );
+      if (
+        !Number.isSafeInteger(item.price) ||
+        item.price < 0 ||
+        typeof item.name_ja !== "string" ||
+        !item.name_ja.trim()
+      ) {
+        throw new HttpsError(
+          "failed-precondition",
+          "商品情報が未設定です。スタッフへお知らせください。",
+          { reason: "invalid_catalog", itemId: doc.id }
+        );
+      }
+      if (data.items[index].price !== item.price)
+        throw new HttpsError(
+          "failed-precondition",
+          "商品価格が変更されています。メニューを更新してください。",
+          { reason: "price_changed", itemId: doc.id, price: item.price }
+        );
+
       return {
+        ...data.items[index],
+        price: item.price,
         name_ja: item.name_ja || "",
         name_en: item.name_en || null,
         name_zh: item.name_zh || null,
       };
     });
+
+    const priceValidation = validatePriceCalculation({
+      ...data,
+      items: masterItems,
+    });
+    if (!priceValidation.isValid)
+      throw new HttpsError("invalid-argument", "注文金額が一致しません。", {
+        reason: "total_mismatch",
+      });
 
     // 注文番号生成
     let orderNumber;
@@ -189,14 +227,9 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
       table_id: data.tableId,
       order_number: orderNumber,
       customer_language: data.customerLanguage || "ja",
-      items: data.items.map((item, index) => ({
-        item_id: item.item_id,
-        ...names[index],
-        name:
-          names[index][`name_${data.customerLanguage}`] || names[index].name_ja,
-        quantity: item.quantity,
-        price: item.price,
-        notes: item.notes || null,
+      items: masterItems.map((item) => ({
+        ...item,
+        name: item[`name_${data.customerLanguage}`] || item.name_ja,
       })),
       subtotal: priceValidation.calculated.subtotal,
       tax: priceValidation.calculated.tax,
