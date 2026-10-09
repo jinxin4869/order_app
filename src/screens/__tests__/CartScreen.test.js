@@ -85,6 +85,7 @@ const createMockCartContext = (items = []) => ({
   removeItem: jest.fn(),
   clearCart: jest.fn(),
   getOrderRequestId: jest.fn(() => "request-screen-test"),
+  isOrderRequestCurrent: jest.fn(() => true),
   subtotal: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
   tax: Math.floor(
     items.reduce((sum, item) => sum + item.price * item.quantity, 0) * 0.1
