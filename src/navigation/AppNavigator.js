@@ -1,27 +1,45 @@
 // アプリナビゲーション設定
-import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import React, { lazy, Suspense } from "react";
+import { ActivityIndicator, View } from "react-native";
+import {
+  NavigationContainer,
+  getPathFromState,
+} from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { COLORS } from "../constants";
 import { LanguageProvider } from "../hooks/useLanguage";
 import { useCart } from "../hooks/useCart";
 import { CartContext } from "../context/CartContext";
 import OrderEntryScreen from "../screens/OrderEntryScreen";
+import { getOrderPath } from "../utils/orderLinks";
 
 // スクリーンのインポート
-import {
-  QRScannerScreen,
-  LanguageSelectScreen,
-  MenuScreen,
-  ItemDetailScreen,
-  CartScreen,
-  OrderCompleteScreen,
-} from "../screens";
+import LanguageSelectScreen from "../screens/LanguageSelectScreen";
+import MenuScreen from "../screens/MenuScreen";
+import ItemDetailScreen from "../screens/ItemDetailScreen";
+import CartScreen from "../screens/CartScreen";
+import OrderCompleteScreen from "../screens/OrderCompleteScreen";
+
+// Do not start the camera/barcode worker when entering by a QR URL.
+const Scanner = lazy(() => import("../screens/QRScannerScreen"));
+const QRScannerScreen = (props) => (
+  <Suspense
+    fallback={
+      <View>
+        <ActivityIndicator color={COLORS.primary} />
+      </View>
+    }
+  >
+    <Scanner {...props} />
+  </Suspense>
+);
 
 const Stack = createNativeStackNavigator();
 const linking = {
   prefixes: [],
   config: { screens: { OrderEntry: "order", QRScanner: "" } },
+  getPathFromState: (state, options) =>
+    getOrderPath(state) || getPathFromState(state, options),
 };
 
 // ナビゲーションスタック
