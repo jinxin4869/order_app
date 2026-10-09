@@ -213,3 +213,28 @@ test("notes are validated and sanitized without changing the caller, and names c
   });
   expect(data.items[0].notes).toBe(" <b>No onions</b> ");
 });
+
+test.each([
+  ["restaurants/rest-test", { name: "Test restaurant", is_active: false }, "failed-precondition"],
+  ["restaurants/rest-test/tables/table-test", { status: "unavailable" }, "failed-precondition"],
+  ["restaurants/rest-test/menu_items/item-test", { name_ja: "テスト料理", price: 1000, is_available: false }, "failed-precondition"],
+  ["restaurants/rest-test/menu_items/item-test", { name_ja: "テスト料理", price: NaN, is_available: true }, "failed-precondition"],
+])("closed or invalid catalog entries cannot produce an order", async (path, value, code) => {
+  mockDb.seed(path, value);
+  await expect(api.createOrder({ data: order() })).rejects.toMatchObject({ code });
+  expect(mockDb.writes).toHaveLength(0);
+});
+test("another restaurant's product is rejected", async () => {
+  mockDb.seed("restaurants/other-store/menu_items/foreign-item", { name_ja: "他店舗商品", is_available: true, price: 1000 });
+  await expect(api.createOrder({ data: order({ items: [{ item_id: "foreign-item", quantity: 2, price: 1000 }] }) })).rejects.toMatchObject({ code: "not-found" });
+  expect(mockDb.writes).toHaveLength(0);
+});
+test.each([0, 999, 1100])("tampered or stale prices require refreshing and do not save", async (price) => {
+  const data = order(); data.items[0].price = price;
+  await expect(api.createOrder({ data })).rejects.toMatchObject({ code: "failed-precondition", details: { reason: "price_changed", price: 1000 } });
+  expect(mockDb.writes).toHaveLength(0);
+});
+test("tampered client totals are rejected even when unit prices match", async () => {
+  await expect(api.createOrder({ data: order({ subtotal: 0, tax: 0, totalAmount: 0 }) })).rejects.toMatchObject({ code: "invalid-argument", details: { reason: "total_mismatch" } });
+  expect(mockDb.writes).toHaveLength(0);
+});
