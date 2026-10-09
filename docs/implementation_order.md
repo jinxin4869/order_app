@@ -26,7 +26,7 @@
 
 注文・QR・翻訳の系統を#19で統合し、#17で機密ファイル除外も統合しています。`chore/17-reproducible-setup`が全変更を含む確認用の先端です。前提を先にレビューしてマージしてください。まだ`main`へマージしていないためIssueは閉じません。
 
-mainへのマージ・PR作成・デプロイ・本番データ投入は実施していません。ブランチの公開先は[GitHubのブランチ一覧](https://github.com/jinxin4869/order_app/branches)です。検証手順は[テストガイド](TESTING.md)、仕様上の制限は[README](../README.md)を参照してください。
+[19件のPR一覧とレビュー順](pull_requests.md)を参照してください。mainへのマージ・デプロイ・本番データ投入は実施していません。ブランチの公開先は[GitHubのブランチ一覧](https://github.com/jinxin4869/order_app/branches)です。検証手順は[テストガイド](TESTING.md)、仕様上の制限は[README](../README.md)を参照してください。
 
 最終統合ブランチでは、画像レビューに基づくカテゴリ領域の高さ・翻訳状態の表示・文字コントラストの修正も行っています。確認範囲は[UIレビュー記録](ui_review.md)を参照してください。
 

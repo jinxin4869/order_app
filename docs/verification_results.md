@@ -4,7 +4,7 @@
 
 ## ブランチ
 
-レビュー時のmain `8ec219ff060fbd3100dfee3d6b3efcf182c7930e` を基点に、[対応順とブランチ構成](implementation_order.md)の19本を作成しました。各ブランチが前提を含み、全19本が最終ブランチ `chore/17-reproducible-setup` に含まれることをGitの祖先判定で確認しています。元のmain・origin/mainは変更していません。各ブランチをpushする前に再レビューしました。mainへのマージ・PR作成・デプロイは未実施で、Issueはオープンのままです。
+レビュー時のmain `8ec219ff060fbd3100dfee3d6b3efcf182c7930e` を基点に、[対応順とブランチ構成](implementation_order.md)の19本を作成しました。各ブランチが前提を含み、全19本が最終ブランチ `chore/17-reproducible-setup` に含まれることをGitの祖先判定で確認しています。元のmain・origin/mainは変更していません。各ブランチをpushする前に再レビューしました。[19件のPR](pull_requests.md)を作成済みです。mainへのマージ・デプロイは未実施で、Issueはオープンのままです。
 
 ## 再現確認
 
