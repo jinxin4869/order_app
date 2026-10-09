@@ -1,3 +1,5 @@
+> 現行の主入口はWeb URL `/order?restaurant=...&table=...`です。[README](../README.md#利用フロー)を参照してください。以下は旧形式と将来構想を含む初期設計です。
+
 # QRコード設計書
 
 ## 目的
