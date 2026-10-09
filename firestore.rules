@@ -25,9 +25,9 @@ service cloud.firestore {
       }
     }
 
-    // 注文（作成のみ許可）
+    // 注文は検証済みCallableのみが作成・更新する（Admin SDK）。
     match /orders/{orderId} {
-      allow create: if true;
+      allow create: if false;
       allow read: if false;  // 将来的に認証実装時に変更
       allow update, delete: if false;
     }

@@ -115,3 +115,21 @@ test("terminal orders cannot return to confirmed", async () => {
     })
   ).rejects.toMatchObject({ code: "failed-precondition" });
 });
+
+const staff = (restaurantId = "rest-test", role = "staff") => ({ uid: "staff-test", token: { role, restaurantId } });
+test.each([
+  [undefined, "unauthenticated"],
+  [staff("rest-test", "customer"), "permission-denied"],
+  [staff("other-store"), "permission-denied"],
+  [staff(""), "permission-denied"],
+])("status update rejects insufficient or foreign staff permissions", async (auth, code) => {
+  mockDb.seed("orders/order-test", { restaurant_id: "rest-test", status: "pending" });
+  await expect(api.updateOrderStatus({ auth, data: { orderId: "order-test", newStatus: "confirmed" } })).rejects.toMatchObject({ code });
+  expect(mockDb.writes).toHaveLength(0);
+  expect(mockDb.read("orders/order-test").status).toBe("pending");
+});
+test("unauthenticated status calls fail before any database query", async () => {
+  const query = jest.spyOn(mockDb, "collection");
+  await expect(api.updateOrderStatus({ data: null })).rejects.toMatchObject({ code: "unauthenticated" });
+  expect(query).not.toHaveBeenCalled();
+});
