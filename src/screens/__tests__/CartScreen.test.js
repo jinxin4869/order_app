@@ -325,7 +325,7 @@ test("price changes prompt a fresh menu and clear the outdated cart on confirmat
     if (title === "注文確認") buttons[1].onPress();
   });
   const view = render(<CartContext.Provider value={context}><CartScreen navigation={navigation} route={mockRoute} /></CartContext.Provider>);
-  fireEvent.press(view.getByText("注文する"));
+  fireEvent.press(view.getByText("注文を確定する"));
   await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith("メニュー更新が必要です", expect.any(String), expect.any(Array)));
   const prompt = Alert.alert.mock.calls.find(([title]) => title === "メニュー更新が必要です");
   prompt[2][0].onPress();
