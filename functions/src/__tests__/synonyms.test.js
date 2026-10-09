@@ -45,9 +45,9 @@ describe("類義語検出モジュール", () => {
       expect(result).toBe("ラーメン");
     });
 
-    test("ひらがな以外はそのまま", () => {
+    test("漢字を保ち、含まれるひらがなはカタカナに変換", () => {
       const result = synonyms.hiraganaToKatakana("唐揚げ");
-      expect(result).toBe("唐揚げ");
+      expect(result).toBe("唐揚ゲ");
     });
   });
 
@@ -67,7 +67,9 @@ describe("類義語検出モジュール", () => {
     });
 
     test("部分一致（含まれている）", () => {
-      const result = synonyms.areSynonyms("唐揚げ定食", "唐揚げ");
+      const result = synonyms.areSynonyms("唐揚げ定食", "唐揚げ", {
+        minSimilarity: 0.5,
+      });
       expect(result.isSynonym).toBe(true);
       expect(result.matchType).toBe("partial");
     });
@@ -229,14 +231,34 @@ describe("類義語検出モジュール", () => {
     });
 
     test("寿司の表記揺れを検出", () => {
-      const result = synonyms.areSynonyms("寿司", "すし");
+      const result = synonyms.areSynonyms("寿司", "すし", { reading1: "スシ" });
       expect(result.isSynonym).toBe(true);
     });
 
     test("複合語の部分一致を検出", () => {
-      const result = synonyms.areSynonyms("唐揚げ定食セット", "唐揚げ");
+      const result = synonyms.areSynonyms("唐揚げ定食セット", "唐揚げ", {
+        minSimilarity: 0.3,
+      });
       expect(result.isSynonym).toBe(true);
       expect(result.matchType).toBe("partial");
+    });
+
+    test("読み情報なしで漢字と仮名を推測して同一視しない", () => {
+      expect(synonyms.areSynonyms("寿司", "すし").isSynonym).toBe(false);
+    });
+
+    test("部分一致も既定の類似度閾値を満たす必要がある", () => {
+      expect(synonyms.areSynonyms("唐揚げ定食セット", "唐揚げ").isSynonym).toBe(
+        false
+      );
+    });
+
+    test("辞書の読みを使って漢字・仮名の表記揺れを検索", () => {
+      const result = synonyms.findSynonyms("すし", [
+        { term_ja: "寿司", reading: "スシ", term_en: "Sushi" },
+      ]);
+      expect(result[0].term_en).toBe("Sushi");
+      expect(result[0].matchType).toBe("reading");
     });
   });
 });

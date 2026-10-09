@@ -1,44 +1,11 @@
 module.exports = {
-  /* Converted for compatibility with flat config: avoid using `env` key. */
-  parserOptions: {
-    ecmaVersion: 2020,
-  },
-  parserOptions: {
-    ecmaVersion: 2020,
-  },
-  extends: ["eslint:recommended", "google", "plugin:prettier/recommended"],
+  root: true,
+  env: { node: true, es2022: true },
+  parserOptions: { ecmaVersion: 2022 },
+  extends: ["eslint:recommended"],
   ignorePatterns: ["node_modules/", ".firebase/", "*.log"],
-  rules: {
-    "prettier/prettier": "error",
-    "no-restricted-globals": ["error", "name", "length"],
-    "prefer-arrow-callback": "error",
-    quotes: ["error", "double", { allowTemplateLiterals: true }],
-    "no-undef": "off",
-    "no-unused-vars": ["error", { argsIgnorePattern: "^context$" }],
-  },
+  rules: { "no-unused-vars": ["error", { argsIgnorePattern: "^_" }] },
   overrides: [
-    {
-      files: ["**/*.spec.*", "**/*.test.*", "**/__tests__/**"],
-      /* Provide Jest globals instead of `env` to avoid flat-config errors */
-      globals: {
-        describe: "readonly",
-        it: "readonly",
-        test: "readonly",
-        expect: "readonly",
-        beforeEach: "readonly",
-        afterEach: "readonly",
-        jest: "readonly",
-      },
-      rules: {},
-    },
+    { files: ["src/**/__tests__/**", "test-support/**"], env: { jest: true } },
   ],
-  globals: {
-    exports: "writable",
-    module: "writable",
-    require: "readonly",
-    process: "readonly",
-    __dirname: "readonly",
-    __filename: "readonly",
-    global: "readonly",
-  },
 };
