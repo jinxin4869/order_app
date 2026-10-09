@@ -13,6 +13,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { COLORS, FONT_SIZES } from "../constants";
 import { validateQRCode } from "../services/api";
 import { showAlert } from "../utils/dialogs";
+import { parseOrderLink } from "../utils/orderLinks";
 import { useResponsive } from "../hooks/useResponsive";
 
 // デモ用レストランデータ
@@ -85,9 +86,9 @@ const QRScannerScreen = ({ navigation }) => {
 
     try {
       // QRコードデータをパース（format: restaurantId/tableId）
-      const parts = data.split("/");
+      const session = parseOrderLink(data);
 
-      if (parts.length !== 2) {
+      if (!session) {
         showAlert(
           "エラー / Error / 错误",
           "無効なQRコードです。\nInvalid QR code.\n无效的二维码。",
@@ -97,10 +98,10 @@ const QRScannerScreen = ({ navigation }) => {
         return;
       }
 
-      const [restaurantId, tableId] = parts;
+      const { restaurantId, tableId } = session;
 
       // Cloud Functionsで検証
-      const result = await validateQRCode(data);
+      const result = await validateQRCode(`${restaurantId}/${tableId}`);
 
       if (result.valid) {
         // 言語選択画面に遷移
