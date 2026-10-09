@@ -1,31 +1,37 @@
-# PR一覧とレビュー順
+# PR一覧とマージ順
 
-既存19件のPRを作成しました。独立した2件はmain向け、他は前提ブランチをbaseにしたスタック構成です。各PR本文に変更内容・検証・前提PRを記載しています。mainへのマージ・デプロイは行っていません。
+2026-10-09のマージ状況を反映しています。残り14本のマージ先はすべて `main` に変更しました。前提PRの変更も差分に含まれるため、下記の順に進めてください。
 
-| 順 | Issue | PR | base | 追加の前提PR |
-| --- | --- | --- | --- | --- |
-| 1 | [#16](https://github.com/jinxin4869/order_app/issues/16) | [#21](https://github.com/jinxin4869/order_app/pull/21) | `main` | — |
-| 2 | [#15](https://github.com/jinxin4869/order_app/issues/15) | [#22](https://github.com/jinxin4869/order_app/pull/22) | `main` | — |
-| 3 | [#6](https://github.com/jinxin4869/order_app/issues/6) | [#23](https://github.com/jinxin4869/order_app/pull/23) | `chore/15-test-and-ci` | — |
-| 4 | [#7](https://github.com/jinxin4869/order_app/issues/7) | [#24](https://github.com/jinxin4869/order_app/pull/24) | `fix/6-web-confirmations` | — |
-| 5 | [#2](https://github.com/jinxin4869/order_app/issues/2) | [#25](https://github.com/jinxin4869/order_app/pull/25) | `chore/15-test-and-ci` | — |
-| 6 | [#1](https://github.com/jinxin4869/order_app/issues/1) | [#26](https://github.com/jinxin4869/order_app/pull/26) | `fix/2-firestore-order-writes` | — |
-| 7 | [#11](https://github.com/jinxin4869/order_app/issues/11) | [#27](https://github.com/jinxin4869/order_app/pull/27) | `fix/1-staff-api-permissions` | — |
-| 8 | [#3](https://github.com/jinxin4869/order_app/issues/3) | [#28](https://github.com/jinxin4869/order_app/pull/28) | `fix/11-order-input-contract` | — |
-| 9 | [#4](https://github.com/jinxin4869/order_app/issues/4) | [#29](https://github.com/jinxin4869/order_app/pull/29) | `fix/3-validate-menu-prices` | — |
-| 10 | [#5](https://github.com/jinxin4869/order_app/issues/5) | [#30](https://github.com/jinxin4869/order_app/pull/30) | `fix/4-idempotent-order-creation` | — |
-| 11 | [#12](https://github.com/jinxin4869/order_app/issues/12) | [#31](https://github.com/jinxin4869/order_app/pull/31) | `fix/5-transactional-order-numbers` | [#24](https://github.com/jinxin4869/order_app/pull/24) |
-| 12 | [#13](https://github.com/jinxin4869/order_app/issues/13) | [#32](https://github.com/jinxin4869/order_app/pull/32) | `fix/12-scope-cart-to-table` | — |
-| 13 | [#9](https://github.com/jinxin4869/order_app/issues/9) | [#33](https://github.com/jinxin4869/order_app/pull/33) | `fix/1-staff-api-permissions` | — |
-| 14 | [#10](https://github.com/jinxin4869/order_app/issues/10) | [#34](https://github.com/jinxin4869/order_app/pull/34) | `fix/9-bind-translation-secret` | — |
-| 15 | [#8](https://github.com/jinxin4869/order_app/issues/8) | [#35](https://github.com/jinxin4869/order_app/pull/35) | `fix/10-short-name-translations` | — |
-| 16 | [#18](https://github.com/jinxin4869/order_app/issues/18) | [#36](https://github.com/jinxin4869/order_app/pull/36) | `fix/8-apply-dictionary-terms` | — |
-| 17 | [#19](https://github.com/jinxin4869/order_app/issues/19) | [#37](https://github.com/jinxin4869/order_app/pull/37) | `fix/18-isolate-translation-modes` | [#32](https://github.com/jinxin4869/order_app/pull/32) |
-| 18 | [#14](https://github.com/jinxin4869/order_app/issues/14) | [#38](https://github.com/jinxin4869/order_app/pull/38) | `feat/19-staff-order-console` | — |
-| 19 | [#17](https://github.com/jinxin4869/order_app/issues/17) | [#39](https://github.com/jinxin4869/order_app/pull/39) | `fix/14-menu-fetch-lifecycle` | [#21](https://github.com/jinxin4869/order_app/pull/21) |
+## すでにマージされたPR
 
-前提PRを先にmainへ反映し、後続PRのbaseをmainへ変更してから差分とCIを再確認してください。追加の前提を持つ#31・#37・#39は、現在の比較差分に別系統の前提変更も含みます。依存ブランチの削除は後続PRへの影響を確認してから行ってください。
+- #21・#22は `main` へマージ済みです。
+- #23は `chore/15-test-and-ci` へマージ済みで、変更は **#24** から `main` へ入ります。
+- #26は `fix/2-firestore-order-writes` へマージ済みで、変更は **#25** から `main` へ入ります。
+- #39は `fix/14-menu-fetch-lifecycle` へマージ済みで、変更は **#38** から `main` へ入ります。
 
-全変更を含む先端は[PR #39](https://github.com/jinxin4869/order_app/pull/39)の `chore/17-reproducible-setup` です。最初のレビューは[PR #21](https://github.com/jinxin4869/order_app/pull/21)（機密ファイル除外）と[PR #22](https://github.com/jinxin4869/order_app/pull/22)（テスト・CI）から進められます。
+## 残りの順番
 
-[73項目の完了条件レビュー](issue_acceptance_review.md)と[検証記録](verification_results.md)はローカル検証の結果です。GitHub Actionsの実行結果は各PRのChecksで確認します。追加課題[#20](https://github.com/jinxin4869/order_app/issues/20)の依存ライブラリ更新は未対応で、PRは作成していません。
+| 順 | PR | 内容 | マージ先 |
+| --- | --- | --- | --- |
+| 1 | [#24](https://github.com/jinxin4869/order_app/pull/24) | Webの確認ダイアログ・QRからの直接アクセス | `main` |
+| 2 | [#25](https://github.com/jinxin4869/order_app/pull/25) | 注文の直接書込制限・スタッフAPIの店舗権限 | `main` |
+| 3 | [#27](https://github.com/jinxin4869/order_app/pull/27) | 注文入力の型・数量・備考の契約 | `main` |
+| 4 | [#28](https://github.com/jinxin4869/order_app/pull/28) | メニュー価格・販売可否・営業状態の検証 | `main` |
+| 5 | [#29](https://github.com/jinxin4869/order_app/pull/29) | 注文作成の冪等化・原子的な保存 | `main` |
+| 6 | [#30](https://github.com/jinxin4869/order_app/pull/30) | 日本時間0時での日次注文番号採番 | `main` |
+| 7 | [#31](https://github.com/jinxin4869/order_app/pull/31) | 店舗・テーブル単位のカート管理 | `main` |
+| 8 | [#32](https://github.com/jinxin4869/order_app/pull/32) | 数量上限の統一 | `main` |
+| 9 | [#33](https://github.com/jinxin4869/order_app/pull/33) | 翻訳APIへのSecretバインド | `main` |
+| 10 | [#34](https://github.com/jinxin4869/order_app/pull/34) | 短い料理名の翻訳 | `main` |
+| 11 | [#35](https://github.com/jinxin4869/order_app/pull/35) | 辞書による翻訳補正 | `main` |
+| 12 | [#36](https://github.com/jinxin4869/order_app/pull/36) | 翻訳比較モードの分離 | `main` |
+| 13 | [#37](https://github.com/jinxin4869/order_app/pull/37) | スタッフのメール・パスワード認証と注文管理画面 | `main` |
+| 14 | [#38](https://github.com/jinxin4869/order_app/pull/38) | メニュー取得の最適化・初期構築と検証手順 | `main` |
+
+**Create a merge commit** を使い、各PRの差分とCI成功を確認してから1本ずつマージしてください。Squash/Rebaseでは前提コミットの履歴が変わり、後続PRの差分や競合が増えるため、この構成では使用しません。依存ブランチは一連のマージが完了するまで残してください。
+
+## 競合と検証
+
+#28には#24のWeb/QR変更、#36には#32のカート変更を事前統合し、順次マージした際の競合を解消しています。別のローカル作業領域で現在の `main` から上記14本を順に取り込めることを確認しました。GitHub上のマージ操作は行っていません。
+
+全19課題の変更を含む先端は [PR #38](https://github.com/jinxin4869/order_app/pull/38) です。[73項目の完了条件レビュー](issue_acceptance_review.md)と[検証記録](verification_results.md)も参照してください。追加課題[#20](https://github.com/jinxin4869/order_app/issues/20)の依存ライブラリ更新は未対応で、PRは作成していません。

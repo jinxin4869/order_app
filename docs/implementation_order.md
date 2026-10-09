@@ -24,9 +24,9 @@
 | 18  | [#14](https://github.com/jinxin4869/order_app/issues/14) | `fix/14-menu-fetch-lifecycle`       | `feat/19-staff-order-console`                                    |
 | 19  | [#17](https://github.com/jinxin4869/order_app/issues/17) | `chore/17-reproducible-setup`       | `fix/14-menu-fetch-lifecycle`, `fix/16-ignore-sensitive-files`   |
 
-注文・QR・翻訳の系統を#19で統合し、#17で機密ファイル除外も統合しています。`chore/17-reproducible-setup`が全変更を含む確認用の先端です。前提を先にレビューしてマージしてください。まだ`main`へマージしていないためIssueは閉じません。
+注文・QR・翻訳の系統を#19で統合し、#17で機密ファイル除外も統合しています。`chore/17-reproducible-setup`が全変更を含む確認用の先端です。これは作成時の分岐構成です。その後#21・#22がmainへ、#23・#26・#39が各前提ブランチへマージされました。最新の先端は `fix/14-menu-fetch-lifecycle`（PR #38）です。
 
-[19件のPR一覧とレビュー順](pull_requests.md)を参照してください。mainへのマージ・デプロイ・本番データ投入は実施していません。ブランチの公開先は[GitHubのブランチ一覧](https://github.com/jinxin4869/order_app/branches)です。検証手順は[テストガイド](TESTING.md)、仕様上の制限は[README](../README.md)を参照してください。
+[現在のPR一覧と残り14本のマージ順](pull_requests.md)を参照してください。残りのPRはmain向けに修正し、#28・#36で系統間の競合を事前解消しました。エージェントによるGitHub上のマージ・デプロイ・本番データ投入は実施していません。ブランチの公開先は[GitHubのブランチ一覧](https://github.com/jinxin4869/order_app/branches)です。検証手順は[テストガイド](TESTING.md)、仕様上の制限は[README](../README.md)を参照してください。
 
 最終統合ブランチでは、画像レビューに基づくカテゴリ領域の高さ・翻訳状態の表示・文字コントラストの修正も行っています。確認範囲は[UIレビュー記録](ui_review.md)を参照してください。
 
