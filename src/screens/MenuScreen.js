@@ -36,15 +36,12 @@ const RestaurantMenu = ({ navigation, route }) => {
 
   const requestVersion = useRef(0);
   // The API returns every language; category and language switches are local.
-  const loadMenu = useCallback(
-    async (showRefresh = false) => {
-      const request = ++requestVersion.current;
-      if (showRefresh) setIsRefreshing(true);
-      else setIsLoading(true);
-      setError(null);
-      try {
-        const result = await getMenuWithTranslation(restaurantId);
+  const loadMenu = useCallback(() => {
+    const request = ++requestVersion.current;
+    return getMenuWithTranslation(restaurantId)
+      .then((result) => {
         if (request !== requestVersion.current) return;
+        setError(null);
         const nextCategories = result.categories || [];
         setCategories(nextCategories);
         setMenuItems(result.items || []);
@@ -53,21 +50,27 @@ const RestaurantMenu = ({ navigation, route }) => {
             ? previous
             : nextCategories[0]?.id || null
         );
-      } catch (failure) {
+      })
+      .catch((failure) => {
         if (request === requestVersion.current)
           setError(
             failure.message ||
               "メニューの読み込みに失敗しました / Failed to load menu / 菜单加载失败"
           );
-      } finally {
+      })
+      .finally(() => {
         if (request === requestVersion.current) {
           setIsLoading(false);
           setIsRefreshing(false);
         }
-      }
-    },
-    [restaurantId]
-  );
+      });
+  }, [restaurantId]);
+  const reloadMenu = (showRefresh = false) => {
+    if (showRefresh) setIsRefreshing(true);
+    else setIsLoading(true);
+    setError(null);
+    return loadMenu();
+  };
   useEffect(() => {
     loadMenu();
     const version = requestVersion;
@@ -288,7 +291,10 @@ const RestaurantMenu = ({ navigation, route }) => {
       <View style={styles.centerContainer}>
         <Text style={styles.errorIcon}>😔</Text>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => loadMenu()}>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => reloadMenu()}
+        >
           <Text style={styles.retryButtonText}>
             {currentLanguage === "zh"
               ? "重新加载"
@@ -330,7 +336,7 @@ const RestaurantMenu = ({ navigation, route }) => {
             accessibilityRole="button"
             accessibilityState={{ disabled: isRefreshing }}
             disabled={isRefreshing}
-            onPress={() => loadMenu(true)}
+            onPress={() => reloadMenu(true)}
             style={{
               minWidth: 44,
               minHeight: 44,
@@ -467,7 +473,7 @@ const RestaurantMenu = ({ navigation, route }) => {
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={() => loadMenu(true)}
+            onRefresh={() => reloadMenu(true)}
             colors={[COLORS.primary]}
           />
         }

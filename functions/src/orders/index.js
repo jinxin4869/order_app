@@ -6,7 +6,7 @@
 
 const { onCall } = require("firebase-functions/v2/https");
 const { HttpsError } = require("firebase-functions/v2/https");
-const admin = require("firebase-admin");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { createHash } = require("node:crypto");
 const {
   requireStaff,
@@ -15,7 +15,7 @@ const {
 } = require("../utils/staffAuth");
 
 const { businessDay } = require("../utils/businessDay");
-const db = admin.firestore();
+const db = getFirestore();
 const { normalizeOrderInput } = require("../utils/orderInput");
 
 const {
@@ -244,8 +244,8 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
         status: ORDER_STATUS.PENDING,
         customer_notes: data.customerNotes || null,
         staff_notes: null,
-        created_at: admin.firestore.FieldValue.serverTimestamp(),
-        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        created_at: FieldValue.serverTimestamp(),
+        updated_at: FieldValue.serverTimestamp(),
         confirmed_at: null,
         completed_at: null,
       };
@@ -254,7 +254,7 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
       transaction.set(counterRef, {
         last_sequence: sequence,
         business_day: day,
-        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        updated_at: FieldValue.serverTimestamp(),
       });
       transaction.set(orderRef, orderDoc);
       transaction.set(requestRef, {
@@ -262,11 +262,11 @@ exports.createOrder = onCall({ region: "asia-northeast1" }, async (request) => {
         table_id: data.tableId,
         fingerprint,
         result,
-        created_at: admin.firestore.FieldValue.serverTimestamp(),
+        created_at: FieldValue.serverTimestamp(),
       });
       transaction.update(tableRef, {
         status: "occupied",
-        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        updated_at: FieldValue.serverTimestamp(),
       });
       return result;
     });
@@ -421,13 +421,13 @@ exports.updateOrderStatus = onCall(
         );
       const update = {
         status: newStatus,
-        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        updated_at: FieldValue.serverTimestamp(),
         updated_by: request.auth.uid,
       };
       if (newStatus === ORDER_STATUS.CONFIRMED)
-        update.confirmed_at = admin.firestore.FieldValue.serverTimestamp();
+        update.confirmed_at = FieldValue.serverTimestamp();
       if (newStatus === ORDER_STATUS.COMPLETED)
-        update.completed_at = admin.firestore.FieldValue.serverTimestamp();
+        update.completed_at = FieldValue.serverTimestamp();
       transaction.update(orderRef, update);
       return { success: true, status: newStatus };
     });

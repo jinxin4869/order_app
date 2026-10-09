@@ -27,9 +27,13 @@ async function main() {
       rules: readFileSync(resolve(__dirname, "../firestore.rules"), "utf8"),
     },
   });
-  const admin = require("../functions/node_modules/firebase-admin");
-  const app = admin.initializeApp({ projectId });
-  const serverDb = admin.firestore(app);
+  const functionsRequire = createRequire(
+    require.resolve("../functions/package.json")
+  );
+  const { initializeApp, deleteApp } = functionsRequire("firebase-admin/app");
+  const { getFirestore } = functionsRequire("firebase-admin/firestore");
+  const app = initializeApp({ projectId });
+  const serverDb = getFirestore(app);
   try {
     await env.clearFirestore();
     const { fixtures } = require("../functions/test-support/firestore");
@@ -171,7 +175,7 @@ async function main() {
   } finally {
     await env.clearFirestore();
     await env.cleanup();
-    await app.delete();
+    await deleteApp(app);
   }
 }
 main().catch((error) => {

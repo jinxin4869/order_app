@@ -6,12 +6,13 @@
 
 const { onCall } = require("firebase-functions/v2/https");
 const { HttpsError } = require("firebase-functions/v2/https");
-const admin = require("firebase-admin");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const crypto = require("crypto");
 const morphological = require("../morphological");
 const synonyms = require("../morphological/synonyms");
+const { DEEPL_TARGET_LANGUAGES } = require("../utils/translationLanguages");
 
-const db = admin.firestore();
+const db = getFirestore();
 
 // DeepL API設定（環境変数から取得）
 const requireDeepLKey = () => {
@@ -127,8 +128,8 @@ const checkCache = async (sourceText, targetLang) => {
           .collection("translation_cache")
           .doc(cacheId)
           .update({
-            hit_count: admin.firestore.FieldValue.increment(1),
-            last_accessed_at: admin.firestore.FieldValue.serverTimestamp(),
+            hit_count: FieldValue.increment(1),
+            last_accessed_at: FieldValue.serverTimestamp(),
           });
 
         return {
@@ -172,8 +173,8 @@ const saveToCache = async (sourceText, targetLang, result) => {
       used_dictionary: result.usedDictionary,
       hit_count: 0,
       expires_at: expiresAt,
-      created_at: admin.firestore.FieldValue.serverTimestamp(),
-      last_accessed_at: admin.firestore.FieldValue.serverTimestamp(),
+      created_at: FieldValue.serverTimestamp(),
+      last_accessed_at: FieldValue.serverTimestamp(),
     });
   } catch (error) {
     console.error("Cache save error:", error);
@@ -193,7 +194,7 @@ const translateWithDeepL = async (text, targetLang, options = {}) => {
   const translator = new deepl.Translator(key);
 
   // DeepLの言語コード変換
-  const targetLangCode = targetLang === "zh" ? "ZH" : targetLang.toUpperCase();
+  const targetLangCode = DEEPL_TARGET_LANGUAGES[targetLang];
 
   try {
     const result = await translator.translateText(

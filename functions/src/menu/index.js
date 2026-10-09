@@ -6,10 +6,10 @@
 
 const { onCall } = require("firebase-functions/v2/https");
 const { HttpsError } = require("firebase-functions/v2/https");
-const admin = require("firebase-admin");
+const { getFirestore } = require("firebase-admin/firestore");
 const { parseQRCode } = require("../utils/qr");
 
-const db = admin.firestore();
+const db = getFirestore();
 const translationMetadata = (data) => {
   const metadata = {};
   for (const field of ["name", "description"])

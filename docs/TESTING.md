@@ -2,14 +2,17 @@
 
 Node.js 22、エミュレーターにはJava 21を使用します。まずルートと`functions`の両方で`npm ci`を実行します。
 
-| コマンド                                     | 対象・接続先                                                       |
-| -------------------------------------------- | ------------------------------------------------------------------ |
-| `npm test -- --runInBand`                    | フロントのJestテスト。Firebase初期化をモックしdotenvを読み込まない |
-| `npm test --prefix functions -- --runInBand` | 実FunctionsハンドラをモックFirestore・合成DeepL応答で検証          |
-| `npm run check`                              | 両方のlintと単体テスト                                             |
-| `npm run test:rules`                         | ローカルFirestoreでルール・実注文API・スタッフ一覧／更新競合を検証 |
-| `npm run test:demo`                          | ローカルFirestore・Authの起動、合成データ投入・取得・Claims確認    |
-| `npm run test:web`                           | 合成設定でExpo WebをビルドしPlaywrightで操作検証                   |
+| コマンド                                     | 対象・接続先                                                        |
+| -------------------------------------------- | ------------------------------------------------------------------- |
+| `npm test -- --runInBand`                    | フロントのJestテスト。Firebase初期化をモックしdotenvを読み込まない  |
+| `npm test --prefix functions -- --runInBand` | 実FunctionsハンドラをモックFirestore・合成DeepL応答で検証           |
+| `npm run test:audit`                         | 依存監査ポリシーの単体テスト。外部接続なし                          |
+| `npm run audit:dependencies`                 | 公開npmレジストリで本番・開発別の監査。限定した期限付きhigh例外あり |
+| `npm run test:sdk`                           | 実DeepL SDKとローカルHTTPサーバーで合成翻訳の送受信を検証           |
+| `npm run check`                              | 両方のlintと単体テスト                                              |
+| `npm run test:rules`                         | ローカルFirestoreでルール・実注文API・スタッフ一覧／更新競合を検証  |
+| `npm run test:demo`                          | ローカルFirestore・Authの起動、合成データ投入・取得・Claims確認     |
+| `npm run test:web`                           | 合成設定でExpo WebをビルドしPlaywrightで操作検証                    |
 
 ルートの`npm test`だけではFunctions・ルール・ブラウザは検証されません。CIは上表の各検証を実行します。pre-commitはステージ済みファイルのlint-staged、pre-pushは`check`を実行します。Functionsのlintは専用の設定を明示して実ソースを検証します。
 
@@ -33,3 +36,5 @@ npm run test:web
 出力は一時ディレクトリの`order-app-web-test`と`order-app-*.png`です。`ORDER_APP_WEB_DIR`／`ORDER_APP_WEB_ARTIFACTS`で変更できます。CIは画像をArtifactとして保存します。日本語フォントがない実行環境では画像に四角が表示されるため、フォントを追加してから目視確認してください。
 
 合成応答での成功は本番の疎通・認証設定・翻訳品質を保証しません。実際の公開URLでのQR到達、モバイル端末、店舗のアカウント・食材情報・接続不良時の運用は公開前に確認します。
+
+依存監査の数値・例外の理由と期限・SDK移行内容は[依存ライブラリ更新記録](dependency_updates.md)を参照してください。監査JSONは既定で一時領域の`order-app-dependency-audit`に出力し、`ORDER_APP_AUDIT_ARTIFACTS`で変更できます。CIもJSONをArtifactに保存します。
