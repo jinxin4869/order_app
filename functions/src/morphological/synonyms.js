@@ -81,6 +81,8 @@ const areSynonyms = (term1, term2, options = {}) => {
     strictMode = false, // 厳密モード（完全一致のみ）
     allowPartialMatch = true, // 部分一致を許可
     minSimilarity = 0.7, // 類似度の閾値
+    reading1,
+    reading2,
   } = options;
 
   if (!term1 || !term2) {
@@ -110,6 +112,15 @@ const areSynonyms = (term1, term2, options = {}) => {
       confidence: 0.95,
       matchType: "kana_variant",
     };
+  }
+
+  // Kanji readings must come from the dictionary, rather than guessing from glyphs.
+  if (reading1 || reading2) {
+    const first = katakanaToHiragana(normalizeText(reading1 || term1));
+    const second = katakanaToHiragana(normalizeText(reading2 || term2));
+    if (first && first === second) {
+      return { isSynonym: true, confidence: 0.9, matchType: "reading" };
+    }
   }
 
   // 3. 部分一致（含まれている場合）
@@ -207,7 +218,10 @@ const findSynonyms = (term, dictionary, options = {}) => {
     const termJa = entry.term_ja || entry.surface_form;
     if (!termJa) return;
 
-    const synonymResult = areSynonyms(term, termJa, options);
+    const synonymResult = areSynonyms(term, termJa, {
+      ...options,
+      reading2: entry.reading,
+    });
 
     if (synonymResult.isSynonym && synonymResult.confidence >= minConfidence) {
       results.push({

@@ -1,7 +1,3 @@
 #!/usr/bin/env sh
-# (updated for Husky v10+)
-# テストを実行
-npm run test -- --passWithNoTests
-
-# Lintチェック
-npm run lint
+set -eu
+npm run check

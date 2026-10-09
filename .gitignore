@@ -74,7 +74,6 @@ node_modules/
 
 # IDE and development environment
 .claude/
-.github/
 .vscode/
 .idea/
 .expo/

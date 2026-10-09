@@ -1,19 +1,22 @@
 module.exports = function (api) {
-  api.cache(true);
+  const isTest = api.env("test");
   return {
     presets: ["babel-preset-expo"],
-    plugins: [
-      [
-        "module:react-native-dotenv",
-        {
-          moduleName: "@env",
-          path: ".env",
-          blacklist: null,
-          whitelist: null,
-          safe: false,
-          allowUndefined: true,
-        },
-      ],
-    ],
+    // Tests never read local environment files or initialize a real Firebase app.
+    plugins: isTest
+      ? []
+      : [
+          [
+            "module:react-native-dotenv",
+            {
+              moduleName: "@env",
+              path: ".env",
+              blacklist: null,
+              whitelist: null,
+              safe: false,
+              allowUndefined: true,
+            },
+          ],
+        ],
   };
 };
