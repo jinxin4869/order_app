@@ -15,9 +15,11 @@ const { doc, setDoc, getDoc, updateDoc, deleteDoc } =
 
 const projectId = "demo-order-app";
 const host = process.env.FIRESTORE_EMULATOR_HOST;
-if (!host || !/^(127\.0\.0\.1|localhost):\d+$/.test(host)) {
+const authHost = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+const local = /^(127\.0\.0\.1|localhost):\d+$/;
+if (!local.test(host || "") || !local.test(authHost || "")) {
   throw new Error(
-    "These tests require a local Firestore emulator; production access is forbidden."
+    "These tests require local Firestore and Auth emulators; production access is forbidden."
   );
 }
 async function main() {
@@ -32,10 +34,45 @@ async function main() {
   );
   const { initializeApp, deleteApp } = functionsRequire("firebase-admin/app");
   const { getFirestore } = functionsRequire("firebase-admin/firestore");
+  const { getAuth } = functionsRequire("firebase-admin/auth");
   const app = initializeApp({ projectId });
   const serverDb = getFirestore(app);
+  const serverAuth = getAuth(app);
+  const uid = "staff-test";
+  const credentials = {
+    email: "staff-test@example.invalid",
+    password: "synthetic-staff-password",
+    returnSecureToken: true,
+  };
+  const claims = { role: "staff", restaurantId: "rest-test" };
+  const signIn = async () => {
+    // Cutoffs have second precision; use a sign-in after that second, not a
+    // refreshed token from an old session. This is bounded to about one second.
+    const user = await serverAuth.getUser(uid);
+    const wait = Date.parse(user.tokensValidAfterTime) + 1000 - Date.now();
+    if (wait >= 0)
+      await new Promise((resolve) => setTimeout(resolve, wait + 20));
+    const response = await fetch(
+      `http://${authHost}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=demo-only-key`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(credentials),
+      }
+    );
+    assert.equal(response.ok, true, "Synthetic emulator sign-in failed");
+    const { idToken } = await response.json();
+    const token = await serverAuth.verifyIdToken(idToken);
+    return { uid: token.uid, token };
+  };
   try {
     await env.clearFirestore();
+    await serverAuth.createUser({
+      uid,
+      email: credentials.email,
+      password: credentials.password,
+    });
+    await serverAuth.setCustomUserClaims(uid, claims);
     const { fixtures } = require("../functions/test-support/firestore");
     for (const [path, data] of Object.entries(fixtures()))
       await serverDb.doc(path).set(data);
@@ -100,10 +137,7 @@ async function main() {
       getStaffOrder,
       updateOrderStatus,
     } = require("../functions/src/orders");
-    const auth = {
-      uid: "staff-test",
-      token: { role: "staff", restaurantId: "rest-test" },
-    };
+    const auth = await signIn();
     const first = await listStaffOrders.run({ auth, data: { limit: 3 } });
     const second = await listStaffOrders.run({
       auth,
@@ -148,12 +182,77 @@ async function main() {
       getStaffOrder.run({
         auth: {
           ...auth,
-          token: { role: "staff", restaurantId: "other-store" },
+          token: { ...auth.token, restaurantId: "other-store" },
         },
         data: { orderId: result.orderId },
       }),
       { code: "permission-denied" }
     );
+    const { batchTranslateMenu } = require("../functions/src/translation");
+    const protectedCalls = (session) => [
+      () => listStaffOrders.run({ auth: session, data: {} }),
+      () =>
+        getStaffOrder.run({ auth: session, data: { orderId: result.orderId } }),
+      () =>
+        updateOrderStatus.run({
+          auth: session,
+          data: {
+            orderId: result.orderId,
+            expectedStatus: "pending",
+            newStatus: "confirmed",
+          },
+        }),
+      () =>
+        batchTranslateMenu.run({
+          auth: session,
+          data: { restaurantId: "rest-test", targetLang: "en" },
+        }),
+    ];
+    const assertDenied = async (session, code) => {
+      const before = (
+        await serverDb.doc("orders/" + result.orderId).get()
+      ).data();
+      for (const call of protectedCalls(session))
+        await assert.rejects(call, { code });
+      assert.deepEqual(
+        (await serverDb.doc("orders/" + result.orderId).get()).data(),
+        before
+      );
+    };
+    // Reuse exactly the previously issued token while current Auth state changes.
+    await serverAuth.updateUser(uid, { disabled: true });
+    await assertDenied(auth, "unauthenticated");
+    await serverAuth.revokeRefreshTokens(uid);
+    await serverAuth.updateUser(uid, { disabled: false });
+    await assertDenied(auth, "unauthenticated");
+    const reactivated = await signIn();
+    assert.equal(
+      (await listStaffOrders.run({ auth: reactivated, data: {} })).orders
+        .length,
+      7
+    );
+    await serverAuth.setCustomUserClaims(uid, {
+      role: "staff",
+      restaurantId: "other-store",
+    });
+    await assertDenied(reactivated, "permission-denied");
+    const transferred = await signIn();
+    assert.equal(
+      (await listStaffOrders.run({ auth: transferred, data: {} })).orders
+        .length,
+      0
+    );
+    await assert.rejects(
+      getStaffOrder.run({
+        auth: transferred,
+        data: { orderId: result.orderId },
+      }),
+      { code: "permission-denied" }
+    );
+    await serverAuth.setCustomUserClaims(uid, { role: "customer" });
+    await assertDenied(transferred, "permission-denied");
+    await serverAuth.deleteUser(uid);
+    await assertDenied(transferred, "unauthenticated");
     assert.equal(result.success, true);
     const record = await serverDb.doc("orders/" + result.orderId).get();
     assert.equal(record.data().total_amount, 1100);
@@ -170,9 +269,12 @@ async function main() {
       await assertFails(deleteDoc(ref));
     }
     console.log(
-      "Firestore rules: direct writes denied; public menu allowed; real createOrder succeeded."
+      "Firestore/Auth emulators: direct writes denied; orders and staff stop, revocation, transfer, reactivation verified."
     );
   } finally {
+    await serverAuth.deleteUser(uid).catch((error) => {
+      if (error.code !== "auth/user-not-found") throw error;
+    });
     await env.clearFirestore();
     await env.cleanup();
     await deleteApp(app);

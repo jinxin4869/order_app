@@ -10,7 +10,7 @@ Node.js 22、エミュレーターにはJava 21を使用します。まずルー
 | `npm run audit:dependencies`                 | 公開npmレジストリで本番・開発別の監査。限定した期限付きhigh例外あり |
 | `npm run test:sdk`                           | 実DeepL SDKとローカルHTTPサーバーで合成翻訳の送受信を検証           |
 | `npm run check`                              | 両方のlintと単体テスト                                              |
-| `npm run test:rules`                         | ローカルFirestoreでルール・実注文API・スタッフ一覧／更新競合を検証  |
+| `npm run test:rules`                         | ローカルFirestore・Authでルール・実注文API・スタッフ権限停止を検証  |
 | `npm run test:demo`                          | ローカルFirestore・Authの起動、合成データ投入・取得・Claims確認     |
 | `npm run test:web`                           | 合成設定でExpo WebをビルドしPlaywrightで操作検証                    |
 
@@ -18,9 +18,9 @@ Node.js 22、エミュレーターにはJava 21を使用します。まずルー
 
 ## Firestore・Authエミュレーター
 
-テストランナーはプロジェクト`demo-order-app`とローカル接続先を使用し、新しいCLI設定ディレクトリで開発者のFirebaseログインを引き継がないようにします。8080番（Firestore）と9099番（Auth、demoのみ）が空いている必要があります。初回はエミュレーターのダウンロードにネットワーク接続が必要です。
+テストランナーはプロジェクト`demo-order-app`とローカル接続先を使用し、新しいCLI設定ディレクトリで開発者のFirebaseログインを引き継がないようにします。Cloud SDK設定先も隔離し、クラウドメタデータサーバーの自動検出を無効にします。8080番（Firestore）と9099番（Auth、rules・demoで使用）が空いている必要があります。初回はエミュレーターのダウンロードにネットワーク接続が必要です。
 
-直接注文create/read/update/deleteの拒否、公開メニューの取得、正規ハンドラによる注文、同一requestIdの重複抑止、並列採番、スタッフ一覧のページ送り・所属店舗制限、同時更新の片方だけの成功を検証します。ルール拒否のテストではPERMISSION_DENIEDのログが出ますが、終了コード0なら期待どおりです。
+直接注文create/read/update/deleteの拒否、公開メニューの取得、正規ハンドラによる注文、同一requestIdの重複抑止、並列採番、スタッフ一覧のページ送り・所属店舗制限、同時更新の片方だけの成功を検証します。Authエミュレーターの合成アカウントが実際にログインして発行されたトークンで、無効化・失効・所属変更・権限削除・再有効化・アカウント削除も検証します。ルール拒否のテストではPERMISSION_DENIEDのログが出ますが、終了コード0なら期待どおりです。
 
 ## ブラウザ
 

@@ -1,5 +1,10 @@
 const { createFirestore, fixtures } = require("../../test-support/firestore");
+const { staff, staffUser } = require("../../test-support/staff");
 let mockDb;
+let mockGetUser;
+jest.mock("firebase-admin/auth", () => ({
+  getAuth: () => ({ getUser: (...args) => mockGetUser(...args) }),
+}));
 jest.mock("firebase-admin/firestore", () => {
   const firestore = () => mockDb;
   firestore.FieldValue = {
@@ -45,6 +50,7 @@ let api;
 beforeEach(() => {
   jest.resetModules();
   mockDb = createFirestore(fixtures());
+  mockGetUser = jest.fn(async () => staffUser());
   api = require("../orders");
   for (const method of ["log", "warn", "error"])
     jest.spyOn(console, method).mockImplementation(() => {});
@@ -189,7 +195,7 @@ test("real status handler records valid transitions", async () => {
     },
     auth: {
       uid: "staff-test",
-      token: { role: "staff", restaurantId: "rest-test" },
+      token: staff().token,
     },
   });
   expect(mockDb.read("orders/order-test")).toMatchObject({
@@ -211,16 +217,12 @@ test("terminal orders cannot return to confirmed", async () => {
       },
       auth: {
         uid: "staff-test",
-        token: { role: "staff", restaurantId: "rest-test" },
+        token: staff().token,
       },
     })
   ).rejects.toMatchObject({ code: "failed-precondition" });
 });
 
-const staff = (restaurantId = "rest-test", role = "staff") => ({
-  uid: "staff-test",
-  token: { role, restaurantId },
-});
 test.each([
   [undefined, "unauthenticated"],
   [staff("rest-test", "customer"), "permission-denied"],
