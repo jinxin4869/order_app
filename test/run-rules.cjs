@@ -16,7 +16,7 @@ const result = spawnSync(
     "--config",
     demo ? "firebase.demo.json" : "firebase.test.json",
     "--only",
-    demo ? "firestore,auth" : "firestore",
+    "firestore,auth",
     demo
       ? "node scripts/seed-demo.cjs --verify"
       : "node test/firestore.rules.test.cjs",
@@ -29,6 +29,8 @@ const result = spawnSync(
       ...(process.env.JAVA_HOME ? { JAVA_HOME: process.env.JAVA_HOME } : {}),
       ...(process.env.NODE_PATH ? { NODE_PATH: process.env.NODE_PATH } : {}),
       XDG_CONFIG_HOME: config,
+      CLOUDSDK_CONFIG: config,
+      METADATA_SERVER_DETECTION: "none",
       FIREBASE_CLI_DISABLE_USAGE_REPORTING: "1",
       FIREBASE_EMULATORS_PATH:
         process.env.FIREBASE_EMULATORS_PATH ||

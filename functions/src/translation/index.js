@@ -410,7 +410,7 @@ const {
 exports.batchTranslateMenu = onCall(
   { region: "asia-northeast1", secrets: ["DEEPL_API_KEY"] },
   async (request) => {
-    const staffRestaurantId = requireStaff(request);
+    const staffRestaurantId = await requireStaff(request);
     const {
       restaurantId,
       targetLang,

@@ -1,6 +1,11 @@
 const { createFirestore } = require("../../test-support/firestore");
+const { staff, staffUser } = require("../../test-support/staff");
 let mockDb;
 let mockTranslate;
+let mockGetUser;
+jest.mock("firebase-admin/auth", () => ({
+  getAuth: () => ({ getUser: (...args) => mockGetUser(...args) }),
+}));
 jest.mock("firebase-admin/firestore", () => {
   const firestore = () => mockDb;
   firestore.FieldValue = {
@@ -36,6 +41,7 @@ beforeEach(() => {
   process.env.DEEPL_API_KEY = "synthetic-test-key-not-a-real-secret";
   mockTranslate = jest.fn(async () => ({ text: "Synthetic translation" }));
   mockDb = createFirestore();
+  mockGetUser = jest.fn(async () => staffUser());
   api = require("../translation");
 });
 test("unsupported target languages are rejected by the real handler", async () => {
@@ -56,10 +62,6 @@ test("numeric text is unchanged without service access", async () => {
   expect(mockDb.writes).toHaveLength(0);
 });
 
-const staff = (restaurantId = "rest-test", role = "staff") => ({
-  uid: "staff-test",
-  token: { role, restaurantId },
-});
 test.each([
   [undefined, "unauthenticated"],
   [staff("rest-test", "customer"), "permission-denied"],

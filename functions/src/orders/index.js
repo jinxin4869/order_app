@@ -339,7 +339,7 @@ const getStaffOrderRef = async (orderId, restaurantId) => {
 exports.getStaffOrder = onCall(
   { region: "asia-northeast1" },
   async (request) => {
-    const restaurantId = requireStaff(request);
+    const restaurantId = await requireStaff(request);
     return {
       order: orderDTO(
         await getStaffOrderRef(request.data?.orderId, restaurantId)
@@ -350,7 +350,7 @@ exports.getStaffOrder = onCall(
 exports.listStaffOrders = onCall(
   { region: "asia-northeast1" },
   async (request) => {
-    const restaurantId = requireStaff(request);
+    const restaurantId = await requireStaff(request);
     const { view = "active", cursor = null, limit = 50 } = request.data || {};
     if (
       !["active", "all"].includes(view) ||
@@ -390,7 +390,7 @@ exports.listStaffOrders = onCall(
 exports.updateOrderStatus = onCall(
   { region: "asia-northeast1" },
   async (request) => {
-    const restaurantId = requireStaff(request);
+    const restaurantId = await requireStaff(request);
     const { orderId, newStatus, expectedStatus } = request.data || {};
     if (
       !isDocumentId(orderId) ||
