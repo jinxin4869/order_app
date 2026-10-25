@@ -92,6 +92,36 @@ async function main() {
     await assertSucceeds(
       getDoc(doc(anonymous, "restaurants/rest-test/menu_items/item-test"))
     );
+    // Only published items are readable directly; private ones never are.
+    await serverDb
+      .doc("restaurants/rest-test/menu_items/private-test")
+      .set({
+        name_ja: "非公開",
+        price: 1,
+        is_available: true,
+        is_published: false,
+      });
+    await serverDb
+      .doc("restaurants/rest-test/menu_items/legacy-off-test")
+      .set({ name_ja: "旧・販売不可", price: 1, is_available: false });
+    await serverDb
+      .doc("restaurants/rest-test/menu_items/sold-out-test")
+      .set({
+        name_ja: "売り切れ",
+        price: 1,
+        is_available: false,
+        is_published: true,
+      });
+    for (const id of ["private-test", "legacy-off-test"])
+      await assertFails(
+        getDoc(doc(anonymous, `restaurants/rest-test/menu_items/${id}`))
+      );
+    await assertSucceeds(
+      getDoc(doc(anonymous, "restaurants/rest-test/menu_items/sold-out-test"))
+    );
+    await assertFails(
+      getDoc(doc(anonymous, "restaurants/rest-test/menu_events/any"))
+    );
     await assertFails(getDoc(doc(anonymous, "dictionary/private-test")));
     await assertFails(getDoc(doc(anonymous, "translation_cache/private-test")));
     const { createOrder } = require("../functions/src/orders");
@@ -314,6 +344,38 @@ async function main() {
         await serverDb.doc("restaurants/rest-test/tables/table-visit").get()
       ).data().status,
       "available"
+    );
+    // Staff sell out an item with their real token; the order is then refused
+    // in the same transaction that would have saved it.
+    const { setMenuItemAvailability } = require("../functions/src/menu/staff");
+    assert.deepEqual(
+      await setMenuItemAvailability.run({
+        auth: reactivated,
+        data: {
+          itemId: "item-test",
+          available: false,
+          expectedVersion: 0,
+          operationId: "menu-emulator-op",
+        },
+      }),
+      { success: true, available: false, version: 1 }
+    );
+    await assert.rejects(
+      createOrder.run({
+        data: { ...orderData, requestId: "after-sold-out" },
+      }),
+      { code: "failed-precondition" }
+    );
+    assert.equal(
+      (
+        await serverDb
+          .doc("restaurants/rest-test/menu_events/menu-emulator-op")
+          .get()
+      ).data().staff_email,
+      credentials.email
+    );
+    await assertSucceeds(
+      getDoc(doc(anonymous, "restaurants/rest-test/menu_items/item-test"))
     );
     await serverAuth.setCustomUserClaims(uid, {
       role: "staff",

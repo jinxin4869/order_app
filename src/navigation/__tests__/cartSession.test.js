@@ -8,6 +8,7 @@ jest.mock("../../hooks/useLanguage", () => ({
 jest.mock("../../services/api", () => ({
   createOrder: jest.fn(),
   getOrderRequest: jest.fn(async () => ({ accepted: false })),
+  getMenuAvailability: jest.fn(async () => ({ ordering: "open", soldOut: [] })),
 }));
 import React, { useLayoutEffect } from "react";
 import { Text, Alert } from "react-native";

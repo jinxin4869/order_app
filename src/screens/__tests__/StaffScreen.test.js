@@ -18,6 +18,11 @@ jest.mock("../../services/api", () => ({
   getStaffOrder: jest.fn(),
   updateOrderStatus: jest.fn(),
   closeTableVisit: jest.fn(),
+  getStaffMenu: jest.fn(async () => ({
+    restaurant: { name: "テスト店", ordering: "open", version: 0 },
+    categories: [],
+    items: [],
+  })),
 }));
 jest.mock("../../utils/dialogs", () => ({ showAlert: jest.fn() }));
 jest.mock("../../hooks/useNetworkStatus", () => ({
@@ -515,4 +520,29 @@ test("staff can end the table's visit after confirming", async () => {
   await act(async () => confirm.onPress());
   expect(closeTableVisit).toHaveBeenCalledWith("table-test");
   expect(screen.getByText("テーブル 1の来店を終了しました。")).toBeTruthy();
+});
+test("menu management opens beside the order console, and new orders bring staff back", async () => {
+  const { AppState } = require("react-native");
+  const listen = jest.spyOn(AppState, "addEventListener");
+  const screen = await render(<StaffScreen />);
+  await screen.findByRole("button", { name: "注文 20261009-001 未受付" });
+  await fireEvent.press(screen.getByRole("button", { name: "メニュー管理" }));
+  expect(await screen.findByText("テスト店：注文受付中")).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "注文 20261009-001 未受付" })
+  ).toBeNull();
+  listStaffOrders.mockResolvedValueOnce({
+    orders: [{ ...order, id: "new", order_number: "20261009-002" }, order],
+    hasMore: false,
+    cursor: order.id,
+  });
+  // Order polling keeps running in menu mode (here: the app comes back).
+  const onAppState = listen.mock.calls.find(([type]) => type === "change")[1];
+  await act(async () => onAppState("active"));
+  await fireEvent.press(
+    await screen.findByRole("button", { name: "新着 1件を確認" })
+  );
+  expect(
+    await screen.findByRole("button", { name: "注文 20261009-002 未受付 新着" })
+  ).toBeTruthy();
 });

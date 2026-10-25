@@ -18,6 +18,8 @@ import { translationDisplay } from "../utils/translationDisplay";
 import { createOrder } from "../services/api";
 import { showAlert } from "../utils/dialogs";
 import PendingOrderNotice from "../components/PendingOrderNotice";
+import OrderingNotice from "../components/OrderingNotice";
+import { useMenuAvailability, isSoldOut } from "../hooks/useMenuAvailability";
 
 const CartScreen = ({ navigation, route }) => {
   const { restaurantId, tableId, restaurant, table } = route.params;
@@ -38,6 +40,13 @@ const CartScreen = ({ navigation, route }) => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitting = useRef(false);
+  const availability = useMenuAvailability(restaurantId, navigation);
+  // Cart rows are on sale unless the latest check (or a refusal) says not.
+  const soldOut = (item) =>
+    isSoldOut({ id: item.id, is_available: true }, availability);
+  const hasSoldOut = items.some(soldOut);
+  const orderingClosed = ["paused", "invalid"].includes(availability.ordering);
+  const cannotOrder = hasSoldOut || orderingClosed;
 
   // テキスト取得用ヘルパー
   const t = (ja, en, zh) => {
@@ -91,7 +100,7 @@ const CartScreen = ({ navigation, route }) => {
 
   // 注文を確定
   const handleSubmitOrder = async () => {
-    if (isEmpty || submitting.current) return;
+    if (isEmpty || submitting.current || cannotOrder) return;
 
     showAlert(
       t("注文確認", "Confirm Order", "确认订单"),
@@ -110,7 +119,7 @@ const CartScreen = ({ navigation, route }) => {
   };
 
   const submitOrder = async () => {
-    if (submitting.current || isEmpty) return;
+    if (submitting.current || isEmpty || cannotOrder) return;
     submitting.current = true;
     setIsSubmitting(true);
     let requestId;
@@ -183,6 +192,31 @@ const CartScreen = ({ navigation, route }) => {
         return;
       }
 
+      const reason = error.details?.reason;
+      if (reason === "item_unavailable" && error.details.itemId) {
+        availability.markSoldOut(error.details.itemId);
+        showAlert(
+          t("売り切れの商品があります", "Item sold out", "有商品已售罄"),
+          t(
+            "売り切れの商品をカートから削除してから、もう一度注文してください。注文は送信されていません。",
+            "Remove the sold-out item from your cart and order again. Nothing was ordered.",
+            "请从购物车中删除已售罄的商品后重新下单。订单未提交。"
+          )
+        );
+        return;
+      }
+      if (reason === "ordering_paused" || reason === "ordering_unconfigured") {
+        availability.refresh();
+        showAlert(
+          t("注文受付を停止中です", "Ordering paused", "暂停接单"),
+          t(
+            "現在、注文受付を一時停止しています。スタッフへお声がけください。カートはそのまま残ります。",
+            "We are not taking new orders right now. Please ask our staff. Your cart is kept.",
+            "目前暂停接受新订单。请联系店员。购物车将保留。"
+          )
+        );
+        return;
+      }
       // Without a definite answer from the server the order may have been
       // received; resending the same cart is safe because it reuses the ID.
       const rejected = [
@@ -266,6 +300,15 @@ const CartScreen = ({ navigation, route }) => {
             📝 {item.notes}
           </Text>
         )}
+        {soldOut(item) && (
+          <Text accessibilityLiveRegion="polite" style={styles.soldOutNote}>
+            {t(
+              "売り切れのため注文できません。カートから削除してください。",
+              "Sold out. Please remove it from your cart.",
+              "已售罄，请从购物车中删除。"
+            )}
+          </Text>
+        )}
       </View>
 
       {/* 数量コントロール */}
@@ -310,7 +353,9 @@ const CartScreen = ({ navigation, route }) => {
             },
           ]}
           onPress={() => handleQuantityChange(item, 1)}
-          disabled={item.quantity >= MAX_ORDER_QUANTITY || isSubmitting}
+          disabled={
+            item.quantity >= MAX_ORDER_QUANTITY || isSubmitting || soldOut(item)
+          }
           accessibilityRole="button"
           accessibilityLabel={t(
             "数量を増やす",
@@ -318,7 +363,10 @@ const CartScreen = ({ navigation, route }) => {
             "增加数量"
           )}
           accessibilityState={{
-            disabled: item.quantity >= MAX_ORDER_QUANTITY || isSubmitting,
+            disabled:
+              item.quantity >= MAX_ORDER_QUANTITY ||
+              isSubmitting ||
+              soldOut(item),
           }}
         >
           <Text
@@ -426,10 +474,12 @@ const CartScreen = ({ navigation, route }) => {
         </View>
       </View>
       {recoveryNotice}
+      <OrderingNotice availability={availability} />
 
       {/* カートリスト */}
       <FlatList
         data={items}
+        extraData={availability.soldOut}
         renderItem={renderCartItem}
         keyExtractor={(item, index) => `${item.id}-${item.notes}-${index}`}
         contentContainerStyle={[
@@ -448,10 +498,12 @@ const CartScreen = ({ navigation, route }) => {
         <TouchableOpacity
           style={[
             styles.submitButton,
-            isSubmitting && styles.submitButtonDisabled,
+            (isSubmitting || cannotOrder) && styles.submitButtonDisabled,
           ]}
           onPress={handleSubmitOrder}
-          disabled={isSubmitting}
+          disabled={isSubmitting || cannotOrder}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isSubmitting || cannotOrder }}
         >
           {isSubmitting ? (
             <ActivityIndicator color={COLORS.surface} />
@@ -560,6 +612,7 @@ const styles = StyleSheet.create({
   itemNameSmall: {
     fontSize: FONT_SIZES.sm,
   },
+  soldOutNote: { color: "#B71C1C", fontWeight: "700", marginTop: 4 },
   itemNotes: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.textSecondary,

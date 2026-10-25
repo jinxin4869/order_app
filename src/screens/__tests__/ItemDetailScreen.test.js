@@ -5,6 +5,10 @@
 import React from "react";
 import { render, fireEvent } from "@testing-library/react-native";
 import ItemDetailScreen from "../ItemDetailScreen";
+import { getMenuAvailability } from "../../services/api";
+jest.mock("../../services/api", () => ({
+  getMenuAvailability: jest.fn(async () => ({ ordering: "open", soldOut: [] })),
+}));
 import { useLanguage } from "../../hooks/useLanguage";
 import { CartContext } from "../../context/CartContext";
 
@@ -284,6 +288,23 @@ describe("ItemDetailScreen", () => {
     );
 
     expect(getByText("🍽️")).toBeTruthy();
+  });
+  test("a sold-out item can be viewed but not added", async () => {
+    getMenuAvailability.mockResolvedValueOnce({
+      ordering: "open",
+      soldOut: ["item_01"],
+    });
+    const mockContext = createMockCartContext();
+    const screen = await render(
+      <CartContext.Provider value={mockContext}>
+        <ItemDetailScreen navigation={mockNavigation} route={mockRoute} />
+      </CartContext.Provider>
+    );
+    const button = await screen.findByRole("button", { name: "売り切れ" });
+    expect(screen.getByText("塩茹でした枝豆")).toBeTruthy();
+    expect(button.props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(button);
+    expect(mockContext.addItem).not.toHaveBeenCalled();
   });
 });
 

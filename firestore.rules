@@ -18,10 +18,18 @@ service cloud.firestore {
         allow write: if false;
       }
 
-      // メニュー項目
+      // メニュー項目：お客様に公開している商品（販売中・売り切れ）だけ読める。
+      // is_published がない旧データは販売中のものだけを公開として扱う。
       match /menu_items/{itemId} {
-        allow read: if true;
+        allow read: if resource.data.get('is_published', null) == true
+          || (resource.data.get('is_published', null) == null
+            && resource.data.get('is_available', false) == true);
         allow write: if false;
+      }
+
+      // 売り切れ・受付停止の操作記録はサーバーだけが読み書きする。
+      match /menu_events/{eventId} {
+        allow read, write: if false;
       }
     }
 

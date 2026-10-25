@@ -15,6 +15,7 @@ const {
 } = require("../utils/staffAuth");
 
 const { businessDay } = require("../utils/businessDay");
+const { isOnSale, orderingState } = require("../utils/menuState");
 const db = getFirestore();
 const {
   normalizeOrderInput,
@@ -133,6 +134,21 @@ exports.createOrder = onAppCall({}, async (request) => {
           { reason: "restaurant_closed" }
         );
       }
+      // Staff may pause new orders; a malformed setting accepts nothing.
+      const ordering = orderingState(restaurantDoc.data());
+      if (ordering !== "open")
+        throw new HttpsError(
+          "failed-precondition",
+          ordering === "paused"
+            ? "現在、注文受付を一時停止しています。スタッフへお声がけください。"
+            : "注文受付の設定を確認できません。スタッフへお知らせください。",
+          {
+            reason:
+              ordering === "paused"
+                ? "ordering_paused"
+                : "ordering_unconfigured",
+          }
+        );
 
       const tableDoc = await transaction.get(tableRef);
 
@@ -164,11 +180,34 @@ exports.createOrder = onAppCall({}, async (request) => {
             .doc(item.item_id)
         )
       );
+      // A product in an unpublished category cannot be ordered either.
+      const categoryIds = [
+        ...new Set(
+          itemDocs
+            .filter((doc) => doc.exists && doc.data().category_id)
+            .map((doc) => doc.data().category_id)
+        ),
+      ];
+      const categoryDocs = categoryIds.length
+        ? await transaction.getAll(
+            ...categoryIds.map((id) =>
+              restaurantRef.collection("menu_categories").doc(id)
+            )
+          )
+        : [];
+      const publishedCategories = new Set(
+        categoryDocs
+          .filter((doc) => doc.exists && doc.data().is_available === true)
+          .map((doc) => doc.id)
+      );
       const masterItems = itemDocs.map((doc, index) => {
         if (!doc.exists)
           throw new HttpsError("not-found", "商品が見つかりません。");
         const item = doc.data();
-        if (item.is_available !== true)
+        if (
+          !isOnSale(item) ||
+          (item.category_id && !publishedCategories.has(item.category_id))
+        )
           throw new HttpsError(
             "failed-precondition",
             "商品が品切れまたは販売停止中です。",

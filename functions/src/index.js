@@ -35,3 +35,9 @@ exports.getStaffOrder = orders.getStaffOrder;
 // ===== メニュー関連 =====
 exports.getMenuWithTranslation = menu.getMenuWithTranslation;
 exports.validateQRCode = menu.validateQRCode;
+exports.getMenuAvailability = menu.getMenuAvailability;
+
+const staffMenu = require("./menu/staff");
+exports.getStaffMenu = staffMenu.getStaffMenu;
+exports.setMenuItemAvailability = staffMenu.setMenuItemAvailability;
+exports.setOrderingAvailability = staffMenu.setOrderingAvailability;
