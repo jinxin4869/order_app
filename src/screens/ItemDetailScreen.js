@@ -21,6 +21,8 @@ import { useLanguage } from "../hooks/useLanguage";
 import { useResponsive } from "../hooks/useResponsive";
 import { CartContext } from "../context/CartContext";
 import { showAlert } from "../utils/dialogs";
+import OrderingNotice from "../components/OrderingNotice";
+import { useMenuAvailability, isSoldOut } from "../hooks/useMenuAvailability";
 
 const ItemDetailScreen = ({ navigation, route }) => {
   const { item, restaurantId, tableId } = route.params;
@@ -28,6 +30,9 @@ const ItemDetailScreen = ({ navigation, route }) => {
   const { addItem, items = [] } = useContext(CartContext);
   const { isSmallScreen, scaleSize } = useResponsive();
 
+  const availability = useMenuAvailability(restaurantId, navigation);
+  // The detail stays viewable when sold out; only adding is blocked.
+  const soldOut = isSoldOut(item, availability);
   const [quantity, setQuantity] = useState(MIN_ORDER_QUANTITY);
   const [notes, setNotes] = useState("");
 
@@ -71,6 +76,7 @@ const ItemDetailScreen = ({ navigation, route }) => {
 
   // カートに追加
   const handleAddToCart = () => {
+    if (soldOut) return;
     const added = addItem(
       {
         id: item.id,
@@ -407,16 +413,17 @@ const ItemDetailScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
 
+        <OrderingNotice availability={availability} />
         {/* カートに追加ボタン */}
         <TouchableOpacity
           style={[
             styles.addButton,
             isSmallScreen && styles.addButtonSmall,
-            remaining === 0 && { opacity: 0.5 },
+            (remaining === 0 || soldOut) && { opacity: 0.5 },
           ]}
-          disabled={remaining === 0}
+          disabled={remaining === 0 || soldOut}
           accessibilityRole="button"
-          accessibilityState={{ disabled: remaining === 0 }}
+          accessibilityState={{ disabled: remaining === 0 || soldOut }}
           onPress={handleAddToCart}
         >
           <Text
@@ -425,11 +432,17 @@ const ItemDetailScreen = ({ navigation, route }) => {
               isSmallScreen && styles.addButtonTextSmall,
             ]}
           >
-            {currentLanguage === "ja"
-              ? "カートに追加"
-              : currentLanguage === "zh"
-                ? "加入购物车"
-                : "Add to Cart"}
+            {soldOut
+              ? currentLanguage === "ja"
+                ? "売り切れ"
+                : currentLanguage === "zh"
+                  ? "已售罄"
+                  : "Sold out"
+              : currentLanguage === "ja"
+                ? "カートに追加"
+                : currentLanguage === "zh"
+                  ? "加入购物车"
+                  : "Add to Cart"}
           </Text>
         </TouchableOpacity>
       </View>

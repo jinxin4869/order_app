@@ -29,6 +29,7 @@ import {
   closeTableVisit,
 } from "../services/api";
 import { showAlert } from "../utils/dialogs";
+import StaffMenuManager from "./StaffMenuManager";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import {
   enableAlertSound,
@@ -90,6 +91,7 @@ const actionLabels = {
 const OrderConsole = ({ session }) => {
   const wide = useWindowDimensions().width >= 900;
   const { isOnline } = useNetworkStatus();
+  const [mode, setMode] = useState("orders"); // orders | menu
   const [view, setView] = useState("active");
   const [sort, setSort] = useState("newest");
   const [statusFilter, setStatusFilter] = useState(null);
@@ -384,328 +386,393 @@ const OrderConsole = ({ session }) => {
         </View>
         <View style={styles.toolbar}>
           {[
-            ["active", "対応中"],
-            ["all", "すべて"],
+            ["orders", "注文受付"],
+            ["menu", "メニュー管理"],
           ].map(([key, label]) => (
             <Pressable
               key={key}
               accessibilityRole="button"
               accessibilityState={{
-                selected: view === key,
+                selected: mode === key,
                 disabled: updating,
               }}
               disabled={updating}
-              onPress={() => {
-                if (key === view) return;
-                hideDetail();
-                setListing({ orders: [], hasMore: false, cursor: null });
-                setNewCount(0);
-                setFresh(new Set());
-                setView(key);
-              }}
-              style={[styles.tab, view === key && styles.tabSelected]}
+              onPress={() => setMode(key)}
+              style={[styles.tab, mode === key && styles.tabSelected]}
             >
-              <Text style={view === key ? styles.tabTextSelected : styles.text}>
+              <Text style={mode === key ? styles.tabTextSelected : styles.text}>
                 {label}
               </Text>
             </Pressable>
           ))}
-          {[
-            ["newest", "新しい順"],
-            ["oldest", "待ち時間順"],
-          ].map(([key, label]) => (
-            <Pressable
-              key={key}
-              accessibilityRole="button"
-              accessibilityState={{
-                selected: sort === key,
-                disabled: updating,
-              }}
-              disabled={updating}
-              onPress={() => {
-                if (key === sort) return;
-                setListing({ orders: [], hasMore: false, cursor: null });
-                setNewCount(0);
-                setFresh(new Set());
-                setSort(key);
-              }}
-              style={[styles.tab, sort === key && styles.tabSelected]}
-            >
-              <Text style={sort === key ? styles.tabTextSelected : styles.text}>
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-          <Action
-            secondary
-            disabled={busy || updating}
-            onPress={() => refresh()}
-          >
-            更新
-          </Action>
-          <Action secondary onPress={toggleSound}>
-            {soundOn ? "通知音：オン" : "通知音をオンにする"}
-          </Action>
         </View>
-        <Text style={styles.muted}>
-          15秒ごとに{sort === "oldest" ? "待ち時間の長い順に" : "最新の"}
-          50件を取得
-          {lastRefresh ? ` · 最終取得 ${dateLabel(lastRefresh)}` : ""}
-        </Text>
-        {!!soundMessage && <Text style={styles.muted}>{soundMessage}</Text>}
-        {Number.isInteger(listing.pendingCount) && (
-          <Text style={styles.summary}>
-            未受付 {listing.pendingCount}件（店舗全体）
-          </Text>
-        )}
-        {!isOnline && (
-          <Text accessibilityRole="alert" style={styles.error}>
-            オフラインです。注文を取得できません。表示中の情報は最新ではありません。
-          </Text>
-        )}
-        <View style={styles.toolbar}>
-          {[null, ...ACTIVE].map((status) => (
-            <Pressable
-              key={status || "any"}
-              accessibilityRole="button"
-              accessibilityState={{ selected: statusFilter === status }}
-              onPress={() => setStatusFilter(status)}
-              style={[
-                styles.chip,
-                statusFilter === status && styles.tabSelected,
-              ]}
-            >
-              <Text
-                style={
-                  statusFilter === status ? styles.tabTextSelected : styles.text
-                }
+        {mode === "menu" ? (
+          <>
+            {newCount > 0 && (
+              <Action
+                secondary
+                onPress={() => {
+                  setMode("orders");
+                  showNewOrders();
+                }}
               >
-                {status ? STATUS_LABELS[status] : "状態：すべて"}
-              </Text>
-            </Pressable>
-          ))}
-          <TextInput
-            accessibilityLabel="テーブル番号で絞り込み"
-            placeholder="テーブル番号"
-            value={tableFilter}
-            onChangeText={setTableFilter}
-            style={[styles.input, styles.tableFilter]}
-          />
-        </View>
-        {filtering && (
-          <Text style={styles.muted}>
-            絞り込み中：読み込み済みの{listing.orders.length}件のうち
-            {shownOrders.length}
-            件を表示（新着と未受付の件数は絞り込みに関係なく数えます）
-          </Text>
-        )}
-        {newCount > 0 && (
-          <Action secondary disabled={updating} onPress={showNewOrders}>
-            新着 {newCount}件を確認
-          </Action>
-        )}
-        {!!error && (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {error}
-          </Text>
-        )}
-        <View style={[styles.content, wide && styles.contentWide]}>
-          {(wide || !detailVisible) && (
-            <View style={[styles.listPane, wide && styles.listPaneWide]}>
-              <ScrollView
-                ref={listScroll}
-                contentContainerStyle={styles.listContent}
-              >
-                {busy && !listing.orders.length && (
-                  <ActivityIndicator
-                    color={COLORS.primary}
-                    accessibilityLabel="注文を取得中"
-                  />
-                )}
-                {!busy && !listing.orders.length && !error && (
-                  <Text style={styles.empty}>対応する注文はありません。</Text>
-                )}
-                {shownOrders.map((order) => (
-                  <Pressable
-                    key={order.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`注文 ${order.order_number} ${STATUS_LABELS[order.status] || order.status}${fresh.has(order.id) ? " 新着" : ""}`}
-                    disabled={updating}
-                    accessibilityState={{ disabled: updating }}
-                    onPress={() => openOrder(order.id)}
-                    style={[
-                      styles.orderRow,
-                      selected?.id === order.id && styles.orderRowSelected,
-                    ]}
+                新着 {newCount}件を確認
+              </Action>
+            )}
+            <StaffMenuManager />
+          </>
+        ) : (
+          <>
+            <View style={styles.toolbar}>
+              {[
+                ["active", "対応中"],
+                ["all", "すべて"],
+              ].map(([key, label]) => (
+                <Pressable
+                  key={key}
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    selected: view === key,
+                    disabled: updating,
+                  }}
+                  disabled={updating}
+                  onPress={() => {
+                    if (key === view) return;
+                    hideDetail();
+                    setListing({ orders: [], hasMore: false, cursor: null });
+                    setNewCount(0);
+                    setFresh(new Set());
+                    setView(key);
+                  }}
+                  style={[styles.tab, view === key && styles.tabSelected]}
+                >
+                  <Text
+                    style={view === key ? styles.tabTextSelected : styles.text}
                   >
-                    <View style={styles.row}>
-                      <Text style={styles.orderNumber}>
-                        {order.order_number}
+                    {label}
+                  </Text>
+                </Pressable>
+              ))}
+              {[
+                ["newest", "新しい順"],
+                ["oldest", "待ち時間順"],
+              ].map(([key, label]) => (
+                <Pressable
+                  key={key}
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    selected: sort === key,
+                    disabled: updating,
+                  }}
+                  disabled={updating}
+                  onPress={() => {
+                    if (key === sort) return;
+                    setListing({ orders: [], hasMore: false, cursor: null });
+                    setNewCount(0);
+                    setFresh(new Set());
+                    setSort(key);
+                  }}
+                  style={[styles.tab, sort === key && styles.tabSelected]}
+                >
+                  <Text
+                    style={sort === key ? styles.tabTextSelected : styles.text}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              ))}
+              <Action
+                secondary
+                disabled={busy || updating}
+                onPress={() => refresh()}
+              >
+                更新
+              </Action>
+              <Action secondary onPress={toggleSound}>
+                {soundOn ? "通知音：オン" : "通知音をオンにする"}
+              </Action>
+            </View>
+            <Text style={styles.muted}>
+              15秒ごとに{sort === "oldest" ? "待ち時間の長い順に" : "最新の"}
+              50件を取得
+              {lastRefresh ? ` · 最終取得 ${dateLabel(lastRefresh)}` : ""}
+            </Text>
+            {!!soundMessage && <Text style={styles.muted}>{soundMessage}</Text>}
+            {Number.isInteger(listing.pendingCount) && (
+              <Text style={styles.summary}>
+                未受付 {listing.pendingCount}件（店舗全体）
+              </Text>
+            )}
+            {!isOnline && (
+              <Text accessibilityRole="alert" style={styles.error}>
+                オフラインです。注文を取得できません。表示中の情報は最新ではありません。
+              </Text>
+            )}
+            <View style={styles.toolbar}>
+              {[null, ...ACTIVE].map((status) => (
+                <Pressable
+                  key={status || "any"}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: statusFilter === status }}
+                  onPress={() => setStatusFilter(status)}
+                  style={[
+                    styles.chip,
+                    statusFilter === status && styles.tabSelected,
+                  ]}
+                >
+                  <Text
+                    style={
+                      statusFilter === status
+                        ? styles.tabTextSelected
+                        : styles.text
+                    }
+                  >
+                    {status ? STATUS_LABELS[status] : "状態：すべて"}
+                  </Text>
+                </Pressable>
+              ))}
+              <TextInput
+                accessibilityLabel="テーブル番号で絞り込み"
+                placeholder="テーブル番号"
+                value={tableFilter}
+                onChangeText={setTableFilter}
+                style={[styles.input, styles.tableFilter]}
+              />
+            </View>
+            {filtering && (
+              <Text style={styles.muted}>
+                絞り込み中：読み込み済みの{listing.orders.length}件のうち
+                {shownOrders.length}
+                件を表示（新着と未受付の件数は絞り込みに関係なく数えます）
+              </Text>
+            )}
+            {newCount > 0 && (
+              <Action secondary disabled={updating} onPress={showNewOrders}>
+                新着 {newCount}件を確認
+              </Action>
+            )}
+            {!!error && (
+              <Text accessibilityRole="alert" style={styles.error}>
+                {error}
+              </Text>
+            )}
+            <View style={[styles.content, wide && styles.contentWide]}>
+              {(wide || !detailVisible) && (
+                <View style={[styles.listPane, wide && styles.listPaneWide]}>
+                  <ScrollView
+                    ref={listScroll}
+                    contentContainerStyle={styles.listContent}
+                  >
+                    {busy && !listing.orders.length && (
+                      <ActivityIndicator
+                        color={COLORS.primary}
+                        accessibilityLabel="注文を取得中"
+                      />
+                    )}
+                    {!busy && !listing.orders.length && !error && (
+                      <Text style={styles.empty}>
+                        対応する注文はありません。
                       </Text>
-                      {fresh.has(order.id) && (
-                        <Text style={styles.freshBadge}>新着</Text>
-                      )}
-                      <Text
+                    )}
+                    {shownOrders.map((order) => (
+                      <Pressable
+                        key={order.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={`注文 ${order.order_number} ${STATUS_LABELS[order.status] || order.status}${fresh.has(order.id) ? " 新着" : ""}`}
+                        disabled={updating}
+                        accessibilityState={{ disabled: updating }}
+                        onPress={() => openOrder(order.id)}
                         style={[
-                          styles.status,
-                          order.status === "pending" && styles.pending,
+                          styles.orderRow,
+                          selected?.id === order.id && styles.orderRowSelected,
                         ]}
                       >
-                        {STATUS_LABELS[order.status] || order.status}
-                      </Text>
-                    </View>
-                    <Text style={styles.text}>
-                      {tableLabel(order)} · {money(order.total_amount)}
-                    </Text>
-                    <Text
-                      style={
-                        order.status === "pending" &&
-                        waitedMinutes(order, now) >= LONG_WAIT_MINUTES
-                          ? styles.longWait
-                          : styles.muted
-                      }
-                    >
-                      {dateLabel(order.created_at)}
-                      {waitedMinutes(order, now) !== null &&
-                        ` · 経過 ${waitedMinutes(order, now)}分`}
-                      {order.status === "pending" &&
-                        waitedMinutes(order, now) >= LONG_WAIT_MINUTES &&
-                        " · 待ち時間が長い注文"}
-                    </Text>
-                  </Pressable>
-                ))}
-                {listing.hasMore && (
-                  <Action
-                    secondary
-                    disabled={busy}
-                    onPress={() => refresh({ more: true })}
-                  >
-                    さらに前の注文を読み込む
-                  </Action>
-                )}
-              </ScrollView>
-            </View>
-          )}
-          {(wide || detailVisible) && (
-            <ScrollView
-              style={styles.detail}
-              contentContainerStyle={styles.detailContent}
-            >
-              {!wide && (
-                <Action secondary disabled={updating} onPress={hideDetail}>
-                  一覧に戻る
-                </Action>
-              )}
-              {!!notice && (
-                <Text accessibilityLiveRegion="polite" style={styles.notice}>
-                  {notice}
-                </Text>
-              )}
-              {!selected && !notice && (
-                <Text style={styles.empty}>
-                  注文を選ぶと詳細を確認できます。
-                </Text>
-              )}
-              {selected && (
-                <>
-                  <Text style={styles.detailTitle}>
-                    {selected.order_number}
-                  </Text>
-                  <Text style={styles.text}>
-                    {tableLabel(selected)} · {STATUS_LABELS[selected.status]}
-                  </Text>
-                  <Text style={styles.muted}>
-                    {dateLabel(selected.created_at)} · 注文時の言語：
-                    {selected.customer_language || "不明"}
-                  </Text>
-                  {selected.items.map((item, index) => (
-                    <View key={index} style={styles.item}>
-                      <View style={styles.row}>
-                        <Text style={[styles.itemName, styles.grow]}>
-                          {item.name_ja || item.name}
+                        <View style={styles.row}>
+                          <Text style={styles.orderNumber}>
+                            {order.order_number}
+                          </Text>
+                          {fresh.has(order.id) && (
+                            <Text style={styles.freshBadge}>新着</Text>
+                          )}
+                          <Text
+                            style={[
+                              styles.status,
+                              order.status === "pending" && styles.pending,
+                            ]}
+                          >
+                            {STATUS_LABELS[order.status] || order.status}
+                          </Text>
+                        </View>
+                        <Text style={styles.text}>
+                          {tableLabel(order)} · {money(order.total_amount)}
                         </Text>
-                        <Text style={styles.itemName}>× {item.quantity}</Text>
-                      </View>
-                      <Text style={styles.muted}>{money(item.price)} / 点</Text>
-                      {!!item.notes && (
-                        <Text style={styles.notes}>要望：{item.notes}</Text>
-                      )}
-                    </View>
-                  ))}
-                  {!!selected.customer_notes && (
-                    <Text style={styles.notes}>
-                      注文全体の要望：{selected.customer_notes}
-                    </Text>
-                  )}
-                  <View style={styles.total}>
-                    <Text style={styles.itemName}>合計（税込）</Text>
-                    <Text style={styles.detailTitle}>
-                      {money(selected.total_amount)}
-                    </Text>
-                  </View>
-                  {(VALID_STATUS_TRANSITIONS[selected.status] || []).includes(
-                    ORDER_STATUS.CANCELLED
-                  ) && (
-                    <TextInput
-                      accessibilityLabel="キャンセル理由（任意）"
-                      placeholder="キャンセル理由（任意・100文字まで）"
-                      maxLength={100}
-                      value={cancelReason}
-                      onChangeText={setCancelReason}
-                      editable={!updating}
-                      style={styles.input}
-                    />
-                  )}
-                  <View style={styles.actions}>
-                    {(VALID_STATUS_TRANSITIONS[selected.status] || []).map(
-                      (status) => (
-                        <Action
-                          key={status}
-                          disabled={updating || busy}
-                          secondary={status === "cancelled"}
-                          onPress={() => changeStatus(status)}
+                        <Text
+                          style={
+                            order.status === "pending" &&
+                            waitedMinutes(order, now) >= LONG_WAIT_MINUTES
+                              ? styles.longWait
+                              : styles.muted
+                          }
                         >
-                          {updating ? "更新中…" : actionLabels[status]}
-                        </Action>
-                      )
+                          {dateLabel(order.created_at)}
+                          {waitedMinutes(order, now) !== null &&
+                            ` · 経過 ${waitedMinutes(order, now)}分`}
+                          {order.status === "pending" &&
+                            waitedMinutes(order, now) >= LONG_WAIT_MINUTES &&
+                            " · 待ち時間が長い注文"}
+                        </Text>
+                      </Pressable>
+                    ))}
+                    {listing.hasMore && (
+                      <Action
+                        secondary
+                        disabled={busy}
+                        onPress={() => refresh({ more: true })}
+                      >
+                        さらに前の注文を読み込む
+                      </Action>
                     )}
-                  </View>
-                  <Action
-                    secondary
-                    disabled={updating}
-                    onPress={() => openOrder(selected.id)}
-                  >
-                    詳細を再取得
-                  </Action>
-                  <Action secondary disabled={updating} onPress={closeVisit}>
-                    このテーブルの来店を終了する
-                  </Action>
-                  <Text style={styles.sectionTitle}>操作履歴</Text>
-                  {!selected.history?.length && (
-                    <Text style={styles.muted}>
-                      まだ状態の変更はありません。
+                  </ScrollView>
+                </View>
+              )}
+              {(wide || detailVisible) && (
+                <ScrollView
+                  style={styles.detail}
+                  contentContainerStyle={styles.detailContent}
+                >
+                  {!wide && (
+                    <Action secondary disabled={updating} onPress={hideDetail}>
+                      一覧に戻る
+                    </Action>
+                  )}
+                  {!!notice && (
+                    <Text
+                      accessibilityLiveRegion="polite"
+                      style={styles.notice}
+                    >
+                      {notice}
                     </Text>
                   )}
-                  {(selected.history || []).map((entry, index) => (
-                    <View key={index} style={styles.historyItem}>
+                  {!selected && !notice && (
+                    <Text style={styles.empty}>
+                      注文を選ぶと詳細を確認できます。
+                    </Text>
+                  )}
+                  {selected && (
+                    <>
+                      <Text style={styles.detailTitle}>
+                        {selected.order_number}
+                      </Text>
                       <Text style={styles.text}>
-                        {STATUS_LABELS[entry.from_status] || entry.from_status}{" "}
-                        → {STATUS_LABELS[entry.to_status] || entry.to_status}
+                        {tableLabel(selected)} ·{" "}
+                        {STATUS_LABELS[selected.status]}
                       </Text>
                       <Text style={styles.muted}>
-                        {dateLabel(entry.created_at)} ·{" "}
-                        {entry.staff_email || "スタッフ不明"}
+                        {dateLabel(selected.created_at)} · 注文時の言語：
+                        {selected.customer_language || "不明"}
                       </Text>
-                      {!!entry.reason && (
-                        <Text style={styles.notes}>理由：{entry.reason}</Text>
+                      {selected.items.map((item, index) => (
+                        <View key={index} style={styles.item}>
+                          <View style={styles.row}>
+                            <Text style={[styles.itemName, styles.grow]}>
+                              {item.name_ja || item.name}
+                            </Text>
+                            <Text style={styles.itemName}>
+                              × {item.quantity}
+                            </Text>
+                          </View>
+                          <Text style={styles.muted}>
+                            {money(item.price)} / 点
+                          </Text>
+                          {!!item.notes && (
+                            <Text style={styles.notes}>要望：{item.notes}</Text>
+                          )}
+                        </View>
+                      ))}
+                      {!!selected.customer_notes && (
+                        <Text style={styles.notes}>
+                          注文全体の要望：{selected.customer_notes}
+                        </Text>
                       )}
-                    </View>
-                  ))}
-                </>
+                      <View style={styles.total}>
+                        <Text style={styles.itemName}>合計（税込）</Text>
+                        <Text style={styles.detailTitle}>
+                          {money(selected.total_amount)}
+                        </Text>
+                      </View>
+                      {(
+                        VALID_STATUS_TRANSITIONS[selected.status] || []
+                      ).includes(ORDER_STATUS.CANCELLED) && (
+                        <TextInput
+                          accessibilityLabel="キャンセル理由（任意）"
+                          placeholder="キャンセル理由（任意・100文字まで）"
+                          maxLength={100}
+                          value={cancelReason}
+                          onChangeText={setCancelReason}
+                          editable={!updating}
+                          style={styles.input}
+                        />
+                      )}
+                      <View style={styles.actions}>
+                        {(VALID_STATUS_TRANSITIONS[selected.status] || []).map(
+                          (status) => (
+                            <Action
+                              key={status}
+                              disabled={updating || busy}
+                              secondary={status === "cancelled"}
+                              onPress={() => changeStatus(status)}
+                            >
+                              {updating ? "更新中…" : actionLabels[status]}
+                            </Action>
+                          )
+                        )}
+                      </View>
+                      <Action
+                        secondary
+                        disabled={updating}
+                        onPress={() => openOrder(selected.id)}
+                      >
+                        詳細を再取得
+                      </Action>
+                      <Action
+                        secondary
+                        disabled={updating}
+                        onPress={closeVisit}
+                      >
+                        このテーブルの来店を終了する
+                      </Action>
+                      <Text style={styles.sectionTitle}>操作履歴</Text>
+                      {!selected.history?.length && (
+                        <Text style={styles.muted}>
+                          まだ状態の変更はありません。
+                        </Text>
+                      )}
+                      {(selected.history || []).map((entry, index) => (
+                        <View key={index} style={styles.historyItem}>
+                          <Text style={styles.text}>
+                            {STATUS_LABELS[entry.from_status] ||
+                              entry.from_status}{" "}
+                            →{" "}
+                            {STATUS_LABELS[entry.to_status] || entry.to_status}
+                          </Text>
+                          <Text style={styles.muted}>
+                            {dateLabel(entry.created_at)} ·{" "}
+                            {entry.staff_email || "スタッフ不明"}
+                          </Text>
+                          {!!entry.reason && (
+                            <Text style={styles.notes}>
+                              理由：{entry.reason}
+                            </Text>
+                          )}
+                        </View>
+                      ))}
+                    </>
+                  )}
+                </ScrollView>
               )}
-            </ScrollView>
-          )}
-        </View>
+            </View>
+          </>
+        )}
       </View>
     </SafeAreaView>
   );

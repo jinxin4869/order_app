@@ -69,6 +69,9 @@ const server = http.createServer((req, res) => {
       const acceptedOrders = new Map();
       let loseOrderResponses = false;
       let staffStatus = "pending";
+      // Synthetic menu state shared by the staff menu and customer screens.
+      let soldOutIds = [];
+      let itemVersion = 0;
       let staffUpdates = 0;
       const staffOrder = () => ({
         id: "staff-order",
@@ -217,6 +220,8 @@ const server = http.createServer((req, res) => {
             total: data.totalAmount,
           });
           if (loseOrderResponses) return route.abort("failed");
+        } else if (name === "getMenuAvailability") {
+          result = { ordering: "open", soldOut: soldOutIds };
         } else if (name === "listVisitOrders") {
           result = {
             closed: false,
@@ -241,14 +246,42 @@ const server = http.createServer((req, res) => {
               }
             : { accepted: false };
         } else if (
-          ["listStaffOrders", "getStaffOrder", "updateOrderStatus"].includes(
-            name
-          )
+          [
+            "listStaffOrders",
+            "getStaffOrder",
+            "updateOrderStatus",
+            "getStaffMenu",
+            "setMenuItemAvailability",
+          ].includes(name)
         ) {
           assert.ok(
             route.request().headers().authorization?.startsWith("Bearer ")
           );
-          if (name === "listStaffOrders")
+          if (name === "getStaffMenu")
+            result = {
+              restaurant: { name: "テスト店舗", ordering: "open", version: 0 },
+              categories: [{ id: "test-category", name_ja: "料理" }],
+              items: [
+                {
+                  id: "test-item",
+                  category_id: "test-category",
+                  name_ja: "テスト料理",
+                  price: 1000,
+                  available: !soldOutIds.includes("test-item"),
+                  version: itemVersion,
+                },
+              ],
+            };
+          else if (name === "setMenuItemAvailability") {
+            assert.equal(data.expectedVersion, itemVersion);
+            itemVersion++;
+            soldOutIds = data.available ? [] : [data.itemId];
+            result = {
+              success: true,
+              available: data.available,
+              version: itemVersion,
+            };
+          } else if (name === "listStaffOrders")
             result = {
               restaurantId: "rest-test",
               orders: [staffOrder()],
@@ -461,6 +494,21 @@ const server = http.createServer((req, res) => {
         path: path.join(artifacts, `order-app-staff-${viewport.width}.png`),
         fullPage: true,
       });
+      // Staff mark an item sold out from the menu management tab.
+      await page
+        .getByRole("button", { name: "メニュー管理", exact: true })
+        .click();
+      await page.getByText("テスト店舗：注文受付中", { exact: true }).waitFor();
+      page.once("dialog", (dialog) => dialog.accept());
+      await page
+        .getByRole("button", {
+          name: "テスト料理を売り切れにする",
+          exact: true,
+        })
+        .click();
+      await page.getByText("売り切れにしました。", { exact: true }).waitFor();
+      assert.deepEqual(soldOutIds, ["test-item"]);
+      await page.getByRole("button", { name: "注文受付", exact: true }).click();
       await page
         .getByRole("button", { name: "ログアウト", exact: true })
         .click();
@@ -474,6 +522,24 @@ const server = http.createServer((req, res) => {
         viewport.width,
         "staff login, update, conflict and logout"
       );
+      // Customers still see the sold-out item, marked, and cannot add it.
+      await page.goto(
+        "http://127.0.0.1:4173/order?restaurant=rest-test&table=table-test"
+      );
+      await page.getByRole("button", { name: "日本語", exact: true }).click();
+      await page
+        .getByText("売り切れ", { exact: true })
+        .filter({ visible: true })
+        .first()
+        .waitFor();
+      await page.getByText("テスト料理", { exact: true }).click();
+      const soldOutButton = page
+        .getByRole("button", { name: "売り切れ", exact: true })
+        .filter({ visible: true });
+      await soldOutButton.waitFor();
+      assert.equal(await soldOutButton.isDisabled(), true);
+      soldOutIds = [];
+      console.log("PASS", viewport.width, "staff sold-out shown to customers");
       // The server accepts an order but every response is lost. After a
       // reload the device asks about its stored request instead of reordering.
       loseOrderResponses = true;

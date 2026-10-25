@@ -20,12 +20,15 @@ import {
 } from "../utils/translationDisplay";
 import { getMenuWithTranslation } from "../services/api";
 import PendingOrderNotice from "../components/PendingOrderNotice";
+import OrderingNotice from "../components/OrderingNotice";
+import { useMenuAvailability, isSoldOut } from "../hooks/useMenuAvailability";
 
 const RestaurantMenu = ({ navigation, route }) => {
   const { restaurantId, tableId, restaurant, table } = route.params;
   const { currentLanguage, translationMode, setTranslationMode } =
     useLanguage();
   const { isOnline } = useNetworkStatus();
+  const availability = useMenuAvailability(restaurantId, navigation);
   const { isSmallScreen, isVerySmallScreen, scaleSize } = useResponsive();
 
   const [categories, setCategories] = useState([]);
@@ -94,8 +97,9 @@ const RestaurantMenu = ({ navigation, route }) => {
   };
 
   // カテゴリでフィルタリングされたメニュー
+  // Sold-out items stay listed (marked); the server only sends published ones.
   const filteredItems = menuItems.filter(
-    (item) => item.category_id === selectedCategory && item.is_available
+    (item) => item.category_id === selectedCategory
   );
 
   // メニューアイテムをタップ
@@ -172,7 +176,8 @@ const RestaurantMenu = ({ navigation, route }) => {
   // メニューアイテムをレンダリング
   const renderMenuItem = ({ item }) => (
     <TouchableOpacity
-      style={styles.menuItem}
+      style={[styles.menuItem, isSoldOut(item, availability) && styles.soldOut]}
+      accessibilityRole="button"
       onPress={() => handleItemPress(item)}
     >
       {item.image_url ? (
@@ -210,6 +215,15 @@ const RestaurantMenu = ({ navigation, route }) => {
           >
             {fieldState(item, "name").text}
           </Text>
+          {isSoldOut(item, availability) && (
+            <Text style={styles.soldOutBadge}>
+              {currentLanguage === "zh"
+                ? "已售罄"
+                : currentLanguage === "en"
+                  ? "Sold out"
+                  : "売り切れ"}
+            </Text>
+          )}
           {item.is_popular && (
             <View
               style={[
@@ -474,6 +488,7 @@ const RestaurantMenu = ({ navigation, route }) => {
         navigation={navigation}
         session={{ restaurantId, tableId, restaurant, table }}
       />
+      <OrderingNotice availability={availability} />
 
       {/* カテゴリタブ */}
       <FlatList
@@ -496,6 +511,7 @@ const RestaurantMenu = ({ navigation, route }) => {
       {/* メニューリスト */}
       <FlatList
         data={filteredItems}
+        extraData={availability.soldOut}
         renderItem={renderMenuItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
@@ -555,6 +571,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: COLORS.background,
     padding: 20,
+  },
+  soldOut: { opacity: 0.6 },
+  soldOutBadge: {
+    color: "#FFFFFF",
+    backgroundColor: "#B71C1C",
+    fontWeight: "700",
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    overflow: "hidden",
   },
   header: {
     backgroundColor: "#B71C1C",

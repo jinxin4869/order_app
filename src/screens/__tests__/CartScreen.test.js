@@ -6,6 +6,7 @@
 jest.mock("../../hooks/useLanguage");
 jest.mock("../../services/api", () => ({
   createOrder: jest.fn(),
+  getMenuAvailability: jest.fn(async () => ({ ordering: "open", soldOut: [] })),
 }));
 
 import React from "react";
@@ -402,6 +403,82 @@ describe("CartScreen", () => {
     );
     await fireEvent.press(getByText("注文を確定する"));
     expect(api.createOrder).not.toHaveBeenCalled();
+  });
+  test("a sold-out row blocks ordering until it is removed", async () => {
+    api.getMenuAvailability.mockResolvedValueOnce({
+      ordering: "open",
+      soldOut: [mockCartItems[0].id],
+    });
+    const mockContext = createMockCartContext(mockCartItems);
+    const screen = await render(
+      <CartContext.Provider value={mockContext}>
+        <CartScreen navigation={mockNavigation} route={mockRoute} />
+      </CartContext.Provider>
+    );
+    expect(
+      await screen.findByText(
+        "売り切れのため注文できません。カートから削除してください。"
+      )
+    ).toBeTruthy();
+    const submit = screen.getByRole("button", { name: "注文を確定する" });
+    expect(submit.props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(submit);
+    expect(api.createOrder).not.toHaveBeenCalled();
+  });
+
+  test("while ordering is paused the cart is kept but cannot be sent", async () => {
+    api.getMenuAvailability.mockResolvedValueOnce({
+      ordering: "paused",
+      soldOut: [],
+    });
+    const mockContext = createMockCartContext(mockCartItems);
+    const screen = await render(
+      <CartContext.Provider value={mockContext}>
+        <CartScreen navigation={mockNavigation} route={mockRoute} />
+      </CartContext.Provider>
+    );
+    expect(
+      await screen.findByText(
+        "現在、注文受付を一時停止しています。スタッフへお声がけください。"
+      )
+    ).toBeTruthy();
+    expect(screen.getByText("枝豆")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "注文を確定する" }).props
+        .accessibilityState.disabled
+    ).toBe(true);
+  });
+
+  test("an item refused as sold out at ordering time is marked in the cart", async () => {
+    api.createOrder.mockRejectedValue(
+      Object.assign(new Error("sold out"), {
+        code: "functions/failed-precondition",
+        details: { reason: "item_unavailable", itemId: mockCartItems[1].id },
+      })
+    );
+    const mockContext = createMockCartContext(mockCartItems);
+    const screen = await render(
+      <CartContext.Provider value={mockContext}>
+        <CartScreen navigation={mockNavigation} route={mockRoute} />
+      </CartContext.Provider>
+    );
+    Alert.alert.mockImplementation((title, message, buttons) => {
+      const confirm = buttons?.find((b) => b.text === "注文する");
+      if (confirm) confirm.onPress();
+    });
+    await fireEvent.press(screen.getByText("注文を確定する"));
+    await waitFor(() =>
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "売り切れの商品があります",
+        expect.stringContaining("注文は送信されていません")
+      )
+    );
+    expect(
+      screen.getByText(
+        "売り切れのため注文できません。カートから削除してください。"
+      )
+    ).toBeTruthy();
+    expect(mockContext.clearCart).not.toHaveBeenCalled();
   });
 });
 

@@ -143,6 +143,38 @@ export const closeTableVisit = async (tableId) => {
 };
 
 /**
+ * 表示中のメニューの販売・受付状態だけを取得する（15秒ごとの確認用）
+ * @returns {Promise<{ordering: "open"|"paused"|"invalid", soldOut: string[]}>}
+ */
+export const getMenuAvailability = async (restaurantId) => {
+  const result = await httpsCallable(
+    functions,
+    "getMenuAvailability"
+  )({ restaurantId });
+  return result.data;
+};
+
+// ===== スタッフのメニュー管理 =====
+
+export const getStaffMenu = async () => {
+  const result = await httpsCallable(functions, "getStaffMenu")({});
+  return result.data;
+};
+const staffChange = (name) => async (data) => {
+  try {
+    const result = await httpsCallable(functions, name)(data);
+    return result.data;
+  } catch (error) {
+    throw Object.assign(new Error(handleError(error, { function: name })), {
+      code: error.code,
+      details: error.details,
+    });
+  }
+};
+export const setMenuItemAvailability = staffChange("setMenuItemAvailability");
+export const setOrderingAvailability = staffChange("setOrderingAvailability");
+
+/**
  * 注文ステータスを更新する
  * @param {string} orderId - 注文ID
  * @param {string} newStatus - 新しいステータス

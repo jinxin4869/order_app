@@ -1,5 +1,8 @@
 jest.mock("../../hooks/useLanguage");
-jest.mock("../../services/api", () => ({ createOrder: jest.fn() }));
+jest.mock("../../services/api", () => ({
+  createOrder: jest.fn(),
+  getMenuAvailability: jest.fn(async () => ({ ordering: "open", soldOut: [] })),
+}));
 import React from "react";
 import { render, fireEvent } from "@testing-library/react-native";
 import { useLanguage } from "../../hooks/useLanguage";

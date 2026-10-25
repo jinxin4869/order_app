@@ -7,6 +7,7 @@ jest.mock("../../hooks/useLanguage");
 jest.mock("../../hooks/useNetworkStatus");
 jest.mock("../../services/api", () => ({
   getMenuWithTranslation: jest.fn(),
+  getMenuAvailability: jest.fn(async () => ({ ordering: "open", soldOut: [] })),
 }));
 
 import React from "react";
@@ -389,5 +390,36 @@ describe("MenuScreen", () => {
       expect(getByText("Appetizer")).toBeTruthy();
       expect(getByText("Edamame")).toBeTruthy();
     });
+  });
+
+  test("sold-out items stay listed and marked; a pause is announced", async () => {
+    api.getMenuWithTranslation.mockResolvedValue({
+      categories: mockCategories,
+      items: [
+        { ...mockMenuItems[0], is_available: false },
+        { ...mockMenuItems[0], id: "item_09", name_ja: "冷奴" },
+      ],
+    });
+    api.getMenuAvailability.mockResolvedValue({
+      ordering: "paused",
+      soldOut: ["item_09"],
+    });
+    const screen = await render(
+      <MenuScreen navigation={mockNavigation} route={mockRoute} />
+    );
+    await screen.findByText("冷奴");
+    // The latest check wins over the state the menu was loaded with.
+    expect(screen.getByText("枝豆")).toBeTruthy();
+    expect(screen.getAllByText("売り切れ")).toHaveLength(1);
+    expect(
+      screen.getByText(
+        "現在、注文受付を一時停止しています。スタッフへお声がけください。"
+      )
+    ).toBeTruthy();
+    await fireEvent.press(screen.getByText("冷奴"));
+    expect(mockNavigation.navigate).toHaveBeenCalledWith(
+      "ItemDetail",
+      expect.anything()
+    );
   });
 });
