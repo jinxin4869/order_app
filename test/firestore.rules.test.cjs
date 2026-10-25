@@ -1,5 +1,7 @@
-const { readFileSync } = require("node:fs");
-const { resolve } = require("node:path");
+const { readFileSync, mkdtempSync } = require("node:fs");
+const { resolve, join } = require("node:path");
+const { tmpdir } = require("node:os");
+const { execFileSync } = require("node:child_process");
 const assert = require("node:assert/strict");
 const {
   initializeTestEnvironment,
@@ -194,6 +196,71 @@ async function main() {
         .get()
     ).docs)
       await placed.ref.delete();
+    // The issuing script stores only a hash; with enforcement on, only the
+    // printed URL's token passes QR validation and ordering.
+    await serverDb
+      .doc("restaurants/rest-test/tables/table-token")
+      .set({ status: "available", table_number: "8" });
+    const sheet = join(
+      mkdtempSync(join(tmpdir(), "order-app-tokens-")),
+      "tokens.csv"
+    );
+    execFileSync(
+      process.execPath,
+      [
+        "scripts/issue-table-tokens.cjs",
+        "--project",
+        projectId,
+        "--restaurant",
+        "rest-test",
+        "--origin",
+        "https://example.test",
+        "--tables",
+        "table-token",
+        "--out",
+        sheet,
+      ],
+      { cwd: resolve(__dirname, ".."), env: process.env, stdio: "pipe" }
+    );
+    const printed = readFileSync(sheet, "utf8").trim().split("\n")[1];
+    const qrUrl = JSON.parse(printed.split(",")[2]);
+    const token = new URL(qrUrl).searchParams.get("token");
+    const secretPath = "restaurants/rest-test/table_secrets/table-token";
+    assert.notEqual(
+      (await serverDb.doc(secretPath).get()).data().token_hash,
+      token
+    );
+    const { validateQRCode } = require("../functions/src/menu");
+    process.env.ENFORCE_TABLE_TOKEN = "true";
+    try {
+      assert.equal(
+        (await validateQRCode.run({ data: { qrData: qrUrl } })).valid,
+        true
+      );
+      assert.equal(
+        (
+          await validateQRCode.run({
+            data: { qrData: "rest-test/table-token" },
+          })
+        ).valid,
+        false
+      );
+      const tokenOrder = {
+        ...orderData,
+        tableId: "table-token",
+        requestId: "token-emulator",
+      };
+      await assert.rejects(createOrder.run({ data: tokenOrder }), {
+        code: "failed-precondition",
+      });
+      const placed = await createOrder.run({
+        data: { ...tokenOrder, tableToken: token },
+      });
+      await serverDb.doc(`orders/${placed.orderId}`).delete();
+    } finally {
+      delete process.env.ENFORCE_TABLE_TOKEN;
+    }
+    await assertFails(getDoc(doc(anonymous, secretPath)));
     // Only the device holding the request ID can learn the result.
     const { getOrderRequest } = require("../functions/src/orders");
     const ask = (requestId) =>

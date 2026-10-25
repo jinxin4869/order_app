@@ -9,6 +9,11 @@ const { HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore } = require("firebase-admin/firestore");
 const { parseQRCode, validId } = require("../utils/qr");
 const { isPublished, orderingState } = require("../utils/menuState");
+const {
+  tokenEnforced,
+  tableSecretRef,
+  matchesTableToken,
+} = require("../utils/tableToken");
 
 const db = getFirestore();
 const translationMetadata = (data) => {
@@ -283,6 +288,19 @@ exports.validateQRCode = onAppCall({}, async (request) => {
     if (table.is_active === false || table.status === "unavailable") {
       return { valid: false, error: "このテーブルは現在利用できません。" };
     }
+
+    if (
+      tokenEnforced() &&
+      !matchesTableToken(
+        await tableSecretRef(db, restaurantId, tableId).get(),
+        session.token
+      )
+    )
+      return {
+        valid: false,
+        error:
+          "このQRコードは使えません。テーブルのQRコードを読み取り直すか、スタッフへお声がけください。",
+      };
 
     const storedSession = table.qr_code ? parseQRCode(table.qr_code) : null;
     if (

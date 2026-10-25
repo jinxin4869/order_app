@@ -17,6 +17,11 @@ const {
 const { businessDay } = require("../utils/businessDay");
 const { isOnSale, orderingState } = require("../utils/menuState");
 const {
+  tokenEnforced,
+  tableSecretRef,
+  matchesTableToken,
+} = require("../utils/tableToken");
+const {
   limitsEnforced,
   readOrderLimits,
   rateLimitedError,
@@ -208,6 +213,20 @@ exports.createOrder = onAppCall({}, async (request) => {
           { reason: "table_unavailable" }
         );
       }
+      if (
+        tokenEnforced() &&
+        !matchesTableToken(
+          await transaction.get(
+            tableSecretRef(db, data.restaurantId, data.tableId)
+          ),
+          data.tableToken
+        )
+      )
+        throw new HttpsError(
+          "failed-precondition",
+          "テーブルのQRコードを読み取り直してください。",
+          { reason: "table_token_invalid" }
+        );
 
       const itemDocs = await transaction.getAll(
         ...data.items.map((item) =>

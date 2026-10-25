@@ -506,6 +506,56 @@ describe("CartScreen", () => {
     );
     expect(mockContext.clearCart).not.toHaveBeenCalled();
   });
+  test("the scanned table token is sent with the order", async () => {
+    const mockContext = createMockCartContext(mockCartItems);
+    const route = {
+      params: {
+        ...mockRoute.params,
+        table: { ...mockRoute.params.table, token: "abcdefghijklmnop_-12" },
+      },
+    };
+    const screen = await render(
+      <CartContext.Provider value={mockContext}>
+        <CartScreen navigation={mockNavigation} route={route} />
+      </CartContext.Provider>
+    );
+    Alert.alert.mockImplementation((title, message, buttons) => {
+      const confirm = buttons?.find((b) => b.text === "注文する");
+      if (confirm) confirm.onPress();
+    });
+    await fireEvent.press(screen.getByText("注文を確定する"));
+    await waitFor(() =>
+      expect(api.createOrder).toHaveBeenCalledWith(
+        expect.objectContaining({ tableToken: "abcdefghijklmnop_-12" })
+      )
+    );
+  });
+
+  test("a refused table token asks the customer to scan the table again", async () => {
+    api.createOrder.mockRejectedValue(
+      Object.assign(new Error("token"), {
+        code: "functions/failed-precondition",
+        details: { reason: "table_token_invalid" },
+      })
+    );
+    const mockContext = createMockCartContext(mockCartItems);
+    const screen = await render(
+      <CartContext.Provider value={mockContext}>
+        <CartScreen navigation={mockNavigation} route={mockRoute} />
+      </CartContext.Provider>
+    );
+    Alert.alert.mockImplementation((title, message, buttons) => {
+      const confirm = buttons?.find((b) => b.text === "注文する");
+      if (confirm) confirm.onPress();
+    });
+    await fireEvent.press(screen.getByText("注文を確定する"));
+    await waitFor(() =>
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "QRコードを読み取り直してください",
+        expect.stringContaining("注文は送信されていません")
+      )
+    );
+  });
 });
 
 test("price changes prompt a fresh menu and clear the outdated cart on confirmation", async () => {

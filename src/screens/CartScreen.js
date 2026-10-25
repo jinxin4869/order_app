@@ -142,6 +142,7 @@ const CartScreen = ({ navigation, route }) => {
         subtotal,
         tax,
         totalAmount: total,
+        ...(table?.token ? { tableToken: table.token } : {}),
       };
 
       // A retry of the same content resends the first payload and request ID.
@@ -201,6 +202,21 @@ const CartScreen = ({ navigation, route }) => {
             "売り切れの商品をカートから削除してから、もう一度注文してください。注文は送信されていません。",
             "Remove the sold-out item from your cart and order again. Nothing was ordered.",
             "请从购物车中删除已售罄的商品后重新下单。订单未提交。"
+          )
+        );
+        return;
+      }
+      if (reason === "table_token_invalid") {
+        showAlert(
+          t(
+            "QRコードを読み取り直してください",
+            "Scan the QR code again",
+            "请重新扫描二维码"
+          ),
+          t(
+            "テーブルのQRコードを確認できませんでした。テーブルのQRコードを読み取り直すか、スタッフへお声がけください。注文は送信されていません。",
+            "We could not confirm this table's QR code. Scan the QR code on your table again or ask our staff. Nothing was ordered.",
+            "无法确认餐桌二维码。请重新扫描餐桌上的二维码或联系店员。订单未提交。"
           )
         );
         return;

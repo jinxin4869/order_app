@@ -98,10 +98,14 @@ const QRScannerScreen = ({ navigation }) => {
         return;
       }
 
-      const { restaurantId, tableId } = session;
+      const { restaurantId, tableId, token } = session;
 
       // Cloud Functionsで検証
-      const result = await validateQRCode(`${restaurantId}/${tableId}`);
+      const result = await validateQRCode(
+        token
+          ? `${restaurantId}/${tableId}/${token}`
+          : `${restaurantId}/${tableId}`
+      );
 
       if (result.valid) {
         // 言語選択画面に遷移
@@ -109,7 +113,7 @@ const QRScannerScreen = ({ navigation }) => {
           restaurantId,
           tableId,
           restaurant: result.restaurant,
-          table: result.table,
+          table: token ? { ...result.table, token } : result.table,
         });
       } else {
         showAlert(
