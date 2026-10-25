@@ -1,3 +1,5 @@
+> 初期の技術選定の資料です（当時のSDKやWindows環境を前提とします）。現在の構成は[README](../README.md)と[依存ライブラリ更新と監査](dependency_updates.md)を参照してください。
+
 # 技術選定書
 
 ## 目的

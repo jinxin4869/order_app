@@ -1,3 +1,5 @@
+> WSL（Windows）でAndroidエミュレーターを使う場合の補足です。macOSでは、Android Studioのエミュレーターをそのまま使えます。
+
 # WSL環境でのAndroid開発環境セットアップ手順
 
 このガイドでは、WSL（Windows Subsystem for Linux）内にAndroid開発環境を構築し、ExpoプロジェクトをAndroidエミュレータで実行する手順を説明します。

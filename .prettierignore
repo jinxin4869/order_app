@@ -30,3 +30,8 @@ coverage/
 *.min.js
 package-lock.json
 yarn.lock
+
+# Historical design and records, kept as written (see docs/README.md)
+docs/database_design.md
+docs/technology_selection.md
+docs/pull_requests.md
