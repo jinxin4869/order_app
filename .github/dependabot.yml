@@ -6,11 +6,44 @@ updates:
       interval: weekly
       timezone: Asia/Tokyo
     open-pull-requests-limit: 5
+    # Packages whose versions are set by the Expo SDK move together. Major
+    # bumps arrive as one PR to handle during an SDK upgrade
+    # (`npx expo install --fix`), instead of one unmergeable PR per package.
     groups:
       expo:
         patterns:
-          ["expo", "expo-*", "@expo/*", "react-native", "react-native-*"]
+          - "expo"
+          - "expo-*"
+          - "@expo/*"
+          - "jest-expo"
+          - "babel-preset-expo"
+          - "react"
+          - "react-dom"
+          - "react-test-renderer"
+          - "react-native"
+          - "react-native-*"
+          - "@react-native/*"
+          - "@react-native-community/*"
+          - "@react-native-async-storage/*"
         update-types: ["patch", "minor"]
+      expo-sdk-major:
+        patterns:
+          - "expo"
+          - "expo-*"
+          - "@expo/*"
+          - "jest-expo"
+          - "babel-preset-expo"
+          - "react"
+          - "react-dom"
+          - "react-test-renderer"
+          - "react-native"
+          - "react-native-*"
+          - "@react-native/*"
+          - "@react-native-community/*"
+          - "@react-native-async-storage/*"
+          # jest-expo depends on a specific Jest major.
+          - "jest"
+        update-types: ["major"]
   - package-ecosystem: npm
     directory: /functions
     schedule:
