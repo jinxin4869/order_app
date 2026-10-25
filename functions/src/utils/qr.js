@@ -27,4 +27,4 @@ const parseQRCode = (value) => {
     : null;
 };
 
-module.exports = { parseQRCode };
+module.exports = { parseQRCode, validId };

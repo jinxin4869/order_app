@@ -40,3 +40,26 @@ test("invalid IDs do not reach Firestore", async () => {
   });
   expect(query).not.toHaveBeenCalled();
 });
+test("QR errors log only the validated IDs, not the raw payload", async () => {
+  jest.spyOn(mockDb, "collection").mockImplementation(() => {
+    throw new Error("unavailable");
+  });
+  const log = jest.spyOn(console, "error").mockImplementation(() => {});
+  const qrData =
+    "https://example.test/order?restaurant=rest-test&table=table-test&x=<payload>";
+  expect(await validate({ data: { qrData } })).toMatchObject({ valid: false });
+  expect(log.mock.calls[0][0]).toBe(
+    "QR validation error for rest-test/table-test:"
+  );
+  expect(JSON.stringify(log.mock.calls)).not.toContain("<payload>");
+});
+test.each([undefined, null, { id: "rest-test" }, "x".repeat(129), "../x"])(
+  "menu rejects the restaurant ID %p before reaching Firestore",
+  async (restaurantId) => {
+    const query = jest.spyOn(mockDb, "collection");
+    const getMenu = require("../menu").getMenuWithTranslation;
+    await expect(getMenu({ data: { restaurantId } })).rejects.toThrow();
+    await expect(getMenu({ data: null })).rejects.toThrow();
+    expect(query).not.toHaveBeenCalled();
+  }
+);

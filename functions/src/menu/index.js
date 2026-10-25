@@ -7,7 +7,7 @@
 const { onAppCall } = require("../utils/callable");
 const { HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore } = require("firebase-admin/firestore");
-const { parseQRCode } = require("../utils/qr");
+const { parseQRCode, validId } = require("../utils/qr");
 
 const db = getFirestore();
 const translationMetadata = (data) => {
@@ -28,10 +28,10 @@ const translationMetadata = (data) => {
  * @returns {Object} - {categories: Array, items: Array}
  */
 exports.getMenuWithTranslation = onAppCall({}, async (request) => {
-  const { restaurantId } = request.data;
+  const { restaurantId } = request.data || {};
 
   // バリデーション
-  if (!restaurantId) {
+  if (!validId(restaurantId)) {
     throw new HttpsError("invalid-argument", "レストランIDが必要です");
   }
 
@@ -286,7 +286,7 @@ exports.validateQRCode = onAppCall({}, async (request) => {
       },
     };
   } catch (error) {
-    console.error(`QR validation error for ${qrData}:`, error);
+    console.error(`QR validation error for ${restaurantId}/${tableId}:`, error);
 
     return {
       valid: false,
