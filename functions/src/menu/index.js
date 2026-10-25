@@ -8,6 +8,7 @@ const { onAppCall } = require("../utils/callable");
 const { HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore } = require("firebase-admin/firestore");
 const { parseQRCode, validId } = require("../utils/qr");
+const { isPublished, orderingState } = require("../utils/menuState");
 
 const db = getFirestore();
 const translationMetadata = (data) => {
@@ -106,7 +107,6 @@ exports.getMenuWithTranslation = onAppCall({}, async (request) => {
         .collection("restaurants")
         .doc(restaurantId)
         .collection("menu_items")
-        .where("is_available", "==", true)
         .get();
     } catch (e) {
       console.error("Firestore items query error:", e);
@@ -116,7 +116,14 @@ exports.getMenuWithTranslation = onAppCall({}, async (request) => {
       );
     }
 
+    // Published items, on sale or sold out, in a published category.
+    const categoryIds = new Set(categories.map((category) => category.id));
     const items = itemsSnapshot.docs
+      .filter(
+        (doc) =>
+          isPublished(doc.data()) &&
+          (!doc.data().category_id || categoryIds.has(doc.data().category_id))
+      )
       .map((doc) => {
         const data = doc.data();
         return {
@@ -137,7 +144,7 @@ exports.getMenuWithTranslation = onAppCall({}, async (request) => {
           image_url: data.image_url,
           allergens: data.allergens || [],
           tags: data.tags || [],
-          is_available: data.is_available !== false, // デフォルトで提供可能とする
+          is_available: data.is_available === true,
           is_popular: data.is_popular || false,
           spicy_level: data.spicy_level || 0,
           cooking_time: data.cooking_time,
@@ -154,6 +161,7 @@ exports.getMenuWithTranslation = onAppCall({}, async (request) => {
         description: restaurant.description,
         default_language: restaurant.default_language,
         supported_languages: restaurant.supported_languages,
+        ordering: orderingState(restaurant),
       },
       categories,
       items,
@@ -174,6 +182,29 @@ exports.getMenuWithTranslation = onAppCall({}, async (request) => {
       "メニューの読み込み中に予期せぬエラーが発生しました。"
     );
   }
+});
+
+/**
+ * 表示中のメニューの販売・受付状態だけを返す（15秒ごとの確認用）。
+ * 店舗の文書と販売不可の商品だけを読み、説明や翻訳は読み直さない。
+ */
+exports.getMenuAvailability = onAppCall({}, async (request) => {
+  const { restaurantId } = request.data || {};
+  if (!validId(restaurantId))
+    throw new HttpsError("invalid-argument", "レストランIDが必要です");
+  const store = db.collection("restaurants").doc(restaurantId);
+  const [restaurant, unavailable] = await Promise.all([
+    store.get(),
+    store.collection("menu_items").where("is_available", "==", false).get(),
+  ]);
+  if (!restaurant.exists || restaurant.data().is_active !== true)
+    throw new HttpsError("not-found", "指定されたレストランが見つかりません。");
+  return {
+    ordering: orderingState(restaurant.data()),
+    soldOut: unavailable.docs
+      .filter((doc) => isPublished(doc.data()))
+      .map((doc) => doc.id),
+  };
 });
 
 /**
