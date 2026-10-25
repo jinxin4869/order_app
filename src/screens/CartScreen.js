@@ -205,6 +205,21 @@ const CartScreen = ({ navigation, route }) => {
         );
         return;
       }
+      if (reason === "rate_limited") {
+        const minutes = Math.max(
+          1,
+          Math.ceil((error.details.retryAfterSeconds || 60) / 60)
+        );
+        showAlert(
+          t("しばらくお待ちください", "Please wait", "请稍候"),
+          t(
+            `短時間に多くの注文が送信されたため、受付を一時的に制限しています。約${minutes}分後にもう一度お試しいただくか、スタッフへお声がけください。注文は送信されていません。`,
+            `Many orders were sent in a short time, so ordering is briefly limited. Please try again in about ${minutes} min or ask our staff. Nothing was ordered.`,
+            `短时间内提交了大量订单，暂时限制下单。请约${minutes}分钟后重试或联系店员。订单未提交。`
+          )
+        );
+        return;
+      }
       if (reason === "ordering_paused" || reason === "ordering_unconfigured") {
         availability.refresh();
         showAlert(

@@ -546,3 +546,23 @@ test("menu management opens beside the order console, and new orders bring staff
     await screen.findByRole("button", { name: "注文 20261009-002 未受付 新着" })
   ).toBeTruthy();
 });
+test("order-limit hits this hour are shown with the advice to pause", async () => {
+  listStaffOrders.mockResolvedValue({
+    orders: [order],
+    hasMore: false,
+    cursor: order.id,
+    limitAlert: {
+      count: 2,
+      enforced: true,
+      lastTableNumber: "12",
+      lastTableId: "table-test",
+      lastAt: Date.now(),
+    },
+  });
+  const screen = await render(<StaffScreen />);
+  expect(
+    await screen.findByText(
+      /直近1時間に、短時間の連続注文の制限が2回ありました（最後：テーブル 12）。該当の注文は受け付けていません。/
+    )
+  ).toBeTruthy();
+});

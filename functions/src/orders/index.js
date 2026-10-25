@@ -16,6 +16,11 @@ const {
 
 const { businessDay } = require("../utils/businessDay");
 const { isOnSale, orderingState } = require("../utils/menuState");
+const {
+  limitsEnforced,
+  readOrderLimits,
+  rateLimitedError,
+} = require("../utils/rateLimits");
 const db = getFirestore();
 const {
   normalizeOrderInput,
@@ -76,6 +81,36 @@ const orderRequestRef = ({ restaurantId, tableId, requestId }) =>
       .digest("hex")
   );
 
+// Store-wide tally of limit hits in the current hour, shown to staff. A
+// failure here must not change the order's outcome.
+const recordLimitHit = async (restaurantRef, tableId, hit) => {
+  const alertRef = restaurantRef.collection("rate_limits").doc("alerts");
+  const hour = Date.now() - (Date.now() % (60 * 60 * 1000));
+  try {
+    await db.runTransaction(async (transaction) => {
+      const saved = await transaction.get(alertRef);
+      const count =
+        saved.exists && saved.data().hour_start === hour
+          ? saved.data().count
+          : 0;
+      transaction.set(alertRef, {
+        hour_start: hour,
+        count: count + 1,
+        enforced: limitsEnforced(),
+        last_scope: hit.scope,
+        last_table_id: tableId,
+        last_table_number: hit.tableNumber,
+        last_at: FieldValue.serverTimestamp(),
+      });
+    });
+  } catch (error) {
+    console.error("Could not record an order limit hit:", error);
+  }
+  console.warn(
+    `Order limit ${limitsEnforced() ? "enforced" : "exceeded (record only)"}: ${hit.scope} ${hit.count}/${hit.max}`
+  );
+};
+
 // ===== Cloud Functions =====
 
 /**
@@ -102,8 +137,11 @@ exports.createOrder = onAppCall({}, async (request) => {
   const orderRef = db.collection("orders").doc();
   const restaurantRef = db.collection("restaurants").doc(data.restaurantId);
   const tableRef = restaurantRef.collection("tables").doc(data.tableId);
+  // Set when a window was full, so the hit is recorded after the transaction.
+  let limitHit = null;
   try {
-    return await db.runTransaction(async (transaction) => {
+    const outcome = await db.runTransaction(async (transaction) => {
+      limitHit = null;
       const existing = await transaction.get(requestRef);
       if (existing.exists) {
         const saved = existing.data();
@@ -284,6 +322,27 @@ exports.createOrder = onAppCall({}, async (request) => {
       const sequence = previous + 1;
       const orderNumber = `${day}-${String(sequence).padStart(3, "0")}`;
 
+      // Retries of an accepted request returned above and are never counted.
+      const limits = await readOrderLimits(
+        transaction,
+        restaurantRef,
+        data.tableId,
+        Date.now()
+      );
+      const exceeded = limits.find((limit) => limit.exceeded);
+      if (exceeded) {
+        limitHit = {
+          ...exceeded,
+          tableNumber: tableNumberOf(table.table_number),
+        };
+        if (limitsEnforced()) throw rateLimitedError(exceeded);
+      }
+      for (const limit of limits)
+        transaction.set(limit.ref, {
+          window_start: limit.start,
+          count: limit.count + 1,
+        });
+
       // 注文データを作成
       const orderDoc = {
         restaurant_id: data.restaurantId,
@@ -330,7 +389,10 @@ exports.createOrder = onAppCall({}, async (request) => {
       });
       return result;
     });
+    if (limitHit) await recordLimitHit(restaurantRef, data.tableId, limitHit);
+    return outcome;
   } catch (error) {
+    if (limitHit) await recordLimitHit(restaurantRef, data.tableId, limitHit);
     console.error(
       `Create order error for restaurant ${data.restaurantId}:`,
       error
@@ -564,7 +626,7 @@ exports.listStaffOrders = onAppCall({}, async (request) => {
       throw new HttpsError("invalid-argument", "一覧を再取得してください");
     query = query.startAfter(after);
   }
-  const [snapshot, pending] = await Promise.all([
+  const [snapshot, pending, alerts] = await Promise.all([
     query.limit(limit + 1).get(),
     // Every unconfirmed order of the store, not only the rows on this page.
     db
@@ -573,11 +635,25 @@ exports.listStaffOrders = onAppCall({}, async (request) => {
       .where("status", "==", ORDER_STATUS.PENDING)
       .count()
       .get(),
+    db.doc(`restaurants/${restaurantId}/rate_limits/alerts`).get(),
   ]);
+  const hour = Date.now() - (Date.now() % (60 * 60 * 1000));
+  const alert = alerts.exists && alerts.data();
   const docs = snapshot.docs.slice(0, limit);
   return {
     restaurantId,
     pendingCount: pending.data().count,
+    // Order-limit hits in the current hour, so staff can pause orders if needed.
+    limitAlert:
+      alert && alert.hour_start === hour
+        ? {
+            count: alert.count,
+            enforced: alert.enforced === true,
+            lastTableNumber: alert.last_table_number || null,
+            lastTableId: alert.last_table_id || null,
+            lastAt: millis(alert.last_at),
+          }
+        : null,
     orders: docs.map(orderDTO),
     hasMore: snapshot.docs.length > limit,
     cursor: docs.length ? docs[docs.length - 1].id : null,

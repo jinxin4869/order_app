@@ -31,6 +31,11 @@ service cloud.firestore {
       match /menu_events/{eventId} {
         allow read, write: if false;
       }
+
+      // 連投制限のカウンターと記録もサーバーだけが読み書きする。
+      match /rate_limits/{counterId} {
+        allow read, write: if false;
+      }
     }
 
     // 注文は検証済みCallableのみが作成・更新する（Admin SDK）。

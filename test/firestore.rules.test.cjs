@@ -93,25 +93,21 @@ async function main() {
       getDoc(doc(anonymous, "restaurants/rest-test/menu_items/item-test"))
     );
     // Only published items are readable directly; private ones never are.
-    await serverDb
-      .doc("restaurants/rest-test/menu_items/private-test")
-      .set({
-        name_ja: "非公開",
-        price: 1,
-        is_available: true,
-        is_published: false,
-      });
+    await serverDb.doc("restaurants/rest-test/menu_items/private-test").set({
+      name_ja: "非公開",
+      price: 1,
+      is_available: true,
+      is_published: false,
+    });
     await serverDb
       .doc("restaurants/rest-test/menu_items/legacy-off-test")
       .set({ name_ja: "旧・販売不可", price: 1, is_available: false });
-    await serverDb
-      .doc("restaurants/rest-test/menu_items/sold-out-test")
-      .set({
-        name_ja: "売り切れ",
-        price: 1,
-        is_available: false,
-        is_published: true,
-      });
+    await serverDb.doc("restaurants/rest-test/menu_items/sold-out-test").set({
+      name_ja: "売り切れ",
+      price: 1,
+      is_available: false,
+      is_published: true,
+    });
     for (const id of ["private-test", "legacy-off-test"])
       await assertFails(
         getDoc(doc(anonymous, `restaurants/rest-test/menu_items/${id}`))
@@ -150,6 +146,54 @@ async function main() {
     assert.equal(new Set(results.map((order) => order.orderId)).size, 1);
     assert.equal(new Set(results.map((order) => order.orderNumber)).size, 1);
     assert.equal((await serverDb.collection("orders").get()).size, 1);
+    // Order limits hold under real concurrent transactions.
+    await serverDb
+      .doc("restaurants/rest-test/tables/table-limit")
+      .set({ status: "available", table_number: "9" });
+    process.env.ENFORCE_ORDER_LIMITS = "true";
+    process.env.ORDER_LIMIT_PER_TABLE = "3";
+    try {
+      const limited = await Promise.allSettled(
+        Array.from({ length: 6 }, (_, index) =>
+          createOrder.run({
+            data: {
+              ...orderData,
+              tableId: "table-limit",
+              requestId: `limit-emulator-${index}`,
+            },
+          })
+        )
+      );
+      assert.equal(limited.filter((r) => r.status === "fulfilled").length, 3);
+      assert.ok(
+        limited
+          .filter((r) => r.status === "rejected")
+          .every((r) => r.reason.details?.reason === "rate_limited")
+      );
+    } finally {
+      delete process.env.ENFORCE_ORDER_LIMITS;
+      delete process.env.ORDER_LIMIT_PER_TABLE;
+    }
+    assert.equal(
+      (
+        await serverDb
+          .collection("orders")
+          .where("table_id", "==", "table-limit")
+          .get()
+      ).size,
+      3
+    );
+    await assertFails(
+      getDoc(doc(anonymous, "restaurants/rest-test/rate_limits/alerts"))
+    );
+    // Remove them so the order counts below are unaffected.
+    for (const placed of (
+      await serverDb
+        .collection("orders")
+        .where("table_id", "==", "table-limit")
+        .get()
+    ).docs)
+      await placed.ref.delete();
     // Only the device holding the request ID can learn the result.
     const { getOrderRequest } = require("../functions/src/orders");
     const ask = (requestId) =>

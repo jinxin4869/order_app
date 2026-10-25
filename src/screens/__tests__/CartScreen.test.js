@@ -480,6 +480,32 @@ describe("CartScreen", () => {
     ).toBeTruthy();
     expect(mockContext.clearCart).not.toHaveBeenCalled();
   });
+  test("a rate-limited order says when to try again and keeps the cart", async () => {
+    api.createOrder.mockRejectedValue(
+      Object.assign(new Error("limited"), {
+        code: "functions/resource-exhausted",
+        details: { reason: "rate_limited", retryAfterSeconds: 290 },
+      })
+    );
+    const mockContext = createMockCartContext(mockCartItems);
+    const screen = await render(
+      <CartContext.Provider value={mockContext}>
+        <CartScreen navigation={mockNavigation} route={mockRoute} />
+      </CartContext.Provider>
+    );
+    Alert.alert.mockImplementation((title, message, buttons) => {
+      const confirm = buttons?.find((b) => b.text === "注文する");
+      if (confirm) confirm.onPress();
+    });
+    await fireEvent.press(screen.getByText("注文を確定する"));
+    await waitFor(() =>
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "しばらくお待ちください",
+        expect.stringContaining("約5分後にもう一度お試しいただくか")
+      )
+    );
+    expect(mockContext.clearCart).not.toHaveBeenCalled();
+  });
 });
 
 test("price changes prompt a fresh menu and clear the outdated cart on confirmation", async () => {
