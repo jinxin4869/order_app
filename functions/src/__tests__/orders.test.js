@@ -755,3 +755,94 @@ test("staff can list the longest-waiting orders first and always see the pending
     code: "invalid-argument",
   });
 });
+const visitOrder = (id, minutesAgo, overrides = {}) =>
+  mockDb.seed(`orders/${id}`, {
+    restaurant_id: "rest-test",
+    table_id: "table-test",
+    visit_id: "visit-a",
+    order_number: `20261025-${id}`,
+    status: "pending",
+    total_amount: 1100,
+    customer_notes: "private",
+    created_at: new Date(Date.now() - minutesAgo * 60000),
+    items: [{ name_ja: "テスト料理", quantity: 1, price: 1000 }],
+    ...overrides,
+  });
+const listVisit = (data = {}) =>
+  api.listVisitOrders({
+    data: {
+      restaurantId: "rest-test",
+      tableId: "table-test",
+      visitId: "visit-a",
+      ...data,
+    },
+  });
+test("an order keeps the device's visit ID, which must be a valid ID", async () => {
+  const { orderId } = await api.createOrder({
+    data: order({ visitId: "visit-a" }),
+  });
+  expect(mockDb.read("orders/" + orderId).visit_id).toBe("visit-a");
+  const { orderId: legacy } = await api.createOrder({
+    data: order({ requestId: "request-test-0002" }),
+  });
+  expect(mockDb.read("orders/" + legacy).visit_id).toBeNull();
+  await expect(
+    api.createOrder({ data: order({ visitId: "../x" }) })
+  ).rejects.toMatchObject({ code: "invalid-argument" });
+});
+test("a visit lists only its own orders at its table, newest first, without private fields", async () => {
+  visitOrder("001", 30);
+  visitOrder("002", 10);
+  visitOrder("other-visit", 5, { visit_id: "visit-b" });
+  visitOrder("other-table", 5, { table_id: "table-other" });
+  const result = await listVisit();
+  expect(result.closed).toBe(false);
+  expect(result.orders.map((o) => o.order_number)).toEqual([
+    "20261025-002",
+    "20261025-001",
+  ]);
+  expect(result.orders[0]).not.toHaveProperty("customer_notes");
+  expect(result.orders[0]).not.toHaveProperty("visit_id");
+  expect((await listVisit({ visitId: "visit-c" })).orders).toEqual([]);
+  // The same visit ID at another table never returns this table's orders.
+  expect(
+    (await listVisit({ tableId: "table-other" })).orders.map((o) => o.id)
+  ).toEqual(["other-table"]);
+  await expect(listVisit({ visitId: undefined })).rejects.toMatchObject({
+    code: "invalid-argument",
+  });
+});
+test("closing the table ends the visit; later orders start the next one", async () => {
+  visitOrder("001", 30);
+  await api.closeTableVisit({ auth: staff(), data: { tableId: "table-test" } });
+  expect(mockDb.read("restaurants/rest-test/tables/table-test")).toMatchObject({
+    status: "available",
+    visit_closed_at: expect.any(Date),
+  });
+  expect(await listVisit()).toEqual({ closed: true, orders: [] });
+  visitOrder("002", -1);
+  const after = await listVisit();
+  expect(after.closed).toBe(true);
+  expect(after.orders.map((o) => o.id)).toEqual(["002"]);
+});
+test("a visit older than 12 hours is no longer listed", async () => {
+  visitOrder("old", 13 * 60);
+  expect(await listVisit()).toEqual({ closed: true, orders: [] });
+});
+test("only staff of the store can close a table's visit", async () => {
+  await expect(
+    api.closeTableVisit({ data: { tableId: "table-test" } })
+  ).rejects.toMatchObject({ code: "unauthenticated" });
+  await expect(
+    api.closeTableVisit({
+      auth: staff("other-store"),
+      data: { tableId: "table-test" },
+    })
+  ).rejects.toMatchObject({ code: "permission-denied" });
+  await expect(
+    api.closeTableVisit({ auth: staff(), data: { tableId: "../x" } })
+  ).rejects.toMatchObject({ code: "invalid-argument" });
+  expect(
+    mockDb.read("restaurants/rest-test/tables/table-test").visit_closed_at
+  ).toBeUndefined();
+});

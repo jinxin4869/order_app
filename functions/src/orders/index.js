@@ -253,6 +253,8 @@ exports.createOrder = onAppCall({}, async (request) => {
         order_number: orderNumber,
         business_day: day,
         customer_language: data.customerLanguage || "ja",
+        // Random ID held by the ordering device; lets it list its own visit.
+        visit_id: data.visitId,
         items: masterItems.map((item) => ({
           ...item,
           name: item[`name_${data.customerLanguage}`] || item.name_ja,
@@ -325,6 +327,95 @@ exports.getOrderRequest = onAppCall({}, async (request) => {
   if (!saved.exists) return { accepted: false };
   const { orderId, orderNumber } = saved.data().result;
   return { accepted: true, orderId, orderNumber };
+});
+
+// A visit ends when staff close it for the table, or after this long.
+const VISIT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const visitOrderDTO = (doc) => {
+  const order = doc.data();
+  return {
+    id: doc.id,
+    order_number: order.order_number,
+    status: order.status,
+    total_amount: order.total_amount,
+    created_at: millis(order.created_at),
+    items: (order.items || []).map((item) => ({
+      name_ja: item.name_ja,
+      name_en: item.name_en || null,
+      name_zh: item.name_zh || null,
+      quantity: item.quantity,
+      price: item.price,
+      notes: item.notes || "",
+    })),
+  };
+};
+
+/**
+ * 端末が来店中に送った注文と、その進行状況を返す。
+ * visitId は端末だけが持つ乱数で、店舗・テーブル・注文IDからは推測できない。
+ */
+exports.listVisitOrders = onAppCall({}, async (request) => {
+  const { restaurantId, tableId, visitId } = request.data || {};
+  if (![restaurantId, tableId, visitId].every(isDocumentId))
+    throw new HttpsError("invalid-argument", "来店の指定が不正です");
+  const [snapshot, tableDoc] = await Promise.all([
+    db.collection("orders").where("visit_id", "==", visitId).limit(100).get(),
+    db
+      .collection("restaurants")
+      .doc(restaurantId)
+      .collection("tables")
+      .doc(tableId)
+      .get(),
+  ]);
+  const closedAt = millis(tableDoc.exists && tableDoc.data().visit_closed_at);
+  const orders = snapshot.docs.filter(
+    (doc) =>
+      doc.data().restaurant_id === restaurantId &&
+      doc.data().table_id === tableId
+  );
+  // Orders from before the table was cleared, or too old, belong to an
+  // earlier visit. Report that so the device starts a new visit.
+  const current = orders.filter((doc) => {
+    const time = millis(doc.data().created_at);
+    return (
+      time !== null &&
+      (closedAt === null || time > closedAt) &&
+      Date.now() - time <= VISIT_MAX_AGE_MS
+    );
+  });
+  return {
+    closed: current.length < orders.length,
+    orders: current
+      .map(visitOrderDTO)
+      .sort((a, b) => b.created_at - a.created_at),
+  };
+});
+
+/**
+ * スタッフがテーブルの来店を終了する。テーブルを空席に戻し、
+ * それまでの注文を来店IDで参照できないようにする。
+ */
+exports.closeTableVisit = onAppCall({}, async (request) => {
+  const restaurantId = await requireStaff(request);
+  const { tableId } = request.data || {};
+  if (!isDocumentId(tableId))
+    throw new HttpsError("invalid-argument", "テーブルIDが不正です");
+  const tableRef = db
+    .collection("restaurants")
+    .doc(restaurantId)
+    .collection("tables")
+    .doc(tableId);
+  return db.runTransaction(async (transaction) => {
+    const table = await transaction.get(tableRef);
+    if (!table.exists)
+      throw new HttpsError("not-found", "テーブルが見つかりません");
+    transaction.update(tableRef, {
+      status: "available",
+      visit_closed_at: FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp(),
+    });
+    return { success: true };
+  });
 });
 
 /**

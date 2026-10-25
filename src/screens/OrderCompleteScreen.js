@@ -55,6 +55,14 @@ const OrderCompleteScreen = ({ navigation, route }) => {
     });
   };
 
+  const handleShowHistory = () =>
+    navigation.navigate("OrderHistory", {
+      restaurantId: route.params.restaurantId,
+      tableId: route.params.tableId,
+      restaurant,
+      table,
+    });
+
   // 最初から始める
   const handleStartOver = () => {
     navigation.reset({
@@ -228,6 +236,24 @@ const OrderCompleteScreen = ({ navigation, route }) => {
             ]}
           >
             {t("追加注文する", "Add More Items", "继续点餐")}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={[
+            styles.secondaryButton,
+            isSmallScreen && styles.secondaryButtonSmall,
+          ]}
+          onPress={handleShowHistory}
+        >
+          <Text
+            style={[
+              styles.secondaryButtonText,
+              isSmallScreen && styles.secondaryButtonTextSmall,
+            ]}
+          >
+            {t("注文履歴を見る", "View your orders", "查看订单记录")}
           </Text>
         </TouchableOpacity>
 

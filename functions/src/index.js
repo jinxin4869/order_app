@@ -26,6 +26,8 @@ exports.batchTranslateMenu = translation.batchTranslateMenu;
 // ===== 注文関連 =====
 exports.createOrder = orders.createOrder;
 exports.getOrderRequest = orders.getOrderRequest;
+exports.listVisitOrders = orders.listVisitOrders;
+exports.closeTableVisit = orders.closeTableVisit;
 exports.updateOrderStatus = orders.updateOrderStatus;
 exports.listStaffOrders = orders.listStaffOrders;
 exports.getStaffOrder = orders.getStaffOrder;

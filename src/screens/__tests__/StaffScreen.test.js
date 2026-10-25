@@ -17,6 +17,7 @@ jest.mock("../../services/api", () => ({
   listStaffOrders: jest.fn(),
   getStaffOrder: jest.fn(),
   updateOrderStatus: jest.fn(),
+  closeTableVisit: jest.fn(),
 }));
 jest.mock("../../utils/dialogs", () => ({ showAlert: jest.fn() }));
 jest.mock("../../hooks/useNetworkStatus", () => ({
@@ -470,14 +471,9 @@ test("without sound support the staff are told to watch the screen", async () =>
   ).toBeTruthy();
 });
 test("offline is shown, and coming back online or to the app fetches at once", async () => {
+  // Record the handler without replacing AppState's own (mock) behaviour.
   const { AppState } = require("react-native");
-  let onAppState;
-  const listen = jest
-    .spyOn(AppState, "addEventListener")
-    .mockImplementation((type, handler) => {
-      onAppState = handler;
-      return { remove: jest.fn() };
-    });
+  const listen = jest.spyOn(AppState, "addEventListener");
   useNetworkStatus.mockReturnValue({ isOnline: false });
   const screen = await render(<StaffScreen />);
   expect(
@@ -490,10 +486,33 @@ test("offline is shown, and coming back online or to the app fetches at once", a
     expect(listStaffOrders.mock.calls.length).toBe(calls + 1)
   );
   expect(screen.queryByText(/オフラインです/)).toBeNull();
+  const onAppState = listen.mock.calls.find(([type]) => type === "change")[1];
   await act(async () => onAppState("active"));
   await waitFor(() =>
     expect(listStaffOrders.mock.calls.length).toBe(calls + 2)
   );
-  listen.mockRestore();
   useNetworkStatus.mockReturnValue({ isOnline: true });
+});
+test("staff can end the table's visit after confirming", async () => {
+  const { closeTableVisit } = require("../../services/api");
+  closeTableVisit.mockResolvedValue({ success: true });
+  getStaffOrder.mockResolvedValue({
+    order: { ...order, table_id: "table-test" },
+  });
+  const screen = await render(<StaffScreen />);
+  await fireEvent.press(
+    await screen.findByRole("button", { name: "注文 20261009-001 未受付" })
+  );
+  await fireEvent.press(
+    await screen.findByRole("button", {
+      name: "このテーブルの来店を終了する",
+    })
+  );
+  expect(closeTableVisit).not.toHaveBeenCalled();
+  const confirm = showAlert.mock.calls[0][2].find(
+    (button) => button.text === "終了する"
+  );
+  await act(async () => confirm.onPress());
+  expect(closeTableVisit).toHaveBeenCalledWith("table-test");
+  expect(screen.getByText("テーブル 1の来店を終了しました。")).toBeTruthy();
 });

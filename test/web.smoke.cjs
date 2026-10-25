@@ -211,8 +211,26 @@ const server = http.createServer((req, res) => {
             orderId: loseOrderResponses ? "lost-order" : "test-order",
             orderNumber: loseOrderResponses ? "20261009-003" : "20261009-001",
           };
-          acceptedOrders.set(data.requestId, result);
+          acceptedOrders.set(data.requestId, {
+            ...result,
+            visitId: data.visitId,
+            total: data.totalAmount,
+          });
           if (loseOrderResponses) return route.abort("failed");
+        } else if (name === "listVisitOrders") {
+          result = {
+            closed: false,
+            orders: [...acceptedOrders.values()]
+              .filter((saved) => saved.visitId === data.visitId)
+              .map((saved) => ({
+                id: saved.orderId,
+                order_number: saved.orderNumber,
+                status: "pending",
+                total_amount: saved.total,
+                created_at: Date.now(),
+                items: [{ name_ja: "テスト料理", quantity: 1 }],
+              })),
+          };
         } else if (name === "getOrderRequest") {
           const saved = acceptedOrders.get(data.requestId);
           result = saved
@@ -509,6 +527,23 @@ const server = http.createServer((req, res) => {
         .getByRole("button", { name: "注文内容を見る", exact: true })
         .click();
       await page.getByText("20261009-003", { exact: true }).waitFor();
+      // The device's visit lists both orders it sent from this table.
+      await page
+        .getByRole("button", { name: "注文履歴を見る", exact: true })
+        .click();
+      await page
+        .getByText(/^この端末から送った注文だけを表示します。/)
+        .waitFor();
+      for (const number of ["20261009-001", "20261009-003"])
+        await page
+          .getByText(number, { exact: true })
+          .filter({ visible: true })
+          .last()
+          .waitFor();
+      assert.equal(
+        await page.getByText("受付待ち", { exact: true }).count(),
+        2
+      );
       assert.equal(
         calls.filter((c) => c.name === "createOrder").length,
         ordersBefore + lost.length
