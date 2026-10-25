@@ -284,6 +284,13 @@ const server = http.createServer((req, res) => {
         ),
         fullPage: true,
       });
+      // "Add more" must return to the existing menu and drop the completed
+      // order from the stack, not push a second menu on top of it.
+      await page.getByText("追加注文する", { exact: true }).click();
+      await page.getByText("テスト料理", { exact: true }).waitFor();
+      await page
+        .getByText("20261009-001", { exact: true })
+        .waitFor({ state: "detached", timeout: 5000 });
       console.log(
         "PASS",
         viewport.width,
