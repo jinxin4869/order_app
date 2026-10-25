@@ -569,3 +569,29 @@ test("staff see the number from order time, and legacy orders keep their ID", as
     table_number: null,
   });
 });
+test("the sending device can learn whether its request was accepted", async () => {
+  const accepted = await api.createOrder({ data: order() });
+  const check = (data) =>
+    api.getOrderRequest({
+      data: {
+        restaurantId: "rest-test",
+        tableId: "table-test",
+        requestId: "request-test-0001",
+        ...data,
+      },
+    });
+  expect(await check({})).toEqual({
+    accepted: true,
+    orderId: accepted.orderId,
+    orderNumber: accepted.orderNumber,
+  });
+  // The same ID under another table, or another ID, reveals nothing.
+  expect(await check({ tableId: "table-other" })).toEqual({ accepted: false });
+  expect(await check({ requestId: "request-test-0002" })).toEqual({
+    accepted: false,
+  });
+  for (const bad of [{ requestId: undefined }, { tableId: "../x" }])
+    await expect(check(bad)).rejects.toMatchObject({
+      code: "invalid-argument",
+    });
+});

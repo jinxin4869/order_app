@@ -63,6 +63,14 @@ const tableNumberOf = (value) =>
       ? String(value)
       : null;
 
+// Processed requests are keyed by store, table and the client's random ID.
+const orderRequestRef = ({ restaurantId, tableId, requestId }) =>
+  db.collection("order_requests").doc(
+    createHash("sha256")
+      .update(JSON.stringify([restaurantId, tableId, requestId]))
+      .digest("hex")
+  );
+
 // ===== Cloud Functions =====
 
 /**
@@ -85,10 +93,7 @@ exports.createOrder = onAppCall({}, async (request) => {
       })
     )
     .digest("hex");
-  const requestKey = createHash("sha256")
-    .update(JSON.stringify([data.restaurantId, data.tableId, data.requestId]))
-    .digest("hex");
-  const requestRef = db.collection("order_requests").doc(requestKey);
+  const requestRef = orderRequestRef(data);
   const orderRef = db.collection("orders").doc();
   const restaurantRef = db.collection("restaurants").doc(data.restaurantId);
   const tableRef = restaurantRef.collection("tables").doc(data.tableId);
@@ -298,6 +303,24 @@ exports.createOrder = onAppCall({}, async (request) => {
       "注文の作成中に予期せぬエラーが発生しました。"
     );
   }
+});
+
+/**
+ * 送信結果が不明な注文の受付状況を確認する。
+ * requestId は送信した端末だけが持つ乱数で、それを知らなければ結果を得られない。
+ */
+exports.getOrderRequest = onAppCall({}, async (request) => {
+  const { restaurantId, tableId, requestId } = request.data || {};
+  if (![restaurantId, tableId, requestId].every(isDocumentId))
+    throw new HttpsError("invalid-argument", "確認する注文の指定が不正です");
+  const saved = await orderRequestRef({
+    restaurantId,
+    tableId,
+    requestId,
+  }).get();
+  if (!saved.exists) return { accepted: false };
+  const { orderId, orderNumber } = saved.data().result;
+  return { accepted: true, orderId, orderNumber };
 });
 
 /**

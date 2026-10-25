@@ -120,6 +120,25 @@ async function main() {
     assert.equal(new Set(results.map((order) => order.orderId)).size, 1);
     assert.equal(new Set(results.map((order) => order.orderNumber)).size, 1);
     assert.equal((await serverDb.collection("orders").get()).size, 1);
+    // Only the device holding the request ID can learn the result.
+    const { getOrderRequest } = require("../functions/src/orders");
+    const ask = (requestId) =>
+      getOrderRequest.run({
+        data: { restaurantId: "rest-test", tableId: "table-test", requestId },
+      });
+    assert.deepEqual(await ask(orderData.requestId), {
+      accepted: true,
+      orderId: result.orderId,
+      orderNumber: result.orderNumber,
+    });
+    assert.deepEqual(await ask("request-emulator-unknown"), {
+      accepted: false,
+    });
+    const processed = await serverDb.collection("order_requests").get();
+    for (const db of [anonymous, staff])
+      await assertFails(
+        getDoc(doc(db, `order_requests/${processed.docs[0].id}`))
+      );
     const distinct = await Promise.all(
       Array.from({ length: 6 }, (_, index) =>
         createOrder.run({
