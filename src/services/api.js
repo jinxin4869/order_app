@@ -174,6 +174,10 @@ const staffChange = (name) => async (data) => {
 export const setMenuItemAvailability = staffChange("setMenuItemAvailability");
 export const setOrderingAvailability = staffChange("setOrderingAvailability");
 export const correctOrderItems = staffChange("correctOrderItems");
+export const getDailyStats = async (day) => {
+  const result = await httpsCallable(functions, "getDailyStats")({ day });
+  return result.data;
+};
 
 /**
  * 注文ステータスを更新する

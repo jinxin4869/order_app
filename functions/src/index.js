@@ -30,6 +30,7 @@ exports.listVisitOrders = orders.listVisitOrders;
 exports.closeTableVisit = orders.closeTableVisit;
 exports.updateOrderStatus = orders.updateOrderStatus;
 exports.correctOrderItems = orders.correctOrderItems;
+exports.getDailyStats = require("./orders/stats").getDailyStats;
 exports.listStaffOrders = orders.listStaffOrders;
 exports.getStaffOrder = orders.getStaffOrder;
 

@@ -379,6 +379,7 @@ exports.createOrder = onAppCall({}, async (request) => {
         created_at: FieldValue.serverTimestamp(),
         updated_at: FieldValue.serverTimestamp(),
         confirmed_at: null,
+        served_at: null,
         completed_at: null,
       };
 
@@ -872,6 +873,9 @@ exports.updateOrderStatus = onAppCall({}, async (request) => {
     };
     if (newStatus === ORDER_STATUS.CONFIRMED)
       update.confirmed_at = FieldValue.serverTimestamp();
+    // Served time feeds the daily "until served" figures.
+    if (newStatus === ORDER_STATUS.SERVED)
+      update.served_at = FieldValue.serverTimestamp();
     if (newStatus === ORDER_STATUS.COMPLETED)
       update.completed_at = FieldValue.serverTimestamp();
     transaction.update(orderRef, update);

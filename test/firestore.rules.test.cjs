@@ -436,6 +436,18 @@ async function main() {
     await assertFails(
       getDoc(doc(anonymous, `orders/${target}/corrections/fix-emulator-a`))
     );
+    // Daily figures read the store's orders of one business day.
+    const { getDailyStats } = require("../functions/src/orders/stats");
+    const daily = await getDailyStats.run({ auth: reactivated, data: {} });
+    const placedToday = (
+      await serverDb
+        .collection("orders")
+        .where("restaurant_id", "==", "rest-test")
+        .where("business_day", "==", daily.day)
+        .get()
+    ).size;
+    assert.equal(daily.orders.total, placedToday);
+    assert.ok(daily.orders.cancelled >= 1);
     // A device's visit lists only its own orders until staff clear the table.
     await serverDb
       .doc("restaurants/rest-test/tables/table-visit")
