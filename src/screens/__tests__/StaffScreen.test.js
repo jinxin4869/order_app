@@ -208,6 +208,68 @@ test("changing the order filter clears old rows and ignores an earlier in-flight
   ).toBeTruthy();
   expect(listStaffOrders).toHaveBeenLastCalledWith({ view: "all" });
 });
+const newOrder = { ...order, id: "new", order_number: "20261009-002" };
+const receiveNewOrder = async (screen) => {
+  listStaffOrders.mockResolvedValueOnce({
+    orders: [newOrder, order],
+    hasMore: false,
+    cursor: order.id,
+  });
+  await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+  return screen.findByRole("button", { name: "新着 1件を確認" });
+};
+test("on a phone, checking new orders leaves the detail and keeps each new row marked until opened", async () => {
+  const screen = await render(<StaffScreen />);
+  await fireEvent.press(
+    await screen.findByRole("button", { name: "注文 20261009-001 未受付" })
+  );
+  await screen.findByText("要望：ねぎ抜き");
+  await fireEvent.press(await receiveNewOrder(screen));
+  expect(screen.queryByRole("button", { name: "一覧に戻る" })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: /^新着 \d+件を確認$/ })
+  ).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "注文 20261009-002 未受付 新着" })
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "注文 20261009-001 未受付" })
+  ).toBeTruthy();
+  getStaffOrder.mockResolvedValueOnce({ order: newOrder });
+  await fireEvent.press(
+    screen.getByRole("button", { name: "注文 20261009-002 未受付 新着" })
+  );
+  await fireEvent.press(
+    await screen.findByRole("button", { name: "一覧に戻る" })
+  );
+  expect(
+    await screen.findByRole("button", { name: "注文 20261009-002 未受付" })
+  ).toBeTruthy();
+  expect(screen.queryByText("新着")).toBeNull();
+});
+test("on a wide screen, checking new orders keeps the open detail beside the list", async () => {
+  const RN = require("react-native");
+  const wide = jest
+    .spyOn(RN, "useWindowDimensions", "get")
+    .mockReturnValue(() => ({
+      width: 1200,
+      height: 900,
+      scale: 1,
+      fontScale: 1,
+    }));
+  const screen = await render(<StaffScreen />);
+  await fireEvent.press(
+    await screen.findByRole("button", { name: "注文 20261009-001 未受付" })
+  );
+  await screen.findByText("要望：ねぎ抜き");
+  await fireEvent.press(await receiveNewOrder(screen));
+  expect(screen.getByText("要望：ねぎ抜き")).toBeTruthy();
+  expect(screen.getByText("新着")).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: /^新着 \d+件を確認$/ })
+  ).toBeNull();
+  wide.mockRestore();
+});
 test("rows and details show the table number, or the ID when an old order has none", async () => {
   const legacy = {
     ...order,
