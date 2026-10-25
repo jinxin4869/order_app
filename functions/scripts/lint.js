@@ -2,8 +2,8 @@ const { ESLint } = require("eslint");
 const path = require("path");
 (async () => {
   const eslint = new ESLint({
-    useEslintrc: false,
-    overrideConfigFile: path.join(__dirname, "../.eslintrc.js"),
+    cwd: path.join(__dirname, ".."),
+    overrideConfigFile: path.join(__dirname, "../eslint.config.js"),
   });
   const results = await eslint.lintFiles([
     "src/**/*.js",

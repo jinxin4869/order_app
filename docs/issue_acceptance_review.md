@@ -31,9 +31,9 @@
 
 旧失敗5件の期待値を、推測で漢字とかなを同一視しない／登録済み読みを使う仕様に修正しています。注文・翻訳の実ハンドラ、ルール許可／拒否を検証します。Functions lintは設定を明示して実ファイルを処理し、CIに両方のlint・テストとエミュレーター・Web確認を定義しました。リモートActions実行はPR作成またはmain push時です。
 
-実装: [.github/workflows/checks.yml](../.github/workflows/checks.yml)、[functions/scripts/lint.js](../functions/scripts/lint.js)、[functions/.eslintrc.js](../functions/.eslintrc.js)、[package.json](../package.json)
+実装: [.github/workflows/checks.yml](../.github/workflows/checks.yml)、[functions/scripts/lint.js](../functions/scripts/lint.js)、[functions/eslint.config.js](../functions/eslint.config.js)、[package.json](../package.json)
 
-検証: [functions/src/__tests__/orders.test.js](../functions/src/__tests__/orders.test.js)、[functions/src/__tests__/translation.test.js](../functions/src/__tests__/translation.test.js)、[functions/src/__tests__/synonyms.test.js](../functions/src/__tests__/synonyms.test.js)、[test/firestore.rules.test.cjs](../test/firestore.rules.test.cjs)
+検証: [functions/src/**tests**/orders.test.js](../functions/src/__tests__/orders.test.js)、[functions/src/**tests**/translation.test.js](../functions/src/__tests__/translation.test.js)、[functions/src/**tests**/synonyms.test.js](../functions/src/__tests__/synonyms.test.js)、[test/firestore.rules.test.cjs](../test/firestore.rules.test.cjs)
 
 ## [#6](https://github.com/jinxin4869/order_app/issues/6) Web版の注文・削除確認を動作するダイアログに置き換える
 
@@ -48,7 +48,7 @@
 
 実装: [src/utils/dialogs.js](../src/utils/dialogs.js)、[src/screens/CartScreen.js](../src/screens/CartScreen.js)、[src/screens/QRScannerScreen.js](../src/screens/QRScannerScreen.js)
 
-検証: [src/utils/__tests__/dialogs.test.js](../src/utils/__tests__/dialogs.test.js)、[src/screens/__tests__/CartScreen.test.js](../src/screens/__tests__/CartScreen.test.js)、[src/screens/__tests__/QRScannerScreen.test.js](../src/screens/__tests__/QRScannerScreen.test.js)、[test/web.smoke.cjs](../test/web.smoke.cjs)
+検証: [src/utils/**tests**/dialogs.test.js](../src/utils/__tests__/dialogs.test.js)、[src/screens/**tests**/CartScreen.test.js](../src/screens/__tests__/CartScreen.test.js)、[src/screens/**tests**/QRScannerScreen.test.js](../src/screens/__tests__/QRScannerScreen.test.js)、[test/web.smoke.cjs](../test/web.smoke.cjs)
 
 ## [#7](https://github.com/jinxin4869/order_app/issues/7) 店舗QRのURLからブラウザで直接注文セッションを開始できるようにする
 
@@ -63,7 +63,7 @@ Web URLの識別子を解析し、サーバーで店舗・テーブルの存在�
 
 実装: [src/utils/orderLinks.js](../src/utils/orderLinks.js)、[src/screens/OrderEntryScreen.js](../src/screens/OrderEntryScreen.js)、[functions/src/utils/qr.js](../functions/src/utils/qr.js)、[functions/src/menu/index.js](../functions/src/menu/index.js)、[firebase.json](../firebase.json)
 
-検証: [src/utils/__tests__/orderLinks.test.js](../src/utils/__tests__/orderLinks.test.js)、[src/screens/__tests__/OrderEntryScreen.test.js](../src/screens/__tests__/OrderEntryScreen.test.js)、[functions/src/__tests__/qr.test.js](../functions/src/__tests__/qr.test.js)、[test/web.smoke.cjs](../test/web.smoke.cjs)
+検証: [src/utils/**tests**/orderLinks.test.js](../src/utils/__tests__/orderLinks.test.js)、[src/screens/**tests**/OrderEntryScreen.test.js](../src/screens/__tests__/OrderEntryScreen.test.js)、[functions/src/**tests**/qr.test.js](../functions/src/__tests__/qr.test.js)、[test/web.smoke.cjs](../test/web.smoke.cjs)
 
 ## [#2](https://github.com/jinxin4869/order_app/issues/2) Firestoreへの無条件の注文直接作成を禁止する
 
@@ -91,7 +91,7 @@ Web URLの識別子を解析し、サーバーで店舗・テーブルの存在�
 
 実装: [functions/src/utils/staffAuth.js](../functions/src/utils/staffAuth.js)、[functions/src/orders/index.js](../functions/src/orders/index.js)、[functions/src/translation/index.js](../functions/src/translation/index.js)
 
-検証: [functions/src/__tests__/orders.test.js](../functions/src/__tests__/orders.test.js)、[functions/src/__tests__/translation.test.js](../functions/src/__tests__/translation.test.js)
+検証: [functions/src/**tests**/orders.test.js](../functions/src/__tests__/orders.test.js)、[functions/src/**tests**/translation.test.js](../functions/src/__tests__/translation.test.js)
 
 ## [#11](https://github.com/jinxin4869/order_app/issues/11) 注文入力の型・数量・備考・多言語項目の契約を統一する
 
@@ -106,7 +106,7 @@ DB参照前にID・配列・要素・金額・整数数量・文字数を検証�
 
 実装: [functions/src/utils/orderInput.js](../functions/src/utils/orderInput.js)、[functions/src/orders/index.js](../functions/src/orders/index.js)、[docs/order_api.md](../docs/order_api.md)
 
-検証: [functions/src/__tests__/orders.test.js](../functions/src/__tests__/orders.test.js)
+検証: [functions/src/**tests**/orders.test.js](../functions/src/__tests__/orders.test.js)
 
 ## [#3](https://github.com/jinxin4869/order_app/issues/3) 注文時にメニューマスターの価格・販売可否・営業状態を検証する
 
@@ -121,7 +121,7 @@ DB参照前にID・配列・要素・金額・整数数量・文字数を検証�
 
 実装: [functions/src/orders/index.js](../functions/src/orders/index.js)、[docs/order_api.md](../docs/order_api.md)
 
-検証: [functions/src/__tests__/orders.test.js](../functions/src/__tests__/orders.test.js)
+検証: [functions/src/**tests**/orders.test.js](../functions/src/__tests__/orders.test.js)
 
 ## [#4](https://github.com/jinxin4869/order_app/issues/4) 注文作成を冪等化し、注文保存とテーブル更新を原子的に行う
 
@@ -136,7 +136,7 @@ DB参照前にID・配列・要素・金額・整数数量・文字数を検証�
 
 実装: [src/hooks/useCart.js](../src/hooks/useCart.js)、[src/services/api.js](../src/services/api.js)、[functions/src/orders/index.js](../functions/src/orders/index.js)
 
-検証: [functions/src/__tests__/orders.test.js](../functions/src/__tests__/orders.test.js)、[src/hooks/__tests__/useCart.test.js](../src/hooks/__tests__/useCart.test.js)、[test/firestore.rules.test.cjs](../test/firestore.rules.test.cjs)
+検証: [functions/src/**tests**/orders.test.js](../functions/src/__tests__/orders.test.js)、[src/hooks/**tests**/useCart.test.js](../src/hooks/__tests__/useCart.test.js)、[test/firestore.rules.test.cjs](../test/firestore.rules.test.cjs)
 
 ## [#5](https://github.com/jinxin4869/order_app/issues/5) 日次注文番号をトランザクションで採番し、営業日のタイムゾーンを統一する
 
@@ -151,7 +151,7 @@ DB参照前にID・配列・要素・金額・整数数量・文字数を検証�
 
 実装: [functions/src/utils/businessDay.js](../functions/src/utils/businessDay.js)、[functions/src/orders/index.js](../functions/src/orders/index.js)、[docs/order_api.md](../docs/order_api.md)
 
-検証: [functions/src/__tests__/businessDay.test.js](../functions/src/__tests__/businessDay.test.js)、[functions/src/__tests__/orders.test.js](../functions/src/__tests__/orders.test.js)、[test/firestore.rules.test.cjs](../test/firestore.rules.test.cjs)
+検証: [functions/src/**tests**/businessDay.test.js](../functions/src/__tests__/businessDay.test.js)、[functions/src/**tests**/orders.test.js](../functions/src/__tests__/orders.test.js)、[test/firestore.rules.test.cjs](../test/firestore.rules.test.cjs)
 
 ## [#12](https://github.com/jinxin4869/order_app/issues/12) カートを店舗・テーブルのセッション単位で管理する
 
@@ -166,7 +166,7 @@ DB参照前にID・配列・要素・金額・整数数量・文字数を検証�
 
 実装: [src/hooks/useCart.js](../src/hooks/useCart.js)、[src/utils/cartSession.js](../src/utils/cartSession.js)、[src/navigation/AppNavigator.js](../src/navigation/AppNavigator.js)、[src/screens/CartScreen.js](../src/screens/CartScreen.js)
 
-検証: [src/navigation/__tests__/cartSession.test.js](../src/navigation/__tests__/cartSession.test.js)、[src/hooks/__tests__/useCart.test.js](../src/hooks/__tests__/useCart.test.js)
+検証: [src/navigation/**tests**/cartSession.test.js](../src/navigation/__tests__/cartSession.test.js)、[src/hooks/**tests**/useCart.test.js](../src/hooks/__tests__/useCart.test.js)
 
 ## [#13](https://github.com/jinxin4869/order_app/issues/13) カートの数量上限を画面・フック・APIで統一する
 
@@ -181,7 +181,7 @@ DB参照前にID・配列・要素・金額・整数数量・文字数を検証�
 
 実装: [functions/src/utils/orderLimits.js](../functions/src/utils/orderLimits.js)、[src/hooks/useCart.js](../src/hooks/useCart.js)、[src/screens/ItemDetailScreen.js](../src/screens/ItemDetailScreen.js)、[src/screens/CartScreen.js](../src/screens/CartScreen.js)
 
-検証: [src/hooks/__tests__/useCart.test.js](../src/hooks/__tests__/useCart.test.js)、[src/screens/__tests__/ItemDetailScreen.test.js](../src/screens/__tests__/ItemDetailScreen.test.js)、[src/screens/__tests__/CartScreen.test.js](../src/screens/__tests__/CartScreen.test.js)、[functions/src/__tests__/orders.test.js](../functions/src/__tests__/orders.test.js)
+検証: [src/hooks/**tests**/useCart.test.js](../src/hooks/__tests__/useCart.test.js)、[src/screens/**tests**/ItemDetailScreen.test.js](../src/screens/__tests__/ItemDetailScreen.test.js)、[src/screens/**tests**/CartScreen.test.js](../src/screens/__tests__/CartScreen.test.js)、[functions/src/**tests**/orders.test.js](../functions/src/__tests__/orders.test.js)
 
 ## [#9](https://github.com/jinxin4869/order_app/issues/9) メニュー一括翻訳にもDeepL Secretを明示的にバインドする
 
@@ -195,7 +195,7 @@ DB参照前にID・配列・要素・金額・整数数量・文字数を検証�
 
 実装: [functions/src/translation/index.js](../functions/src/translation/index.js)
 
-検証: [functions/src/__tests__/translation.test.js](../functions/src/__tests__/translation.test.js)
+検証: [functions/src/**tests**/translation.test.js](../functions/src/__tests__/translation.test.js)
 
 ## [#10](https://github.com/jinxin4869/order_app/issues/10) 2文字以下の料理名を翻訳から除外しない
 
@@ -209,7 +209,7 @@ DB参照前にID・配列・要素・金額・整数数量・文字数を検証�
 
 実装: [functions/src/translation/index.js](../functions/src/translation/index.js)
 
-検証: [functions/src/__tests__/translation.test.js](../functions/src/__tests__/translation.test.js)
+検証: [functions/src/**tests**/translation.test.js](../functions/src/__tests__/translation.test.js)
 
 ## [#8](https://github.com/jinxin4869/order_app/issues/8) 辞書による翻訳補正が誤訳を実際に修正するようにする
 
@@ -224,7 +224,7 @@ DB参照前にID・配列・要素・金額・整数数量・文字数を検証�
 
 実装: [functions/src/translation/index.js](../functions/src/translation/index.js)、[functions/src/morphological/synonyms.js](../functions/src/morphological/synonyms.js)、[docs/translation_contract.md](../docs/translation_contract.md)
 
-検証: [functions/src/__tests__/translation.test.js](../functions/src/__tests__/translation.test.js)、[functions/src/__tests__/synonyms.test.js](../functions/src/__tests__/synonyms.test.js)、[src/utils/__tests__/translationDisplay.test.js](../src/utils/__tests__/translationDisplay.test.js)
+検証: [functions/src/**tests**/translation.test.js](../functions/src/__tests__/translation.test.js)、[functions/src/**tests**/synonyms.test.js](../functions/src/__tests__/synonyms.test.js)、[src/utils/**tests**/translationDisplay.test.js](../src/utils/__tests__/translationDisplay.test.js)
 
 ## [#18](https://github.com/jinxin4869/order_app/issues/18) 翻訳比較モードで辞書なし結果への辞書あり混入を防ぐ
 
@@ -239,7 +239,7 @@ DB参照前にID・配列・要素・金額・整数数量・文字数を検証�
 
 実装: [functions/src/translation/index.js](../functions/src/translation/index.js)、[functions/src/menu/index.js](../functions/src/menu/index.js)、[src/utils/translationDisplay.js](../src/utils/translationDisplay.js)、[src/screens/ItemDetailScreen.js](../src/screens/ItemDetailScreen.js)、[src/hooks/useCart.js](../src/hooks/useCart.js)
 
-検証: [functions/src/__tests__/translation.test.js](../functions/src/__tests__/translation.test.js)、[src/utils/__tests__/translationDisplay.test.js](../src/utils/__tests__/translationDisplay.test.js)、[src/screens/__tests__/cartTranslationFlow.test.js](../src/screens/__tests__/cartTranslationFlow.test.js)、[test/web.smoke.cjs](../test/web.smoke.cjs)
+検証: [functions/src/**tests**/translation.test.js](../functions/src/__tests__/translation.test.js)、[src/utils/**tests**/translationDisplay.test.js](../src/utils/__tests__/translationDisplay.test.js)、[src/screens/**tests**/cartTranslationFlow.test.js](../src/screens/__tests__/cartTranslationFlow.test.js)、[test/web.smoke.cjs](../test/web.smoke.cjs)
 
 ## [#19](https://github.com/jinxin4869/order_app/issues/19) 店舗スタッフ向けの注文受付・状態更新画面を実装する
 
@@ -255,7 +255,7 @@ DB参照前にID・配列・要素・金額・整数数量・文字数を検証�
 
 実装: [src/services/staffAuth.js](../src/services/staffAuth.js)、[src/screens/StaffScreen.js](../src/screens/StaffScreen.js)、[functions/src/orders/index.js](../functions/src/orders/index.js)、[functions/src/utils/orderStatus.js](../functions/src/utils/orderStatus.js)、[docs/staff_access.md](../docs/staff_access.md)
 
-検証: [src/services/__tests__/staffAuth.test.js](../src/services/__tests__/staffAuth.test.js)、[src/screens/__tests__/StaffScreen.test.js](../src/screens/__tests__/StaffScreen.test.js)、[functions/src/__tests__/orders.test.js](../functions/src/__tests__/orders.test.js)、[test/firestore.rules.test.cjs](../test/firestore.rules.test.cjs)、[test/web.smoke.cjs](../test/web.smoke.cjs)
+検証: [src/services/**tests**/staffAuth.test.js](../src/services/__tests__/staffAuth.test.js)、[src/screens/**tests**/StaffScreen.test.js](../src/screens/__tests__/StaffScreen.test.js)、[functions/src/**tests**/orders.test.js](../functions/src/__tests__/orders.test.js)、[test/firestore.rules.test.cjs](../test/firestore.rules.test.cjs)、[test/web.smoke.cjs](../test/web.smoke.cjs)
 
 ## [#14](https://github.com/jinxin4869/order_app/issues/14) メニューのカテゴリ切替で全メニューを再取得しない
 
@@ -270,7 +270,7 @@ DB参照前にID・配列・要素・金額・整数数量・文字数を検証�
 
 実装: [src/screens/MenuScreen.js](../src/screens/MenuScreen.js)
 
-検証: [src/screens/__tests__/MenuScreen.test.js](../src/screens/__tests__/MenuScreen.test.js)、[test/web.smoke.cjs](../test/web.smoke.cjs)
+検証: [src/screens/**tests**/MenuScreen.test.js](../src/screens/__tests__/MenuScreen.test.js)、[test/web.smoke.cjs](../test/web.smoke.cjs)
 
 ## [#17](https://github.com/jinxin4869/order_app/issues/17) READMEの初期構築・テスト・データ投入手順を現行実装に合わせる
 
