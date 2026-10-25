@@ -498,6 +498,20 @@ const OrderConsole = ({ session }) => {
               {lastRefresh ? ` · 最終取得 ${dateLabel(lastRefresh)}` : ""}
             </Text>
             {!!soundMessage && <Text style={styles.muted}>{soundMessage}</Text>}
+            {listing.limitAlert && (
+              <Text accessibilityRole="alert" style={styles.error}>
+                直近1時間に、短時間の連続注文の制限が{listing.limitAlert.count}
+                回ありました（最後：
+                {listing.limitAlert.lastTableNumber
+                  ? `テーブル ${listing.limitAlert.lastTableNumber}`
+                  : `テーブルID ${listing.limitAlert.lastTableId}`}
+                ）。
+                {listing.limitAlert.enforced
+                  ? "該当の注文は受け付けていません。"
+                  : "記録のみで、注文は受け付けています。"}
+                異常な注文が続く場合は、メニュー管理で注文受付を停止してください。
+              </Text>
+            )}
             {Number.isInteger(listing.pendingCount) && (
               <Text style={styles.summary}>
                 未受付 {listing.pendingCount}件（店舗全体）
