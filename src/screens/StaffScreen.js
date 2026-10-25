@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  AppState,
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -28,6 +29,13 @@ import {
   closeTableVisit,
 } from "../services/api";
 import { showAlert } from "../utils/dialogs";
+import { useNetworkStatus } from "../hooks/useNetworkStatus";
+import {
+  enableAlertSound,
+  disableAlertSound,
+  playNewOrderAlert,
+  showTitleBadge,
+} from "../utils/newOrderAlert";
 
 const Action = ({ children, onPress, disabled, secondary = false }) => (
   <Pressable
@@ -63,6 +71,13 @@ const tableLabel = (order) =>
   order.table_number
     ? `テーブル ${order.table_number}`
     : `テーブル番号未記録（ID: ${order.table_id}）`;
+// Minutes since the order was placed, for orders still being handled.
+const ACTIVE = ["pending", "confirmed", "preparing", "ready", "served"];
+const LONG_WAIT_MINUTES = 10;
+const waitedMinutes = (order, now) =>
+  ACTIVE.includes(order.status) && order.created_at
+    ? Math.max(0, Math.floor((now - order.created_at) / 60000))
+    : null;
 const actionLabels = {
   confirmed: "注文を受け付ける",
   preparing: "調理を開始する",
@@ -74,7 +89,15 @@ const actionLabels = {
 
 const OrderConsole = ({ session }) => {
   const wide = useWindowDimensions().width >= 900;
+  const { isOnline } = useNetworkStatus();
   const [view, setView] = useState("active");
+  const [sort, setSort] = useState("newest");
+  const [statusFilter, setStatusFilter] = useState(null);
+  const [tableFilter, setTableFilter] = useState("");
+  const [soundOn, setSoundOn] = useState(false);
+  const [soundMessage, setSoundMessage] = useState("");
+  const soundRef = useRef(false);
+  const [now, setNow] = useState(() => Date.now());
   const [listing, setListing] = useState({
     orders: [],
     hasMore: false,
@@ -107,6 +130,7 @@ const OrderConsole = ({ session }) => {
       try {
         const result = await listStaffOrders({
           view,
+          sort,
           ...(more ? { cursor: listing.cursor } : {}),
         });
         if (current !== generation.current) return;
@@ -116,8 +140,10 @@ const OrderConsole = ({ session }) => {
               .filter((order) => !seen.current.has(order.id))
               .map((order) => order.id);
             setNewCount((count) => count + added.length);
-            if (added.length)
+            if (added.length) {
               setFresh((previous) => new Set([...previous, ...added]));
+              if (soundRef.current) playNewOrderAlert();
+            }
           }
           seen.current = new Set([
             ...(seen.current || []),
@@ -162,7 +188,7 @@ const OrderConsole = ({ session }) => {
         }
       }
     },
-    [view, listing.cursor]
+    [view, sort, listing.cursor]
   );
   const refreshRef = useRef(refresh);
   useEffect(() => {
@@ -176,12 +202,54 @@ const OrderConsole = ({ session }) => {
     const lifetime = generation;
     const detailLifetime = detailRequest;
     const timer = setInterval(() => refreshRef.current({ quiet: true }), 15000);
+    // Coming back from sleep or another tab: fetch at once instead of waiting.
+    const resume = AppState.addEventListener("change", (state) => {
+      if (state === "active") refreshRef.current({ quiet: true });
+    });
     return () => {
       clearInterval(timer);
+      resume.remove();
       lifetime.current++;
       detailLifetime.current++;
     };
-  }, [view]);
+  }, [view, sort]);
+  const wasOnline = useRef(isOnline);
+  useEffect(() => {
+    if (isOnline && !wasOnline.current) refreshRef.current({ quiet: true });
+    wasOnline.current = isOnline;
+  }, [isOnline]);
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(tick);
+  }, []);
+  useEffect(() => {
+    showTitleBadge(newCount);
+  }, [newCount]);
+  useEffect(
+    () => () => {
+      showTitleBadge(0);
+      disableAlertSound();
+    },
+    []
+  );
+  const toggleSound = () => {
+    if (soundOn) {
+      disableAlertSound();
+      soundRef.current = false;
+      setSoundOn(false);
+      return;
+    }
+    // Browsers allow sound only after a user action, so enable it here.
+    if (enableAlertSound()) {
+      soundRef.current = true;
+      setSoundOn(true);
+      setSoundMessage("");
+      playNewOrderAlert();
+    } else
+      setSoundMessage(
+        "この端末では通知音を使えません。新着は画面の「新着」の表示で確認してください。"
+      );
+  };
 
   const openOrder = async (id) => {
     const request = ++detailRequest.current;
@@ -279,6 +347,15 @@ const OrderConsole = ({ session }) => {
     setNotice("");
   };
   const detailVisible = selected || selectedId;
+  const tableQuery = tableFilter.trim();
+  const filtering = !!statusFilter || !!tableQuery;
+  // Filters apply to the rows already loaded; the counts above do not change.
+  const shownOrders = listing.orders.filter(
+    (order) =>
+      (!statusFilter || order.status === statusFilter) &&
+      (!tableQuery ||
+        String(order.table_number ?? order.table_id).includes(tableQuery))
+  );
   // Show the list where the new rows are (newest first) before clearing the
   // banner; each row keeps its "新着" mark until that order is opened.
   const showNewOrders = () => {
@@ -333,6 +410,32 @@ const OrderConsole = ({ session }) => {
               </Text>
             </Pressable>
           ))}
+          {[
+            ["newest", "新しい順"],
+            ["oldest", "待ち時間順"],
+          ].map(([key, label]) => (
+            <Pressable
+              key={key}
+              accessibilityRole="button"
+              accessibilityState={{
+                selected: sort === key,
+                disabled: updating,
+              }}
+              disabled={updating}
+              onPress={() => {
+                if (key === sort) return;
+                setListing({ orders: [], hasMore: false, cursor: null });
+                setNewCount(0);
+                setFresh(new Set());
+                setSort(key);
+              }}
+              style={[styles.tab, sort === key && styles.tabSelected]}
+            >
+              <Text style={sort === key ? styles.tabTextSelected : styles.text}>
+                {label}
+              </Text>
+            </Pressable>
+          ))}
           <Action
             secondary
             disabled={busy || updating}
@@ -340,11 +443,62 @@ const OrderConsole = ({ session }) => {
           >
             更新
           </Action>
+          <Action secondary onPress={toggleSound}>
+            {soundOn ? "通知音：オン" : "通知音をオンにする"}
+          </Action>
         </View>
         <Text style={styles.muted}>
-          15秒ごとに最新50件を取得
+          15秒ごとに{sort === "oldest" ? "待ち時間の長い順に" : "最新の"}
+          50件を取得
           {lastRefresh ? ` · 最終取得 ${dateLabel(lastRefresh)}` : ""}
         </Text>
+        {!!soundMessage && <Text style={styles.muted}>{soundMessage}</Text>}
+        {Number.isInteger(listing.pendingCount) && (
+          <Text style={styles.summary}>
+            未受付 {listing.pendingCount}件（店舗全体）
+          </Text>
+        )}
+        {!isOnline && (
+          <Text accessibilityRole="alert" style={styles.error}>
+            オフラインです。注文を取得できません。表示中の情報は最新ではありません。
+          </Text>
+        )}
+        <View style={styles.toolbar}>
+          {[null, ...ACTIVE].map((status) => (
+            <Pressable
+              key={status || "any"}
+              accessibilityRole="button"
+              accessibilityState={{ selected: statusFilter === status }}
+              onPress={() => setStatusFilter(status)}
+              style={[
+                styles.chip,
+                statusFilter === status && styles.tabSelected,
+              ]}
+            >
+              <Text
+                style={
+                  statusFilter === status ? styles.tabTextSelected : styles.text
+                }
+              >
+                {status ? STATUS_LABELS[status] : "状態：すべて"}
+              </Text>
+            </Pressable>
+          ))}
+          <TextInput
+            accessibilityLabel="テーブル番号で絞り込み"
+            placeholder="テーブル番号"
+            value={tableFilter}
+            onChangeText={setTableFilter}
+            style={[styles.input, styles.tableFilter]}
+          />
+        </View>
+        {filtering && (
+          <Text style={styles.muted}>
+            絞り込み中：読み込み済みの{listing.orders.length}件のうち
+            {shownOrders.length}
+            件を表示（新着と未受付の件数は絞り込みに関係なく数えます）
+          </Text>
+        )}
         {newCount > 0 && (
           <Action secondary disabled={updating} onPress={showNewOrders}>
             新着 {newCount}件を確認
@@ -371,7 +525,7 @@ const OrderConsole = ({ session }) => {
                 {!busy && !listing.orders.length && !error && (
                   <Text style={styles.empty}>対応する注文はありません。</Text>
                 )}
-                {listing.orders.map((order) => (
+                {shownOrders.map((order) => (
                   <Pressable
                     key={order.id}
                     accessibilityRole="button"
@@ -403,8 +557,20 @@ const OrderConsole = ({ session }) => {
                     <Text style={styles.text}>
                       {tableLabel(order)} · {money(order.total_amount)}
                     </Text>
-                    <Text style={styles.muted}>
+                    <Text
+                      style={
+                        order.status === "pending" &&
+                        waitedMinutes(order, now) >= LONG_WAIT_MINUTES
+                          ? styles.longWait
+                          : styles.muted
+                      }
+                    >
                       {dateLabel(order.created_at)}
+                      {waitedMinutes(order, now) !== null &&
+                        ` · 経過 ${waitedMinutes(order, now)}分`}
+                      {order.status === "pending" &&
+                        waitedMinutes(order, now) >= LONG_WAIT_MINUTES &&
+                        " · 待ち時間が長い注文"}
                     </Text>
                   </Pressable>
                 ))}
@@ -719,6 +885,17 @@ const styles = StyleSheet.create({
   },
   status: { color: COLORS.textSecondary, fontWeight: "600" },
   pending: { color: "#B71C1C" },
+  longWait: { color: "#B71C1C", fontWeight: "700" },
+  summary: { fontSize: 16, fontWeight: "700", color: COLORS.text },
+  chip: {
+    minHeight: 40,
+    paddingHorizontal: 12,
+    justifyContent: "center",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  tableFilter: { minWidth: 120, flexGrow: 1 },
   freshBadge: {
     color: "#FFFFFF",
     backgroundColor: "#B71C1C",

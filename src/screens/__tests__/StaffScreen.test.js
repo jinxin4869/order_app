@@ -20,6 +20,15 @@ jest.mock("../../services/api", () => ({
   closeTableVisit: jest.fn(),
 }));
 jest.mock("../../utils/dialogs", () => ({ showAlert: jest.fn() }));
+jest.mock("../../hooks/useNetworkStatus", () => ({
+  useNetworkStatus: jest.fn(() => ({ isOnline: true })),
+}));
+jest.mock("../../utils/newOrderAlert", () => ({
+  enableAlertSound: jest.fn(() => true),
+  disableAlertSound: jest.fn(),
+  playNewOrderAlert: jest.fn(),
+  showTitleBadge: jest.fn(),
+}));
 const order = {
   id: "order-test",
   order_number: "20261009-001",
@@ -148,6 +157,7 @@ test("refresh identifies unseen orders and pagination requests the protected cur
   await screen.findByRole("button", { name: "注文 20261009-000 未受付" });
   expect(listStaffOrders).toHaveBeenLastCalledWith({
     view: "active",
+    sort: "newest",
     cursor: order.id,
   });
   listStaffOrders.mockResolvedValueOnce({
@@ -207,7 +217,10 @@ test("changing the order filter clears old rows and ignores an earlier in-flight
   expect(
     screen.getByRole("button", { name: "注文 20261009-001 対応完了" })
   ).toBeTruthy();
-  expect(listStaffOrders).toHaveBeenLastCalledWith({ view: "all" });
+  expect(listStaffOrders).toHaveBeenLastCalledWith({
+    view: "all",
+    sort: "newest",
+  });
 });
 const newOrder = { ...order, id: "new", order_number: "20261009-002" };
 const receiveNewOrder = async (screen) => {
@@ -357,6 +370,128 @@ test("a cancellation sends the optional reason the staff typed", async () => {
     "pending",
     "品切れ"
   );
+});
+const alerts = require("../../utils/newOrderAlert");
+const { useNetworkStatus } = require("../../hooks/useNetworkStatus");
+test("waiting-time order, store-wide pending count, elapsed minutes and long waits", async () => {
+  listStaffOrders.mockResolvedValue({
+    orders: [{ ...order, created_at: Date.now() - 12 * 60000 }],
+    hasMore: false,
+    cursor: order.id,
+    pendingCount: 3,
+  });
+  const screen = await render(<StaffScreen />);
+  expect(await screen.findByText("未受付 3件（店舗全体）")).toBeTruthy();
+  expect(screen.getByText(/経過 12分 · 待ち時間が長い注文/)).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "待ち時間順" }));
+  await waitFor(() =>
+    expect(listStaffOrders).toHaveBeenLastCalledWith({
+      view: "active",
+      sort: "oldest",
+    })
+  );
+});
+test("filters narrow the loaded rows and say what they hide", async () => {
+  listStaffOrders.mockResolvedValue({
+    orders: [
+      order,
+      {
+        ...order,
+        id: "order-2",
+        order_number: "20261009-002",
+        table_number: "2",
+        status: "preparing",
+      },
+    ],
+    hasMore: false,
+    cursor: "order-2",
+    pendingCount: 1,
+  });
+  const screen = await render(<StaffScreen />);
+  await screen.findByRole("button", { name: "注文 20261009-002 調理中" });
+  await fireEvent.press(screen.getByRole("button", { name: "調理中" }));
+  expect(
+    screen.queryByRole("button", { name: "注文 20261009-001 未受付" })
+  ).toBeNull();
+  expect(screen.getByText(/読み込み済みの2件のうち1件を表示/)).toBeTruthy();
+  expect(screen.getByText("未受付 1件（店舗全体）")).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "状態：すべて" }));
+  await fireEvent.changeText(
+    screen.getByLabelText("テーブル番号で絞り込み"),
+    "1"
+  );
+  expect(
+    screen.getByRole("button", { name: "注文 20261009-001 未受付" })
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "注文 20261009-002 調理中" })
+  ).toBeNull();
+});
+test("sound plays only for orders that arrive after the staff enabled it", async () => {
+  const screen = await render(<StaffScreen />);
+  await screen.findByRole("button", { name: "注文 20261009-001 未受付" });
+  expect(alerts.playNewOrderAlert).not.toHaveBeenCalled();
+  await fireEvent.press(
+    screen.getByRole("button", { name: "通知音をオンにする" })
+  );
+  expect(alerts.enableAlertSound).toHaveBeenCalled();
+  expect(alerts.playNewOrderAlert).toHaveBeenCalledTimes(1);
+  listStaffOrders.mockResolvedValueOnce({
+    orders: [{ ...order, id: "new", order_number: "20261009-002" }, order],
+    hasMore: true,
+    cursor: order.id,
+  });
+  await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+  await screen.findByRole("button", { name: "新着 1件を確認" });
+  expect(alerts.playNewOrderAlert).toHaveBeenCalledTimes(2);
+  expect(alerts.showTitleBadge).toHaveBeenLastCalledWith(1);
+  listStaffOrders.mockResolvedValueOnce({
+    orders: [{ ...order, id: "older", order_number: "20261009-000" }],
+    hasMore: false,
+    cursor: "older",
+  });
+  await fireEvent.press(
+    screen.getByRole("button", { name: "さらに前の注文を読み込む" })
+  );
+  await screen.findByRole("button", { name: "注文 20261009-000 未受付" });
+  expect(alerts.playNewOrderAlert).toHaveBeenCalledTimes(2);
+  await fireEvent.press(screen.getByRole("button", { name: "通知音：オン" }));
+  expect(alerts.disableAlertSound).toHaveBeenCalled();
+});
+test("without sound support the staff are told to watch the screen", async () => {
+  alerts.enableAlertSound.mockReturnValueOnce(false);
+  const screen = await render(<StaffScreen />);
+  await screen.findByRole("button", { name: "注文 20261009-001 未受付" });
+  await fireEvent.press(
+    screen.getByRole("button", { name: "通知音をオンにする" })
+  );
+  expect(screen.getByText(/この端末では通知音を使えません/)).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "通知音をオンにする" })
+  ).toBeTruthy();
+});
+test("offline is shown, and coming back online or to the app fetches at once", async () => {
+  // Record the handler without replacing AppState's own (mock) behaviour.
+  const { AppState } = require("react-native");
+  const listen = jest.spyOn(AppState, "addEventListener");
+  useNetworkStatus.mockReturnValue({ isOnline: false });
+  const screen = await render(<StaffScreen />);
+  expect(
+    await screen.findByText(/オフラインです。注文を取得できません。/)
+  ).toBeTruthy();
+  const calls = listStaffOrders.mock.calls.length;
+  useNetworkStatus.mockReturnValue({ isOnline: true });
+  await screen.rerender(<StaffScreen />);
+  await waitFor(() =>
+    expect(listStaffOrders.mock.calls.length).toBe(calls + 1)
+  );
+  expect(screen.queryByText(/オフラインです/)).toBeNull();
+  const onAppState = listen.mock.calls.find(([type]) => type === "change")[1];
+  await act(async () => onAppState("active"));
+  await waitFor(() =>
+    expect(listStaffOrders.mock.calls.length).toBe(calls + 2)
+  );
+  useNetworkStatus.mockReturnValue({ isOnline: true });
 });
 test("staff can end the table's visit after confirming", async () => {
   const { closeTableVisit } = require("../../services/api");

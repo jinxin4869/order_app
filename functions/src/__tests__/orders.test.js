@@ -707,6 +707,54 @@ test("a failed order update leaves no history record behind", async () => {
   expect(history()).toHaveLength(0);
   expect(mockDb.read("orders/order-test").status).toBe("pending");
 });
+test("staff can list the longest-waiting orders first and always see the pending total", async () => {
+  const at = (minutes) =>
+    new Date(Date.parse("2026-10-25T03:00:00Z") + minutes * 60000);
+  mockDb.seed("orders/old", {
+    restaurant_id: "rest-test",
+    status: "pending",
+    created_at: at(0),
+    items: [],
+  });
+  mockDb.seed("orders/mid", {
+    restaurant_id: "rest-test",
+    status: "preparing",
+    created_at: at(10),
+    items: [],
+  });
+  mockDb.seed("orders/new", {
+    restaurant_id: "rest-test",
+    status: "pending",
+    created_at: at(20),
+    items: [],
+  });
+  mockDb.seed("orders/done", {
+    restaurant_id: "rest-test",
+    status: "completed",
+    created_at: at(5),
+    items: [],
+  });
+  mockDb.seed("orders/foreign", {
+    restaurant_id: "other-store",
+    status: "pending",
+    created_at: at(1),
+    items: [],
+  });
+  const list = (data) => api.listStaffOrders({ auth: staff(), data });
+  const first = await list({ sort: "oldest", limit: 2 });
+  expect(first.orders.map((o) => o.id)).toEqual(["old", "mid"]);
+  expect(first.pendingCount).toBe(2);
+  const next = await list({ sort: "oldest", limit: 2, cursor: first.cursor });
+  expect(next.orders.map((o) => o.id)).toEqual(["new"]);
+  expect((await list({})).orders.map((o) => o.id)).toEqual([
+    "new",
+    "mid",
+    "old",
+  ]);
+  await expect(list({ sort: "random" })).rejects.toMatchObject({
+    code: "invalid-argument",
+  });
+});
 const visitOrder = (id, minutesAgo, overrides = {}) =>
   mockDb.seed(`orders/${id}`, {
     restaurant_id: "rest-test",

@@ -491,9 +491,15 @@ exports.getStaffOrder = onAppCall({}, async (request) => {
 });
 exports.listStaffOrders = onAppCall({}, async (request) => {
   const restaurantId = await requireStaff(request);
-  const { view = "active", cursor = null, limit = 50 } = request.data || {};
+  const {
+    view = "active",
+    sort = "newest",
+    cursor = null,
+    limit = 50,
+  } = request.data || {};
   if (
     !["active", "all"].includes(view) ||
+    !["newest", "oldest"].includes(sort) ||
     !Number.isInteger(limit) ||
     limit < 1 ||
     limit > 100
@@ -510,17 +516,29 @@ exports.listStaffOrders = onAppCall({}, async (request) => {
       "ready",
       "served",
     ]);
-  query = query.orderBy("created_at", "desc").orderBy("__name__", "desc");
+  // "oldest" puts the longest-waiting orders first, beyond the latest 50.
+  const direction = sort === "oldest" ? "asc" : "desc";
+  query = query.orderBy("created_at", direction).orderBy("__name__", direction);
   if (cursor !== null) {
     const after = await getStaffOrderRef(cursor, restaurantId);
     if (!after.data().created_at)
       throw new HttpsError("invalid-argument", "一覧を再取得してください");
     query = query.startAfter(after);
   }
-  const snapshot = await query.limit(limit + 1).get();
+  const [snapshot, pending] = await Promise.all([
+    query.limit(limit + 1).get(),
+    // Every unconfirmed order of the store, not only the rows on this page.
+    db
+      .collection("orders")
+      .where("restaurant_id", "==", restaurantId)
+      .where("status", "==", ORDER_STATUS.PENDING)
+      .count()
+      .get(),
+  ]);
   const docs = snapshot.docs.slice(0, limit);
   return {
     restaurantId,
+    pendingCount: pending.data().count,
     orders: docs.map(orderDTO),
     hasMore: snapshot.docs.length > limit,
     cursor: docs.length ? docs[docs.length - 1].id : null,

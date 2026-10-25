@@ -60,6 +60,12 @@ const createFirestore = (initial = {}) => {
         after
       ),
     startAfter: (doc) => collection(path, filters, maximum, ordering, doc),
+    count: () => ({
+      get: async () => {
+        const { size } = await collection(path, filters).get();
+        return { data: () => ({ count: size }) };
+      },
+    }),
     limit: (count) => collection(path, filters, count, ordering, after),
     get: async () => {
       const value = (doc, field) => {
