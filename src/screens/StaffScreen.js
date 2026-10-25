@@ -84,6 +84,9 @@ const OrderConsole = ({ session }) => {
   const [busy, setBusy] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [newCount, setNewCount] = useState(0);
+  // Orders that arrived after the first load and have not been opened yet.
+  const [fresh, setFresh] = useState(() => new Set());
+  const listScroll = useRef(null);
   const [lastRefresh, setLastRefresh] = useState(null);
   const generation = useRef(0);
   const loading = useRef(false);
@@ -106,10 +109,12 @@ const OrderConsole = ({ session }) => {
         if (current !== generation.current) return;
         if (!more) {
           if (seen.current) {
-            const added = result.orders.filter(
-              (order) => !seen.current.has(order.id)
-            ).length;
-            setNewCount((count) => count + added);
+            const added = result.orders
+              .filter((order) => !seen.current.has(order.id))
+              .map((order) => order.id);
+            setNewCount((count) => count + added.length);
+            if (added.length)
+              setFresh((previous) => new Set([...previous, ...added]));
           }
           seen.current = new Set([
             ...(seen.current || []),
@@ -177,6 +182,12 @@ const OrderConsole = ({ session }) => {
 
   const openOrder = async (id) => {
     const request = ++detailRequest.current;
+    setFresh((previous) => {
+      if (!previous.has(id)) return previous;
+      const next = new Set(previous);
+      next.delete(id);
+      return next;
+    });
     setSelectedId(id);
     setSelected(null);
     setNotice("注文の詳細を取得しています…");
@@ -235,6 +246,13 @@ const OrderConsole = ({ session }) => {
     setNotice("");
   };
   const detailVisible = selected || selectedId;
+  // Show the list where the new rows are (newest first) before clearing the
+  // banner; each row keeps its "新着" mark until that order is opened.
+  const showNewOrders = () => {
+    if (!wide) hideDetail();
+    listScroll.current?.scrollTo({ y: 0, animated: true });
+    setNewCount(0);
+  };
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.container}>
@@ -272,6 +290,7 @@ const OrderConsole = ({ session }) => {
                 hideDetail();
                 setListing({ orders: [], hasMore: false, cursor: null });
                 setNewCount(0);
+                setFresh(new Set());
                 setView(key);
               }}
               style={[styles.tab, view === key && styles.tabSelected]}
@@ -294,7 +313,7 @@ const OrderConsole = ({ session }) => {
           {lastRefresh ? ` · 最終取得 ${dateLabel(lastRefresh)}` : ""}
         </Text>
         {newCount > 0 && (
-          <Action secondary onPress={() => setNewCount(0)}>
+          <Action secondary disabled={updating} onPress={showNewOrders}>
             新着 {newCount}件を確認
           </Action>
         )}
@@ -306,7 +325,10 @@ const OrderConsole = ({ session }) => {
         <View style={[styles.content, wide && styles.contentWide]}>
           {(wide || !detailVisible) && (
             <View style={[styles.listPane, wide && styles.listPaneWide]}>
-              <ScrollView contentContainerStyle={styles.listContent}>
+              <ScrollView
+                ref={listScroll}
+                contentContainerStyle={styles.listContent}
+              >
                 {busy && !listing.orders.length && (
                   <ActivityIndicator
                     color={COLORS.primary}
@@ -320,7 +342,7 @@ const OrderConsole = ({ session }) => {
                   <Pressable
                     key={order.id}
                     accessibilityRole="button"
-                    accessibilityLabel={`注文 ${order.order_number} ${STATUS_LABELS[order.status] || order.status}`}
+                    accessibilityLabel={`注文 ${order.order_number} ${STATUS_LABELS[order.status] || order.status}${fresh.has(order.id) ? " 新着" : ""}`}
                     disabled={updating}
                     accessibilityState={{ disabled: updating }}
                     onPress={() => openOrder(order.id)}
@@ -333,6 +355,9 @@ const OrderConsole = ({ session }) => {
                       <Text style={styles.orderNumber}>
                         {order.order_number}
                       </Text>
+                      {fresh.has(order.id) && (
+                        <Text style={styles.freshBadge}>新着</Text>
+                      )}
                       <Text
                         style={[
                           styles.status,
@@ -624,6 +649,14 @@ const styles = StyleSheet.create({
   },
   status: { color: COLORS.textSecondary, fontWeight: "600" },
   pending: { color: "#B71C1C" },
+  freshBadge: {
+    color: "#FFFFFF",
+    backgroundColor: "#B71C1C",
+    fontWeight: "700",
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
   detail: { flex: 1, backgroundColor: COLORS.surface },
   detailContent: { padding: 20, gap: 12, paddingBottom: 32 },
   detailTitle: { fontSize: 24, fontWeight: "700", color: COLORS.text },
