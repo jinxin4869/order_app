@@ -1,6 +1,6 @@
 # App Check と同時実行数の上限
 
-認証不要のCallable（`createOrder`、`validateQRCode`、`getMenuWithTranslation`）は、誰でもインターネットから呼べます。第三者による大量呼び出しで課金が増えないよう、次の2つを設けています。
+認証不要のCallable（`createOrder`、`getOrderRequest`、`validateQRCode`、`getMenuWithTranslation`）は、誰でもインターネットから呼べます。第三者による大量呼び出しで課金が増えないよう、次の2つを設けています。
 
 - **同時インスタンス数の上限**: `functions/src/index.js`の`setGlobalOptions({ maxInstances: 10 })`で、全関数に常に適用します。
 - **App Check**: 正規のWebアプリからの呼び出しだけを受け付けます。初期状態では無効です。

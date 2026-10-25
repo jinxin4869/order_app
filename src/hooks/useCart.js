@@ -1,8 +1,31 @@
 // カート管理用カスタムフック
 import { useState, useCallback, useMemo, useRef } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { TAX_RATE, MIN_ORDER_QUANTITY, MAX_ORDER_QUANTITY } from "../constants";
 import { createRequestId } from "../utils/requestId";
 import { cartSessionKey } from "../utils/cartSession";
+import { getOrderRequest } from "../services/api";
+
+// The last order sent from this device whose result is not yet known. Only one
+// is kept: starting another store or table discards it.
+const PENDING_ORDER_KEY = "@qr_order_pending";
+const PENDING_ORDER_TTL_MS = 3 * 60 * 60 * 1000;
+// What the customer actually orders. The display language and translated
+// names are left out so a language change does not turn a retry into a new order.
+const orderContent = (orderData) =>
+  JSON.stringify({
+    restaurantId: orderData.restaurantId,
+    tableId: orderData.tableId,
+    customerNotes: orderData.customerNotes ?? null,
+    items: orderData.items.map((item) => ({
+      item_id: item.item_id,
+      quantity: item.quantity,
+      price: item.price,
+      notes: item.notes ?? null,
+    })),
+  });
+const forgetPendingOrder = () =>
+  AsyncStorage.removeItem(PENDING_ORDER_KEY).catch(() => {});
 
 /**
  * カート管理フック
@@ -17,17 +40,68 @@ export const useCart = (initialSession = null) => {
   const [sessionKey, setSessionKey] = useState(initialKey);
   const sessionRef = useRef(initialKey);
   const pendingRequest = useRef(null);
-  const setSession = useCallback((restaurantId, tableId) => {
-    const nextKey = cartSessionKey(restaurantId, tableId);
-    if (sessionRef.current !== nextKey) {
-      sessionRef.current = nextKey;
-      pendingRequest.current = null;
-      setItems([]);
-      setSessionKey(nextKey);
+  // null | { state: "checking" | "accepted" | "not_accepted" | "error", payload, result }
+  const [recovery, setRecovery] = useState(null);
+
+  const checkPendingOrder = useCallback(async (key, payload) => {
+    setRecovery({ state: "checking", payload });
+    try {
+      const result = await getOrderRequest(payload);
+      if (sessionRef.current !== key) return;
+      if (result.accepted) {
+        pendingRequest.current = null;
+        forgetPendingOrder();
+        setRecovery({ state: "accepted", payload, result });
+      } else setRecovery({ state: "not_accepted", payload });
+    } catch {
+      if (sessionRef.current === key) setRecovery({ state: "error", payload });
     }
   }, []);
+
+  // After a reload, find out what happened to an order sent from this table.
+  const recoverPendingOrder = useCallback(
+    async (key) => {
+      let record = null;
+      try {
+        record = JSON.parse(await AsyncStorage.getItem(PENDING_ORDER_KEY));
+      } catch {
+        // Unreadable storage is the same as nothing pending.
+      }
+      if (!record) return;
+      if (
+        record.sessionKey !== key ||
+        !(Date.now() - record.savedAt < PENDING_ORDER_TTL_MS)
+      ) {
+        forgetPendingOrder();
+        return;
+      }
+      if (sessionRef.current !== key || pendingRequest.current) return;
+      pendingRequest.current = record;
+      checkPendingOrder(key, record.payload);
+    },
+    [checkPendingOrder]
+  );
+
+  const setSession = useCallback(
+    (restaurantId, tableId) => {
+      const nextKey = cartSessionKey(restaurantId, tableId);
+      if (sessionRef.current !== nextKey) {
+        sessionRef.current = nextKey;
+        pendingRequest.current = null;
+        setItems([]);
+        setRecovery(null);
+        setSessionKey(nextKey);
+        if (nextKey) recoverPendingOrder(nextKey);
+      }
+    },
+    [recoverPendingOrder]
+  );
   const endSession = useCallback(() => setSession(null, null), [setSession]);
-  const getOrderRequestId = useCallback((orderData) => {
+
+  // Returns what to send. A retry of the same content gets the payload (and
+  // request ID) that was sent first, including its language, so the server
+  // recognises it. The record is saved before sending to survive a reload.
+  const prepareOrder = useCallback(async (orderData) => {
     if (
       !sessionRef.current ||
       cartSessionKey(orderData.restaurantId, orderData.tableId) !==
@@ -37,18 +111,59 @@ export const useCart = (initialSession = null) => {
         "カートの店舗・テーブルが一致しません。QRから開き直してください。"
       );
     }
-    const signature = JSON.stringify(orderData);
+    const signature = orderContent(orderData);
     if (pendingRequest.current?.signature !== signature) {
-      pendingRequest.current = { signature, id: createRequestId() };
+      pendingRequest.current = {
+        signature,
+        sessionKey: sessionRef.current,
+        payload: { ...orderData, requestId: createRequestId() },
+      };
     }
-    return pendingRequest.current.id;
+    const pending = pendingRequest.current;
+    await AsyncStorage.setItem(
+      PENDING_ORDER_KEY,
+      JSON.stringify({ ...pending, savedAt: Date.now() })
+    ).catch(() => {});
+    return pending.payload;
   }, []);
 
   // A switched (even subsequently reopened) table must not accept an old result.
   const isOrderRequestCurrent = useCallback(
-    (requestId) => !!requestId && pendingRequest.current?.id === requestId,
+    (requestId) =>
+      !!requestId && pendingRequest.current?.payload.requestId === requestId,
     []
   );
+
+  const retryRecovery = useCallback(() => {
+    const pending = pendingRequest.current;
+    if (pending && sessionRef.current === pending.sessionKey)
+      checkPendingOrder(pending.sessionKey, pending.payload);
+  }, [checkPendingOrder]);
+  // Put a not-accepted order back in the cart; sending it unchanged reuses its ID.
+  const restoreRecoveredOrder = useCallback(() => {
+    const payload = pendingRequest.current?.payload;
+    if (!payload) return;
+    setItems(
+      payload.items.map((item) => ({
+        id: item.item_id,
+        name: item.name,
+        name_ja: item.name_ja,
+        name_en: item.name_en,
+        name_zh: item.name_zh,
+        price: item.price,
+        quantity: item.quantity,
+        notes: item.notes || "",
+      }))
+    );
+    setRecovery(null);
+  }, []);
+  const dismissRecovery = useCallback(() => {
+    if (recovery?.state !== "accepted") {
+      pendingRequest.current = null;
+      forgetPendingOrder();
+    }
+    setRecovery(null);
+  }, [recovery]);
 
   // 商品を追加
   const addItem = useCallback(
@@ -138,6 +253,7 @@ export const useCart = (initialSession = null) => {
   // カートをクリア
   const clearCart = useCallback(() => {
     pendingRequest.current = null;
+    forgetPendingOrder();
     setItems([]);
   }, []);
 
@@ -175,8 +291,12 @@ export const useCart = (initialSession = null) => {
     updateQuantity,
     removeItem,
     clearCart,
-    getOrderRequestId,
+    prepareOrder,
     isOrderRequestCurrent,
+    recovery,
+    retryRecovery,
+    restoreRecoveredOrder,
+    dismissRecovery,
     subtotal,
     tax,
     total,

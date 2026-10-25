@@ -91,6 +91,25 @@ export const createOrder = async (orderData) => {
 };
 
 /**
+ * 送信結果が不明な注文が受け付けられたかを確認する
+ * @returns {Promise<{accepted: boolean, orderId?: string, orderNumber?: string}>}
+ */
+export const getOrderRequest = async ({ restaurantId, tableId, requestId }) => {
+  try {
+    const check = httpsCallable(functions, "getOrderRequest");
+    const result = await withRetry(
+      () => check({ restaurantId, tableId, requestId }),
+      2,
+      1000
+    );
+    return result.data;
+  } catch (error) {
+    const userMessage = handleError(error, { function: "getOrderRequest" });
+    throw new Error(userMessage, { cause: error });
+  }
+};
+
+/**
  * 注文ステータスを更新する
  * @param {string} orderId - 注文ID
  * @param {string} newStatus - 新しいステータス

@@ -5,7 +5,10 @@ jest.mock("../../hooks/useLanguage", () => ({
     getItemDescription: () => "",
   }),
 }));
-jest.mock("../../services/api", () => ({ createOrder: jest.fn() }));
+jest.mock("../../services/api", () => ({
+  createOrder: jest.fn(),
+  getOrderRequest: jest.fn(async () => ({ accepted: false })),
+}));
 import React, { useLayoutEffect } from "react";
 import { Text, Alert } from "react-native";
 import {
@@ -188,10 +191,12 @@ test("reopening the same table after another session does not revive its pending
     useCart({ restaurantId: "rest-a", tableId: "table-a" })
   );
   const data = { restaurantId: "rest-a", tableId: "table-a", items: [] };
-  const requestId = result.current.getOrderRequestId(data);
+  const { requestId } = await result.current.prepareOrder(data);
   expect(result.current.isOrderRequestCurrent(requestId)).toBe(true);
   await act(() => result.current.setSession("rest-b", "table-b"));
   await act(() => result.current.setSession("rest-a", "table-a"));
   expect(result.current.isOrderRequestCurrent(requestId)).toBe(false);
-  expect(result.current.getOrderRequestId(data)).not.toBe(requestId);
+  expect((await result.current.prepareOrder(data)).requestId).not.toBe(
+    requestId
+  );
 });
