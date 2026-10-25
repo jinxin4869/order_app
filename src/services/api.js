@@ -29,7 +29,7 @@ export const translateText = async (text, targetLang, options = {}) => {
       function: "translateText",
       params: { text, targetLang, useDictionary },
     });
-    throw new Error(userMessage);
+    throw new Error(userMessage, { cause: error });
   }
 };
 
@@ -58,7 +58,7 @@ export const batchTranslateMenu = async (
       function: "batchTranslateMenu",
       params: { restaurantId, targetLang },
     });
-    throw new Error(userMessage);
+    throw new Error(userMessage, { cause: error });
   }
 };
 
@@ -144,7 +144,7 @@ export const getMenuWithTranslation = async (restaurantId, language = "ja") => {
       function: "getMenuWithTranslation",
       params: { restaurantId, language },
     });
-    throw new Error(userMessage);
+    throw new Error(userMessage, { cause: error });
   }
 };
 
@@ -165,6 +165,6 @@ export const validateQRCode = async (qrData) => {
       function: "validateQRCode",
       params: { qrData },
     });
-    throw new Error(userMessage);
+    throw new Error(userMessage, { cause: error });
   }
 };
