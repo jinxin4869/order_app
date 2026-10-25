@@ -23,6 +23,7 @@ for (const file of fs.readdirSync(jsDir))
     .readFileSync(path.join(jsDir, file), "utf8")
     .matchAll(/https:\/\/fastly\.jsdelivr\.net\/npm\/[^/"'`]+\//g))
     assert.ok(csp.includes(cdn), `CSP connect-src is missing ${cdn}`);
+const TABLE_TOKEN = "synthetic-table-token-1";
 const server = http.createServer((req, res) => {
   for (const { key, value } of hostingHeaders) res.setHeader(key, value);
   let file = path.join(
@@ -551,7 +552,7 @@ const server = http.createServer((req, res) => {
       };
       page.on("dialog", answer);
       await page.goto(
-        "http://127.0.0.1:4173/order?restaurant=rest-test&table=table-test"
+        `http://127.0.0.1:4173/order?restaurant=rest-test&table=table-test&token=${TABLE_TOKEN}`
       );
       await page.getByRole("button", { name: "日本語", exact: true }).click();
       await page.getByText("テスト料理", { exact: true }).click();
@@ -575,6 +576,9 @@ const server = http.createServer((req, res) => {
         .slice(ordersBefore);
       assert.ok(lost.length >= 1);
       assert.equal(new Set(lost.map((c) => c.data.requestId)).size, 1);
+      // The token scanned from the table goes with the order and survives a reload.
+      assert.ok(lost.every((c) => c.data.tableToken === TABLE_TOKEN));
+      assert.ok(page.url().includes(`token=${TABLE_TOKEN}`), page.url());
       await page.reload();
       await page.getByRole("button", { name: "日本語", exact: true }).click();
       await page

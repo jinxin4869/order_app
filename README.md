@@ -109,6 +109,7 @@ https://<公開ドメイン>/order?restaurant=<店舗ID>&table=<テーブルID>
 - [スタッフ認証・店舗権限](docs/staff_access.md)：アカウント、一覧・詳細、状態遷移、操作履歴、来店の終了
 - [メニュー管理](docs/menu_management.md)：売り切れ・販売再開、注文受付の停止・再開、公開状態と既存データの扱い
 - [新規注文の連投制限](docs/order_limits.md)：単位・時間枠・しきい値、強制のスイッチ、記録と対応
+- [テーブルのQRトークン](docs/table_tokens.md)：QRの形式、ハッシュの保存、発行・再発行、強制の手順
 - [翻訳の生成・比較](docs/translation_contract.md)：辞書適用、キャッシュ、未生成・部分訳・旧データの扱い
 - [対応順とブランチ構成](docs/implementation_order.md)：Issueごとのブランチと依存関係
 - [評価実験計画](docs/evaluation_plan.md)／[記録テンプレート](docs/tables_template.md)

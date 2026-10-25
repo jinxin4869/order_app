@@ -61,3 +61,35 @@ test("connection failures can be retried", async () => {
   await waitFor(() => expect(getByText("Retry reached server")).toBeTruthy());
   expect(validateQRCode).toHaveBeenCalledTimes(2);
 });
+test("a QR token is validated and carried with the table", async () => {
+  validateQRCode.mockResolvedValue({
+    valid: true,
+    restaurant: { name: "Test" },
+    table: { table_number: "1" },
+  });
+  const navigation = { reset: jest.fn() };
+  await render(
+    <OrderEntryScreen
+      navigation={navigation}
+      route={{ params: { ...params, token: "abcdefghijklmnop_-12" } }}
+    />
+  );
+  await waitFor(() => expect(navigation.reset).toHaveBeenCalled());
+  expect(validateQRCode).toHaveBeenCalledWith(
+    "rest-test/table-test/abcdefghijklmnop_-12"
+  );
+  expect(navigation.reset.mock.calls[0][0].routes[0].params.table).toEqual({
+    table_number: "1",
+    token: "abcdefghijklmnop_-12",
+  });
+});
+test("a malformed token makes the link invalid without calling the server", async () => {
+  const screen = await render(
+    <OrderEntryScreen
+      navigation={{ reset: jest.fn() }}
+      route={{ params: { ...params, token: "bad" } }}
+    />
+  );
+  await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+  expect(validateQRCode).not.toHaveBeenCalled();
+});

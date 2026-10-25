@@ -1,4 +1,4 @@
-> 現行の主入口はWeb URL `/order?restaurant=...&table=...`です。[README](../README.md#利用フロー)を参照してください。以下は旧形式と将来構想を含む初期設計です。
+> 現行の主入口はWeb URL `/order?restaurant=...&table=...&token=...`です。トークンの形式・発行・照合は[テーブルのQRトークン](table_tokens.md)、利用の流れは[README](../README.md#利用フロー)を参照してください。以下は旧形式と将来構想を含む初期設計です。
 
 # QRコード設計書
 
@@ -12,12 +12,12 @@
 
 ### 1.1 システムの役割
 
-| 役割 | 説明 | メリット |
-|------|------|---------|
-| **テーブル識別** | どのテーブルからの注文かを特定 | 注文の配膳先を明確化 |
-| **アプリ起動** | QRコード読み取りでアプリを起動 | アプリインストール不要 |
-| **店舗識別** | 複数店舗対応時の店舗特定 | 将来的な拡張性 |
-| **セッション管理** | テーブルごとの注文セッション管理 | 注文履歴の追跡 |
+| 役割               | 説明                             | メリット               |
+| ------------------ | -------------------------------- | ---------------------- |
+| **テーブル識別**   | どのテーブルからの注文かを特定   | 注文の配膳先を明確化   |
+| **アプリ起動**     | QRコード読み取りでアプリを起動   | アプリインストール不要 |
+| **店舗識別**       | 複数店舗対応時の店舗特定         | 将来的な拡張性         |
+| **セッション管理** | テーブルごとの注文セッション管理 | 注文履歴の追跡         |
 
 ### 1.2 利用フロー
 
@@ -58,21 +58,21 @@ restaurant_02/table_01
 
 #### 理由
 
-| 理由 | 説明 |
-|------|------|
-| **拡張性** | 複数店舗対応が容易 |
-| **一意性** | グローバルに一意なIDを保証 |
-| **シンプル性** | パース処理が簡単 |
-| **可読性** | デバッグ時に内容を理解しやすい |
+| 理由           | 説明                           |
+| -------------- | ------------------------------ |
+| **拡張性**     | 複数店舗対応が容易             |
+| **一意性**     | グローバルに一意なIDを保証     |
+| **シンプル性** | パース処理が簡単               |
+| **可読性**     | デバッグ時に内容を理解しやすい |
 
 ### 2.2 代替案との比較
 
-| 方式 | フォーマット例 | メリット | デメリット | 採用 |
-|------|-------------|---------|-----------|------|
-| **テーブルIDのみ** | `table_01` | シンプル | 複数店舗に対応不可 | × |
-| **店舗+テーブル（採用）** | `restaurant_01/table_01` | バランスが良い | やや冗長 | ○ |
-| **URL形式** | `https://app.com?r=01&t=01` | Webアプリで直接起動 | QRが大きくなる | △ |
-| **短縮URL** | `https://short.ly/abc123` | QRが小さい | リダイレクト遅延 | × |
+| 方式                      | フォーマット例              | メリット            | デメリット         | 採用 |
+| ------------------------- | --------------------------- | ------------------- | ------------------ | ---- |
+| **テーブルIDのみ**        | `table_01`                  | シンプル            | 複数店舗に対応不可 | ×    |
+| **店舗+テーブル（採用）** | `restaurant_01/table_01`    | バランスが良い      | やや冗長           | ○    |
+| **URL形式**               | `https://app.com?r=01&t=01` | Webアプリで直接起動 | QRが大きくなる     | △    |
+| **短縮URL**               | `https://short.ly/abc123`   | QRが小さい          | リダイレクト遅延   | ×    |
 
 ### 2.3 完全なURL形式（Webアプリ用）
 
@@ -88,43 +88,43 @@ https://qr-order-app.web.app/order?restaurant=restaurant_01&table=table_01
 
 ### 3.1 QRコード技術仕様
 
-| 項目 | 仕様 | 理由 |
-|------|------|------|
-| **バージョン** | Version 2-3 | データ量に応じた最小サイズ |
-| **誤り訂正レベル** | M（15%復元） | バランスが良い |
-| **データ型** | 英数字モード | データ量削減 |
-| **サイズ** | 5cm × 5cm | 視認性と読み取りやすさ |
-| **マージン** | 4モジュール | QRコード規格推奨値 |
-| **色** | 黒（前景）/ 白（背景） | 標準色、読み取り確実 |
+| 項目               | 仕様                   | 理由                       |
+| ------------------ | ---------------------- | -------------------------- |
+| **バージョン**     | Version 2-3            | データ量に応じた最小サイズ |
+| **誤り訂正レベル** | M（15%復元）           | バランスが良い             |
+| **データ型**       | 英数字モード           | データ量削減               |
+| **サイズ**         | 5cm × 5cm              | 視認性と読み取りやすさ     |
+| **マージン**       | 4モジュール            | QRコード規格推奨値         |
+| **色**             | 黒（前景）/ 白（背景） | 標準色、読み取り確実       |
 
 ### 3.2 誤り訂正レベルの比較
 
-| レベル | 復元率 | データ容量 | 推奨用途 |
-|-------|-------|-----------|---------|
-| L | 7% | 最大 | クリーンな環境 |
-| **M** | **15%** | **中** | **一般用途（採用）** |
-| Q | 25% | 小 | 汚れやすい環境 |
-| H | 30% | 最小 | ロゴ埋め込み時 |
+| レベル | 復元率  | データ容量 | 推奨用途             |
+| ------ | ------- | ---------- | -------------------- |
+| L      | 7%      | 最大       | クリーンな環境       |
+| **M**  | **15%** | **中**     | **一般用途（採用）** |
+| Q      | 25%     | 小         | 汚れやすい環境       |
+| H      | 30%     | 最小       | ロゴ埋め込み時       |
 
 ### 3.3 生成ツール
 
 #### Node.js（サーバーサイド生成）
 
 ```javascript
-const QRCode = require('qrcode');
+const QRCode = require("qrcode");
 
 const generateQRCode = async (restaurantId, tableId) => {
   const data = `${restaurantId}/${tableId}`;
 
   const options = {
-    errorCorrectionLevel: 'M',
-    type: 'image/png',
+    errorCorrectionLevel: "M",
+    type: "image/png",
     width: 300, // 300px = 約5cm (印刷時150dpi想定)
     margin: 4,
     color: {
-      dark: '#000000',
-      light: '#FFFFFF'
-    }
+      dark: "#000000",
+      light: "#FFFFFF",
+    },
   };
 
   try {
@@ -134,24 +134,23 @@ const generateQRCode = async (restaurantId, tableId) => {
 
     // またはファイルとして保存
     // await QRCode.toFile(`qr_${restaurantId}_${tableId}.png`, data, options);
-
   } catch (error) {
-    console.error('QR Code generation error:', error);
+    console.error("QR Code generation error:", error);
     throw error;
   }
 };
 
 // 使用例
-generateQRCode('restaurant_01', 'table_01');
+generateQRCode("restaurant_01", "table_01");
 ```
 
 #### オンラインツール（手動生成）
 
-| ツール | URL | 特徴 |
-|-------|-----|------|
-| **QR Code Generator** | https://www.qr-code-generator.com | 無料、カスタマイズ可 |
-| **QR Stuff** | https://www.qrstuff.com | 多機能 |
-| **Google Charts API** | https://chart.googleapis.com/chart | API経由生成 |
+| ツール                | URL                                | 特徴                 |
+| --------------------- | ---------------------------------- | -------------------- |
+| **QR Code Generator** | https://www.qr-code-generator.com  | 無料、カスタマイズ可 |
+| **QR Stuff**          | https://www.qrstuff.com            | 多機能               |
+| **Google Charts API** | https://chart.googleapis.com/chart | API経由生成          |
 
 ---
 
@@ -168,9 +167,9 @@ npx expo install expo-barcode-scanner
 #### 実装例
 
 ```javascript
-import React, { useState, useEffect } from 'react';
-import { Text, View, StyleSheet, Button } from 'react-native';
-import { BarCodeScanner } from 'expo-barcode-scanner';
+import React, { useState, useEffect } from "react";
+import { Text, View, StyleSheet, Button } from "react-native";
+import { BarCodeScanner } from "expo-barcode-scanner";
 
 const QRScannerScreen = ({ navigation }) => {
   const [hasPermission, setHasPermission] = useState(null);
@@ -179,7 +178,7 @@ const QRScannerScreen = ({ navigation }) => {
   useEffect(() => {
     (async () => {
       const { status } = await BarCodeScanner.requestPermissionsAsync();
-      setHasPermission(status === 'granted');
+      setHasPermission(status === "granted");
     })();
   }, []);
 
@@ -191,12 +190,12 @@ const QRScannerScreen = ({ navigation }) => {
 
     if (parsed) {
       // メニュー画面に遷移
-      navigation.navigate('Menu', {
+      navigation.navigate("Menu", {
         restaurantId: parsed.restaurantId,
-        tableId: parsed.tableId
+        tableId: parsed.tableId,
       });
     } else {
-      alert('無効なQRコードです');
+      alert("無効なQRコードです");
       setScanned(false);
     }
   };
@@ -204,7 +203,7 @@ const QRScannerScreen = ({ navigation }) => {
   const parseQRCode = (data) => {
     try {
       // フォーマット: restaurant_01/table_01
-      const parts = data.split('/');
+      const parts = data.split("/");
 
       if (parts.length !== 2) {
         return null;
@@ -212,10 +211,10 @@ const QRScannerScreen = ({ navigation }) => {
 
       return {
         restaurantId: parts[0],
-        tableId: parts[1]
+        tableId: parts[1],
       };
     } catch (error) {
-      console.error('QR parse error:', error);
+      console.error("QR parse error:", error);
       return null;
     }
   };
@@ -244,8 +243,8 @@ const QRScannerScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    flexDirection: 'column',
-    justifyContent: 'center',
+    flexDirection: "column",
+    justifyContent: "center",
   },
 });
 
@@ -255,7 +254,7 @@ export default QRScannerScreen;
 ### 4.2 URL形式の場合（ディープリンク）
 
 ```javascript
-import * as Linking from 'expo-linking';
+import * as Linking from "expo-linking";
 
 const parseDeepLink = (url) => {
   // URL例: https://app.com/order?restaurant=restaurant_01&table=table_01
@@ -263,13 +262,13 @@ const parseDeepLink = (url) => {
 
   return {
     restaurantId: queryParams.restaurant,
-    tableId: queryParams.table
+    tableId: queryParams.table,
   };
 };
 
 // アプリ起動時のURL処理
 useEffect(() => {
-  const subscription = Linking.addEventListener('url', ({ url }) => {
+  const subscription = Linking.addEventListener("url", ({ url }) => {
     const parsed = parseDeepLink(url);
     // 処理...
   });
@@ -284,13 +283,13 @@ useEffect(() => {
 
 ### 5.1 印刷仕様
 
-| 項目 | 仕様 |
-|------|------|
-| **用紙サイズ** | A5 または A6 |
-| **印刷方法** | レーザープリンター推奨 |
-| **解像度** | 300dpi以上 |
+| 項目           | 仕様                       |
+| -------------- | -------------------------- |
+| **用紙サイズ** | A5 または A6               |
+| **印刷方法**   | レーザープリンター推奨     |
+| **解像度**     | 300dpi以上                 |
 | **ラミネート** | 推奨（耐水性・耐久性向上） |
-| **スタンド** | アクリル製カードスタンド |
+| **スタンド**   | アクリル製カードスタンド   |
 
 ### 5.2 QRコードカードデザイン例
 
@@ -336,21 +335,21 @@ QRコード生成時に、Firestoreの`tables`コレクションにデータを�
 
 ```javascript
 const createTable = async (restaurantId, tableNumber) => {
-  const tableId = `table_${String(tableNumber).padStart(2, '0')}`;
+  const tableId = `table_${String(tableNumber).padStart(2, "0")}`;
   const qrCode = `${restaurantId}/${tableId}`;
 
   await db
-    .collection('restaurants')
+    .collection("restaurants")
     .doc(restaurantId)
-    .collection('tables')
+    .collection("tables")
     .doc(tableId)
     .set({
       table_number: tableNumber.toString(),
       qr_code: qrCode,
       capacity: 4, // デフォルト
-      status: 'available',
+      status: "available",
       created_at: admin.firestore.FieldValue.serverTimestamp(),
-      updated_at: admin.firestore.FieldValue.serverTimestamp()
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
     });
 
   // QRコード画像生成
@@ -361,7 +360,7 @@ const createTable = async (restaurantId, tableNumber) => {
 
 // 10テーブル作成
 for (let i = 1; i <= 10; i++) {
-  await createTable('restaurant_01', i);
+  await createTable("restaurant_01", i);
 }
 ```
 
@@ -373,30 +372,29 @@ for (let i = 1; i <= 10; i++) {
 const validateQRCode = async (restaurantId, tableId) => {
   try {
     const tableDoc = await db
-      .collection('restaurants')
+      .collection("restaurants")
       .doc(restaurantId)
-      .collection('tables')
+      .collection("tables")
       .doc(tableId)
       .get();
 
     if (!tableDoc.exists) {
-      return { valid: false, error: 'テーブルが見つかりません' };
+      return { valid: false, error: "テーブルが見つかりません" };
     }
 
     const tableData = tableDoc.data();
 
-    if (tableData.status === 'unavailable') {
-      return { valid: false, error: 'このテーブルは現在利用できません' };
+    if (tableData.status === "unavailable") {
+      return { valid: false, error: "このテーブルは現在利用できません" };
     }
 
     return {
       valid: true,
-      table: tableData
+      table: tableData,
     };
-
   } catch (error) {
-    console.error('Validation error:', error);
-    return { valid: false, error: 'エラーが発生しました' };
+    console.error("Validation error:", error);
+    return { valid: false, error: "エラーが発生しました" };
   }
 };
 ```
@@ -407,11 +405,11 @@ const validateQRCode = async (restaurantId, tableId) => {
 
 ### 7.1 潜在的なリスク
 
-| リスク | 説明 | 対策 |
-|-------|------|------|
-| **QRコード偽装** | 悪意のあるQRに差し替え | Firestore検証必須 |
-| **他店舗への誤誘導** | QRコードの誤使用 | restaurantID検証 |
-| **不正注文** | 他テーブルのQRで注文 | 影響小（本人負担） |
+| リスク               | 説明                   | 対策               |
+| -------------------- | ---------------------- | ------------------ |
+| **QRコード偽装**     | 悪意のあるQRに差し替え | Firestore検証必須  |
+| **他店舗への誤誘導** | QRコードの誤使用       | restaurantID検証   |
+| **不正注文**         | 他テーブルのQRで注文   | 影響小（本人負担） |
 
 ### 7.2 対策
 
@@ -421,7 +419,7 @@ const validateQRCode = async (restaurantId, tableId) => {
 const secureQRValidation = async (qrData) => {
   // 1. フォーマット検証
   if (!isValidFormat(qrData)) {
-    return { valid: false, error: 'Invalid QR format' };
+    return { valid: false, error: "Invalid QR format" };
   }
 
   // 2. データベース存在確認
@@ -437,7 +435,7 @@ const secureQRValidation = async (qrData) => {
   const daysSinceCreation = (now - createdAt) / (1000 * 60 * 60 * 24);
 
   if (daysSinceCreation > 365) {
-    return { valid: false, error: 'QRコードの有効期限が切れています' };
+    return { valid: false, error: "QRコードの有効期限が切れています" };
   }
 
   return validation;
@@ -455,19 +453,19 @@ const secureQRValidation = async (qrData) => {
 
 ### 8.1 QRコード読み取りテスト
 
-| テストケース | 入力 | 期待結果 |
-|------------|------|---------|
-| **正常系** | `restaurant_01/table_01` | メニュー画面に遷移 |
-| **不正フォーマット** | `invalid_format` | エラーメッセージ表示 |
-| **存在しないテーブル** | `restaurant_01/table_99` | エラーメッセージ表示 |
-| **別店舗のQR** | `restaurant_02/table_01` | 該当店舗のメニュー表示 |
+| テストケース           | 入力                     | 期待結果               |
+| ---------------------- | ------------------------ | ---------------------- |
+| **正常系**             | `restaurant_01/table_01` | メニュー画面に遷移     |
+| **不正フォーマット**   | `invalid_format`         | エラーメッセージ表示   |
+| **存在しないテーブル** | `restaurant_01/table_99` | エラーメッセージ表示   |
+| **別店舗のQR**         | `restaurant_02/table_01` | 該当店舗のメニュー表示 |
 
 ### 8.2 カメラ権限テスト
 
-| シナリオ | 期待動作 |
-|---------|---------|
-| **初回起動** | カメラ権限リクエスト表示 |
-| **権限許可** | QRスキャナー起動 |
+| シナリオ     | 期待動作                            |
+| ------------ | ----------------------------------- |
+| **初回起動** | カメラ権限リクエスト表示            |
+| **権限許可** | QRスキャナー起動                    |
 | **権限拒否** | エラーメッセージ + 設定画面への誘導 |
 
 ---
@@ -476,19 +474,19 @@ const secureQRValidation = async (qrData) => {
 
 ### 9.1 QRコード更新フロー
 
-| 更新ケース | 手順 |
-|-----------|------|
+| 更新ケース       | 手順                                                                 |
+| ---------------- | -------------------------------------------------------------------- |
 | **テーブル追加** | 1. Firestoreにレコード追加<br>2. QRコード生成<br>3. カード印刷・配置 |
-| **テーブル削除** | 1. Firestoreレコード削除<br>2. カード回収 |
-| **QR破損** | 同じQRコードを再印刷 |
+| **テーブル削除** | 1. Firestoreレコード削除<br>2. カード回収                            |
+| **QR破損**       | 同じQRコードを再印刷                                                 |
 
 ### 9.2 QRコード管理台帳
 
-| テーブル番号 | テーブルID | QRコード文字列 | 印刷日 | 状態 |
-|------------|-----------|--------------|-------|------|
-| 1 | table_01 | restaurant_01/table_01 | 2024-11-20 | 稼働中 |
-| 2 | table_02 | restaurant_01/table_02 | 2024-11-20 | 稼働中 |
-| ... | ... | ... | ... | ... |
+| テーブル番号 | テーブルID | QRコード文字列         | 印刷日     | 状態   |
+| ------------ | ---------- | ---------------------- | ---------- | ------ |
+| 1            | table_01   | restaurant_01/table_01 | 2024-11-20 | 稼働中 |
+| 2            | table_02   | restaurant_01/table_02 | 2024-11-20 | 稼働中 |
+| ...          | ...        | ...                    | ...        | ...    |
 
 ---
 
@@ -496,34 +494,35 @@ const secureQRValidation = async (qrData) => {
 
 ### 10.1 機能拡張案
 
-| 機能 | 説明 | 優先度 |
-|------|------|-------|
-| **動的QRコード** | セッションIDを含む一時QRコード | 低 |
-| **NFC対応** | QRコード + NFCタグのハイブリッド | 低 |
-| **テーブル状態表示** | 空席・満席をリアルタイム表示 | 中 |
-| **呼び出し機能** | QRコードからスタッフ呼び出し | 中 |
+| 機能                 | 説明                             | 優先度 |
+| -------------------- | -------------------------------- | ------ |
+| **動的QRコード**     | セッションIDを含む一時QRコード   | 低     |
+| **NFC対応**          | QRコード + NFCタグのハイブリッド | 低     |
+| **テーブル状態表示** | 空席・満席をリアルタイム表示     | 中     |
+| **呼び出し機能**     | QRコードからスタッフ呼び出し     | 中     |
 
 ### 10.2 アナリティクス
 
 ```javascript
 // QRコードスキャン回数の記録
 const logQRScan = async (restaurantId, tableId) => {
-  await db.collection('qr_scan_logs').add({
+  await db.collection("qr_scan_logs").add({
     restaurant_id: restaurantId,
     table_id: tableId,
-    scanned_at: admin.firestore.FieldValue.serverTimestamp()
+    scanned_at: admin.firestore.FieldValue.serverTimestamp(),
   });
 };
 
 // 統計分析
 const getQRScanStats = async (restaurantId) => {
-  const snapshot = await db.collection('qr_scan_logs')
-    .where('restaurant_id', '==', restaurantId)
+  const snapshot = await db
+    .collection("qr_scan_logs")
+    .where("restaurant_id", "==", restaurantId)
     .get();
 
   // テーブル別スキャン回数
   const stats = {};
-  snapshot.forEach(doc => {
+  snapshot.forEach((doc) => {
     const tableId = doc.data().table_id;
     stats[tableId] = (stats[tableId] || 0) + 1;
   });
@@ -544,6 +543,6 @@ const getQRScanStats = async (restaurantId) => {
 
 ## 更新履歴
 
-| 日付 | 更新内容 | 担当者 |
-|------|---------|--------|
-| 2024-11-19 | 初版作成 | - |
+| 日付       | 更新内容 | 担当者 |
+| ---------- | -------- | ------ |
+| 2024-11-19 | 初版作成 | -      |

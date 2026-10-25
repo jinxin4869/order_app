@@ -14,10 +14,12 @@ import { parseOrderLink } from "../utils/orderLinks";
 export default function OrderEntryScreen({ navigation, route }) {
   const restaurantId = route.params?.restaurant;
   const tableId = route.params?.table;
+  const token = route.params?.token;
+  const link = `${restaurantId || ""}/${tableId || ""}${token ? `/${token}` : ""}`;
   const [attempt, setAttempt] = useState(0);
   const [failure, setFailure] = useState(null);
-  const key = `${restaurantId || ""}/${tableId || ""}/${attempt}`;
-  const session = parseOrderLink(`${restaurantId || ""}/${tableId || ""}`);
+  const key = `${link}/${attempt}`;
+  const session = parseOrderLink(link);
   const error = !session
     ? "無効なテーブルURLです。 / Invalid table link. / 餐桌链接无效。"
     : failure?.key === key
@@ -26,15 +28,11 @@ export default function OrderEntryScreen({ navigation, route }) {
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
   useEffect(() => {
     let active = true;
-    const currentSession = parseOrderLink(
-      `${restaurantId || ""}/${tableId || ""}`
-    );
+    const currentSession = parseOrderLink(link);
     if (!currentSession) return;
     const validate = async () => {
       try {
-        const result = await validateQRCode(
-          `${currentSession.restaurantId}/${currentSession.tableId}`
-        );
+        const result = await validateQRCode(link);
         if (!active) return;
         if (!result.valid) {
           setFailure({
@@ -51,9 +49,13 @@ export default function OrderEntryScreen({ navigation, route }) {
             {
               name: "LanguageSelect",
               params: {
-                ...currentSession,
+                restaurantId: currentSession.restaurantId,
+                tableId: currentSession.tableId,
                 restaurant: result.restaurant,
-                table: result.table,
+                // The scanned token travels with the table to the order.
+                table: currentSession.token
+                  ? { ...result.table, token: currentSession.token }
+                  : result.table,
               },
             },
           ],
@@ -71,7 +73,7 @@ export default function OrderEntryScreen({ navigation, route }) {
     return () => {
       active = false;
     };
-  }, [restaurantId, tableId, key, navigation]);
+  }, [link, key, navigation]);
   return (
     <SafeAreaView style={styles.page}>
       <View style={styles.content}>
