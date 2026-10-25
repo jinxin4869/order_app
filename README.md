@@ -38,11 +38,12 @@ npm run audit:dependencies
 npm run test:sdk
 npm run test:rules
 npm run test:demo
+npm run test:backup
 npx playwright install --with-deps chromium
 npm run test:web
 ```
 
-`check`はフロントとFunctions両方のlint・単体テストです。ルートの`npm test`はフロントのみで、Functionsを含みません。`test:rules`はローカルFirestore・Authで直接書き込みの拒否と実注文API・スタッフAPIの権限停止を検証します。`test:demo`はFirestoreとAuthエミュレーターへ合成データを投入して確認します。`test:web`は専用の合成設定でWebをビルドし、外部通信を合成応答へ置き換えてスマホ幅・デスクトップ幅の操作を検証します。既存の`.env`やFirebaseログインを使用せず、DeepLへ接続しません。
+`check`はフロントとFunctions両方のlint・単体テストです。ルートの`npm test`はフロントのみで、Functionsを含みません。`test:rules`はローカルFirestore・Authで直接書き込みの拒否と実注文API・スタッフAPIの権限停止を検証します。`test:demo`はFirestoreとAuthエミュレーターへ合成データを投入して確認します。`test:backup`は合成データを書き出して新しいエミュレーターへ読み込み、復元後の採番・再送・来店・記録・QRトークンを確認します（[バックアップと復元](docs/backup_restore.md)）。`test:web`は専用の合成設定でWebをビルドし、外部通信を合成応答へ置き換えてスマホ幅・デスクトップ幅の操作を検証します。既存の`.env`やFirebaseログインを使用せず、DeepLへ接続しません。
 
 ブラウザテストの出力先はOSの一時ディレクトリです。`ORDER_APP_WEB_DIR`でビルド先、`ORDER_APP_WEB_ARTIFACTS`でスクリーンショット先を指定できます。日本語表示の目視確認には実行環境の日本語フォントも必要です。
 
@@ -112,6 +113,7 @@ https://<公開ドメイン>/order?restaurant=<店舗ID>&table=<テーブルID>
 - [テーブルのQRトークン](docs/table_tokens.md)：QRの形式、ハッシュの保存、発行・再発行、強制の手順
 - [日次の集計](docs/daily_stats.md)：注文数・商品数量・人気の商品・提供までの時間の定義
 - [注文障害の検知と代替受付・復旧](docs/incident_runbook.md)：スタッフ向けの手順、検知の対象、紙での受付、照合と再開の判定
+- [バックアップと復元](docs/backup_restore.md)：対象と対象外、頻度と目標、復元の手順と確認、照合、訓練
 - [翻訳の生成・比較](docs/translation_contract.md)：辞書適用、キャッシュ、未生成・部分訳・旧データの扱い
 - [対応順とブランチ構成](docs/implementation_order.md)：Issueごとのブランチと依存関係
 - [評価実験計画](docs/evaluation_plan.md)／[記録テンプレート](docs/tables_template.md)

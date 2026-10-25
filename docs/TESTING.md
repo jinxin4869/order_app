@@ -2,17 +2,18 @@
 
 Node.js 24（`.nvmrc`）、エミュレーターにはJava 21を使用します。まずルートと`functions`の両方で`npm ci`を実行します。
 
-| コマンド                                     | 対象・接続先                                                        |
-| -------------------------------------------- | ------------------------------------------------------------------- |
-| `npm test -- --runInBand`                    | フロントのJestテスト。Firebase初期化をモックしdotenvを読み込まない  |
-| `npm test --prefix functions -- --runInBand` | 実FunctionsハンドラをモックFirestore・合成DeepL応答で検証           |
-| `npm run test:audit`                         | 依存監査ポリシーの単体テスト。外部接続なし                          |
-| `npm run audit:dependencies`                 | 公開npmレジストリで本番・開発別の監査。限定した期限付きhigh例外あり |
-| `npm run test:sdk`                           | 実DeepL SDKとローカルHTTPサーバーで合成翻訳の送受信を検証           |
-| `npm run check`                              | 両方のlintと単体テスト                                              |
-| `npm run test:rules`                         | ローカルFirestore・Authでルール・実注文API・スタッフ権限停止を検証  |
-| `npm run test:demo`                          | ローカルFirestore・Authの起動、合成データ投入・取得・Claims確認     |
-| `npm run test:web`                           | 合成設定でExpo WebをビルドしPlaywrightで操作検証                    |
+| コマンド                                     | 対象・接続先                                                                                     |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `npm test -- --runInBand`                    | フロントのJestテスト。Firebase初期化をモックしdotenvを読み込まない                               |
+| `npm test --prefix functions -- --runInBand` | 実FunctionsハンドラをモックFirestore・合成DeepL応答で検証                                        |
+| `npm run test:audit`                         | 依存監査ポリシーの単体テスト。外部接続なし                                                       |
+| `npm run audit:dependencies`                 | 公開npmレジストリで本番・開発別の監査。限定した期限付きhigh例外あり                              |
+| `npm run test:sdk`                           | 実DeepL SDKとローカルHTTPサーバーで合成翻訳の送受信を検証                                        |
+| `npm run check`                              | 両方のlintと単体テスト                                                                           |
+| `npm run test:rules`                         | ローカルFirestore・Authでルール・実注文API・スタッフ権限停止を検証                               |
+| `npm run test:demo`                          | ローカルFirestore・Authの起動、合成データ投入・取得・Claims確認                                  |
+| `npm run test:backup`                        | エミュレーターで合成データを書き出し・読み込み、復元後の採番・再送・来店・記録・QRトークンを確認 |
+| `npm run test:web`                           | 合成設定でExpo WebをビルドしPlaywrightで操作検証                                                 |
 
 ルートの`npm test`だけではFunctions・ルール・ブラウザは検証されません。CIは上表の各検証を実行します。pre-commitはステージ済みファイルのlint-staged、pre-pushは`check`を実行します。Functionsのlintは専用の設定を明示して実ソースを検証します。
 
