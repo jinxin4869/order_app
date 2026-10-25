@@ -6,7 +6,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,6 +18,7 @@ import { createOrder } from "../services/api";
 import { showAlert } from "../utils/dialogs";
 import PendingOrderNotice from "../components/PendingOrderNotice";
 import OrderingNotice from "../components/OrderingNotice";
+import MenuImage from "../components/MenuImage";
 import { useMenuAvailability, isSoldOut } from "../hooks/useMenuAvailability";
 
 const CartScreen = ({ navigation, route }) => {
@@ -285,29 +285,11 @@ const CartScreen = ({ navigation, route }) => {
   const renderCartItem = ({ item }) => (
     <View style={[styles.cartItem, isVerySmallScreen && styles.cartItemSmall]}>
       {/* 画像 */}
-      {item.image_url ? (
-        <Image
-          source={{ uri: item.image_url }}
-          style={[styles.itemImage, { width: imageSize, height: imageSize }]}
-        />
-      ) : (
-        <View
-          style={[
-            styles.itemImage,
-            styles.imagePlaceholder,
-            { width: imageSize, height: imageSize },
-          ]}
-        >
-          <Text
-            style={[
-              styles.placeholderText,
-              { fontSize: scaleSize(24, 18, 28) },
-            ]}
-          >
-            🍽️
-          </Text>
-        </View>
-      )}
+      <MenuImage
+        uri={item.image_url}
+        style={[styles.itemImage, { width: imageSize, height: imageSize }]}
+        placeholderSize={scaleSize(24, 18, 28)}
+      />
 
       {/* 商品情報 */}
       <View style={styles.itemInfo}>
@@ -621,14 +603,6 @@ const styles = StyleSheet.create({
   },
   itemImage: {
     borderRadius: 8,
-  },
-  imagePlaceholder: {
-    backgroundColor: COLORS.background,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  placeholderText: {
-    fontSize: 24,
   },
   itemInfo: {
     flex: 1,

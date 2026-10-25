@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Image,
   TouchableOpacity,
   TextInput,
 } from "react-native";
@@ -22,6 +21,7 @@ import { useResponsive } from "../hooks/useResponsive";
 import { CartContext } from "../context/CartContext";
 import { showAlert } from "../utils/dialogs";
 import OrderingNotice from "../components/OrderingNotice";
+import MenuImage from "../components/MenuImage";
 import { useMenuAvailability, isSoldOut } from "../hooks/useMenuAvailability";
 
 const ItemDetailScreen = ({ navigation, route }) => {
@@ -144,29 +144,11 @@ const ItemDetailScreen = ({ navigation, route }) => {
 
       <ScrollView style={styles.scrollView}>
         {/* 画像 */}
-        {item.image_url ? (
-          <Image
-            source={{ uri: item.image_url }}
-            style={[styles.image, { height: imageHeight }]}
-          />
-        ) : (
-          <View
-            style={[
-              styles.image,
-              styles.imagePlaceholder,
-              { height: imageHeight },
-            ]}
-          >
-            <Text
-              style={[
-                styles.placeholderText,
-                { fontSize: scaleSize(80, 60, 90) },
-              ]}
-            >
-              🍽️
-            </Text>
-          </View>
-        )}
+        <MenuImage
+          uri={item.image_url}
+          style={[styles.image, { height: imageHeight }]}
+          placeholderSize={scaleSize(80, 60, 90)}
+        />
 
         {/* 商品情報 */}
         <View style={[styles.content, isSmallScreen && styles.contentSmall]}>
@@ -496,14 +478,6 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     resizeMode: "cover",
-  },
-  imagePlaceholder: {
-    backgroundColor: COLORS.border,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  placeholderText: {
-    // fontSize set dynamically
   },
   content: {
     padding: 20,

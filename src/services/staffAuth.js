@@ -29,6 +29,8 @@ export const observeStaffSession = (listener) => {
         loading: false,
         user,
         restaurantId: allowed ? claims.restaurantId : null,
+        // Only decides which controls to show; the server checks every edit.
+        canEditMenu: allowed && claims.canEditMenu === true,
         error: allowed
           ? null
           : "スタッフ権限がありません。店舗管理者へ確認してください。",

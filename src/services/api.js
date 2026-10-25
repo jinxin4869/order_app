@@ -174,6 +174,10 @@ const staffChange = (name) => async (data) => {
 export const setMenuItemAvailability = staffChange("setMenuItemAvailability");
 export const setOrderingAvailability = staffChange("setOrderingAvailability");
 export const correctOrderItems = staffChange("correctOrderItems");
+export const getEditableMenuItem = staffChange("getEditableMenuItem");
+export const saveMenuItemDraft = staffChange("saveMenuItemDraft");
+export const publishMenuItemDraft = staffChange("publishMenuItemDraft");
+export const discardMenuItemDraft = staffChange("discardMenuItemDraft");
 export const getDailyStats = async (day) => {
   const result = await httpsCallable(functions, "getDailyStats")({ day });
   return result.data;

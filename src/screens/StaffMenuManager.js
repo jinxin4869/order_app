@@ -14,7 +14,9 @@ import {
   getStaffMenu,
   setMenuItemAvailability,
   setOrderingAvailability,
+  batchTranslateMenu,
 } from "../services/api";
+import MenuItemEditor from "./MenuItemEditor";
 import { showAlert } from "../utils/dialogs";
 import { createRequestId } from "../utils/requestId";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
@@ -45,8 +47,9 @@ const Chip = ({ label, selected, onPress }) => (
   </Pressable>
 );
 
-const StaffMenuManager = () => {
+const StaffMenuManager = ({ restaurantId, canEditMenu = false }) => {
   const { isOnline } = useNetworkStatus();
+  const [editingId, setEditingId] = useState(null);
   const [menu, setMenu] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [updatedAt, setUpdatedAt] = useState(null);
@@ -180,6 +183,47 @@ const StaffMenuManager = () => {
       ]
     );
 
+  // Regenerate English and Chinese (with and without the dictionary) from
+  // the current Japanese text after editing names or descriptions.
+  const updateTranslations = () =>
+    showAlert(
+      "翻訳を更新",
+      "店舗の全商品・カテゴリの英語・中国語の翻訳（辞書あり・なし）を、現在の日本語から作り直しますか？DeepLの利用枠を使います。",
+      [
+        { text: "戻る", style: "cancel" },
+        {
+          text: "更新する",
+          onPress: async () => {
+            setSaving("translations");
+            setMessage("翻訳を更新しています…");
+            try {
+              for (const language of ["en", "zh"])
+                await batchTranslateMenu(restaurantId, language, {
+                  generateBothModes: true,
+                });
+              setMessage("英語・中国語の翻訳を更新しました。");
+            } catch {
+              setMessage(
+                "翻訳を更新できませんでした。時間を置いてもう一度お試しください。更新できなかった翻訳は、お客様の画面で日本語の原文として表示されます。"
+              );
+            } finally {
+              setSaving(null);
+            }
+          },
+        },
+      ]
+    );
+
+  if (editingId)
+    return (
+      <MenuItemEditor
+        itemId={editingId}
+        onClose={(changed) => {
+          setEditingId(null);
+          if (changed) load();
+        }}
+      />
+    );
   if (status === "loading" && !menu)
     return (
       <ActivityIndicator
@@ -258,6 +302,19 @@ const StaffMenuManager = () => {
           >
             <Text style={styles.text}>更新</Text>
           </Pressable>
+          {canEditMenu && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: locked }}
+              disabled={locked}
+              onPress={updateTranslations}
+              style={[styles.button, locked && styles.disabled]}
+            >
+              <Text style={styles.text}>
+                {saving === "translations" ? "翻訳を更新中…" : "翻訳を更新"}
+              </Text>
+            </Pressable>
+          )}
         </View>
       </View>
       <TextInput
@@ -332,6 +389,18 @@ const StaffMenuManager = () => {
               </Text>
             </Pressable>
           </View>
+          {canEditMenu && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${item.name_ja}を編集`}
+              accessibilityState={{ disabled: locked }}
+              disabled={locked}
+              onPress={() => setEditingId(item.id)}
+              style={[styles.button, locked && styles.disabled]}
+            >
+              <Text style={styles.text}>商品名・価格・写真を編集</Text>
+            </Pressable>
+          )}
           {!!rowMessage[item.id] && (
             <Text accessibilityLiveRegion="polite" style={styles.notice}>
               {rowMessage[item.id]}

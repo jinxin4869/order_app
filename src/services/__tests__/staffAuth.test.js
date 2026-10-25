@@ -75,3 +75,19 @@ test("Web staff login uses session persistence", async () => {
     Platform.OS = old;
   }
 });
+test.each([
+  [{ role: "staff", restaurantId: "rest-test", canEditMenu: true }, true],
+  [{ role: "staff", restaurantId: "rest-test" }, false],
+  [{ role: "customer", restaurantId: "rest-test", canEditMenu: true }, false],
+])("menu editing controls follow the claims %p", async (claims, expected) => {
+  let callback;
+  onIdTokenChanged.mockImplementation((auth, listener) => {
+    callback = listener;
+    return jest.fn();
+  });
+  getIdTokenResult.mockResolvedValue({ claims });
+  const listener = jest.fn();
+  observeStaffSession(listener);
+  await callback({ uid: "user" });
+  expect(listener.mock.calls[0][0].canEditMenu).toBe(expected);
+});
