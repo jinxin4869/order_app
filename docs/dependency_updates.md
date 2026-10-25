@@ -17,7 +17,7 @@
 | Rules unit testing   | 6.0.0                                                              |
 | Jest（フロント）     | 30.5.2（jest-expo 58、`@react-native/jest-preset` 0.88.0）         |
 | Functions            | firebase-admin 14.5.0、firebase-functions 7.4.0、deepl-node 1.28.1 |
-| ESLint               | ルート 9.39、Functions 10.13（ルートは #93 で対応待ち）            |
+| ESLint               | 10.13（ルートと Functions）                                        |
 
 Expo 管理下のパッケージ（react、react-native、expo-\*、jest-expo、babel-preset-expo など）は、`npx expo install --fix` が決めるバージョンに揃えます。Dependabot ではグループにまとめ、自動マージの対象から外しています。
 
