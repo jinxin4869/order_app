@@ -77,6 +77,9 @@ const tableLabel = (order) =>
 // Minutes since the order was placed, for orders still being handled.
 const ACTIVE = ["pending", "confirmed", "preparing", "ready", "served"];
 const LONG_WAIT_MINUTES = 10;
+// Orders unreachable this long (4 missed polls) means switching to the
+// manual fallback should be considered (docs/incident_runbook.md).
+const STALE_MS = 60 * 1000;
 const waitedMinutes = (order, now) =>
   ACTIVE.includes(order.status) && order.created_at
     ? Math.max(0, Math.floor((now - order.created_at) / 60000))
@@ -117,6 +120,10 @@ const OrderConsole = ({ session }) => {
   const [fresh, setFresh] = useState(() => new Set());
   const listScroll = useRef(null);
   const [lastRefresh, setLastRefresh] = useState(null);
+  // When fetching started to fail, and how long a resolved outage lasted.
+  const [failingSince, setFailingSince] = useState(null);
+  const failingRef = useRef(null);
+  const [recoveredAfter, setRecoveredAfter] = useState(null);
   const generation = useRef(0);
   const loading = useRef(false);
   const seen = useRef(null);
@@ -167,8 +174,18 @@ const OrderConsole = ({ session }) => {
         }));
         setError("");
         setLastRefresh(Date.now());
+        if (failingRef.current !== null) {
+          const outage = Date.now() - failingRef.current;
+          if (outage >= STALE_MS) setRecoveredAfter(outage);
+          failingRef.current = null;
+          setFailingSince(null);
+        }
       } catch (failure) {
         if (current === generation.current) {
+          if (failingRef.current === null) {
+            failingRef.current = Date.now();
+            setFailingSince(failingRef.current);
+          }
           if (
             failure.code?.includes("permission-denied") ||
             failure.code?.includes("unauthenticated")
@@ -409,6 +426,27 @@ const OrderConsole = ({ session }) => {
             </Pressable>
           ))}
         </View>
+        {failingSince !== null && now - failingSince >= STALE_MS && (
+          <Text accessibilityRole="alert" style={styles.outage}>
+            注文の取得が
+            {Math.max(1, Math.floor((now - failingSince) / 60000))}
+            分以上止まっています（最終取得{" "}
+            {lastRefresh ? dateLabel(lastRefresh) : "なし"}
+            ）。新しい注文が届いていない可能性があります。復旧しない場合は、手順書に従って紙での受付に切り替えてください。
+          </Text>
+        )}
+        {recoveredAfter !== null && (
+          <View style={styles.recovered}>
+            <Text accessibilityLiveRegion="polite" style={styles.text}>
+              注文の取得が回復しました（止まっていた時間 約
+              {Math.max(1, Math.round(recoveredAfter / 60000))}
+              分）。その間に紙で受け付けた注文があれば、一覧と照合してください。
+            </Text>
+            <Action secondary onPress={() => setRecoveredAfter(null)}>
+              確認しました
+            </Action>
+          </View>
+        )}
         {mode !== "orders" ? (
           <>
             {newCount > 0 && (
@@ -1022,6 +1060,21 @@ const styles = StyleSheet.create({
   status: { color: COLORS.textSecondary, fontWeight: "600" },
   pending: { color: "#B71C1C" },
   longWait: { color: "#B71C1C", fontWeight: "700" },
+  outage: {
+    color: "#FFFFFF",
+    backgroundColor: "#B71C1C",
+    fontSize: 16,
+    fontWeight: "700",
+    padding: 12,
+    borderRadius: 8,
+  },
+  recovered: {
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
   summary: { fontSize: 16, fontWeight: "700", color: COLORS.text },
   chip: {
     minHeight: 40,
