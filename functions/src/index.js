@@ -29,6 +29,7 @@ exports.getOrderRequest = orders.getOrderRequest;
 exports.listVisitOrders = orders.listVisitOrders;
 exports.closeTableVisit = orders.closeTableVisit;
 exports.updateOrderStatus = orders.updateOrderStatus;
+exports.correctOrderItems = orders.correctOrderItems;
 exports.listStaffOrders = orders.listStaffOrders;
 exports.getStaffOrder = orders.getStaffOrder;
 

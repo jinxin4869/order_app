@@ -43,30 +43,24 @@ const {
  * @param {Object} orderData - 注文データ
  * @return {boolean} - 金額が正しければtrue
  */
-const validatePriceCalculation = (orderData) => {
+// Tax-exclusive unit prices, 10% tax on the subtotal, rounded down to yen.
+// Shared by ordering and staff corrections.
+const totalsOf = (items) => {
   const TAX_RATE = 0.1;
-
-  const calculatedSubtotal = orderData.items.reduce(
+  const subtotal = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
-
-  const calculatedTax = Math.floor(calculatedSubtotal * TAX_RATE);
-  const calculatedTotal = calculatedSubtotal + calculatedTax;
-
+  const tax = Math.floor(subtotal * TAX_RATE);
+  return { subtotal, tax, total: subtotal + tax };
+};
+const validatePriceCalculation = (orderData) => {
+  const calculated = totalsOf(orderData.items);
   const isValid =
-    calculatedSubtotal === orderData.subtotal &&
-    calculatedTax === orderData.tax &&
-    calculatedTotal === orderData.totalAmount;
-
-  return {
-    isValid,
-    calculated: {
-      subtotal: calculatedSubtotal,
-      tax: calculatedTax,
-      total: calculatedTotal,
-    },
-  };
+    calculated.subtotal === orderData.subtotal &&
+    calculated.tax === orderData.tax &&
+    calculated.total === orderData.totalAmount;
+  return { isValid, calculated };
 };
 
 // The number printed on the table, copied from the master when the order is
@@ -459,11 +453,13 @@ const visitOrderDTO = (doc) => {
     status: order.status,
     total_amount: order.total_amount,
     created_at: millis(order.created_at),
+    corrected: order.corrected === true,
     items: (order.items || []).map((item) => ({
       name_ja: item.name_ja,
       name_en: item.name_en || null,
       name_zh: item.name_zh || null,
       quantity: item.quantity,
+      original_quantity: item.original_quantity ?? null,
       price: item.price,
       notes: item.notes || "",
     })),
@@ -566,11 +562,15 @@ const orderDTO = (doc) => {
     total_amount: data.total_amount,
     created_at: millis(data.created_at),
     updated_at: millis(data.updated_at),
+    revision: data.revision || 0,
+    corrected: data.corrected === true,
+    original_total_amount: data.original_total_amount ?? null,
     items: (data.items || []).map((item) => ({
       item_id: item.item_id,
       name_ja: item.name_ja,
       name: item.name,
       quantity: item.quantity,
+      original_quantity: item.original_quantity ?? null,
       price: item.price,
       notes: item.notes || "",
     })),
@@ -589,10 +589,14 @@ const historyOf = (orderRef) => orderRef.collection("status_history");
 exports.getStaffOrder = onAppCall({}, async (request) => {
   const restaurantId = await requireStaff(request);
   const doc = await getStaffOrderRef(request.data?.orderId, restaurantId);
-  const history = await historyOf(doc.ref)
-    .orderBy("created_at", "asc")
-    .limit(100)
-    .get();
+  const [history, corrections] = await Promise.all([
+    historyOf(doc.ref).orderBy("created_at", "asc").limit(100).get(),
+    doc.ref
+      .collection("corrections")
+      .orderBy("created_at", "asc")
+      .limit(50)
+      .get(),
+  ]);
   return {
     order: {
       ...orderDTO(doc),
@@ -606,8 +610,157 @@ exports.getStaffOrder = onAppCall({}, async (request) => {
           created_at: millis(event.created_at),
         };
       }),
+      corrections: corrections.docs.map((entry) => {
+        const record = entry.data();
+        return {
+          changes: record.changes,
+          total_before: record.total_before,
+          total_after: record.total_after,
+          reason: record.reason,
+          staff_email: record.staff_email || null,
+          created_at: millis(record.created_at),
+        };
+      }),
     },
   };
+});
+
+// Staff may reduce or cancel lines while the kitchen can still act on it.
+const CORRECTABLE = [
+  ORDER_STATUS.PENDING,
+  ORDER_STATUS.CONFIRMED,
+  ORDER_STATUS.PREPARING,
+];
+/**
+ * スタッフが受付済みの注文の商品を減数・取消する。
+ * 増数・別商品への変更は追加注文として扱う。元の数量と金額を残し、
+ * 訂正の記録を同じトランザクションで保存する。
+ */
+exports.correctOrderItems = onAppCall({}, async (request) => {
+  const restaurantId = await requireStaff(request);
+  const { orderId, expectedRevision, changes, reason, operationId } =
+    request.data || {};
+  const note = typeof reason === "string" ? sanitizeNotes(reason) : null;
+  if (
+    !isDocumentId(orderId) ||
+    !isDocumentId(operationId) ||
+    !Number.isSafeInteger(expectedRevision) ||
+    expectedRevision < 0 ||
+    !Array.isArray(changes) ||
+    !changes.length ||
+    changes.length > 100 ||
+    !changes.every(
+      (change) =>
+        change !== null &&
+        typeof change === "object" &&
+        Number.isSafeInteger(change.index) &&
+        change.index >= 0 &&
+        Number.isSafeInteger(change.quantity) &&
+        change.quantity >= 0
+    ) ||
+    new Set(changes.map((change) => change.index)).size !== changes.length
+  )
+    throw new HttpsError("invalid-argument", "訂正の指定が不正です");
+  if (!note || reason.length > 100)
+    throw new HttpsError(
+      "invalid-argument",
+      "訂正の理由を100文字以内で入力してください"
+    );
+  const orderRef = db.collection("orders").doc(orderId);
+  const recordRef = orderRef.collection("corrections").doc(operationId);
+  const requested = JSON.stringify(
+    changes.map(({ index, quantity }) => [index, quantity])
+  );
+  return db.runTransaction(async (transaction) => {
+    const done = await transaction.get(recordRef);
+    if (done.exists) {
+      if (done.data().requested !== requested)
+        throw new HttpsError(
+          "already-exists",
+          "同じ操作IDで別の訂正は保存できません"
+        );
+      return done.data().result;
+    }
+    const doc = await transaction.get(orderRef);
+    if (!doc.exists) throw new HttpsError("not-found", "注文が見つかりません");
+    const order = doc.data();
+    requireRestaurant(restaurantId, order.restaurant_id);
+    const revision = order.revision || 0;
+    if (revision !== expectedRevision)
+      throw new HttpsError(
+        "aborted",
+        "別のスタッフが注文を更新しました。最新の内容を確認してください",
+        { reason: "revision_changed", revision }
+      );
+    if (!CORRECTABLE.includes(order.status))
+      throw new HttpsError(
+        "failed-precondition",
+        "提供待ち以降の注文は訂正できません",
+        { reason: "not_correctable", status: order.status }
+      );
+    const items = (order.items || []).map((item) => ({ ...item }));
+    for (const change of changes) {
+      const item = items[change.index];
+      if (!item || change.quantity >= item.quantity)
+        throw new HttpsError(
+          "invalid-argument",
+          "数量は減らす方向だけ訂正できます"
+        );
+      item.original_quantity = item.original_quantity ?? item.quantity;
+      item.quantity = change.quantity;
+    }
+    const totals = totalsOf(items);
+    const allCancelled = items.every((item) => item.quantity === 0);
+    const status = allCancelled ? ORDER_STATUS.CANCELLED : order.status;
+    const staffFields = {
+      staff_uid: request.auth.uid,
+      staff_email: request.auth.token?.email || null,
+      created_at: FieldValue.serverTimestamp(),
+    };
+    const result = {
+      success: true,
+      revision: revision + 1,
+      status,
+      total_amount: totals.total,
+    };
+    transaction.update(orderRef, {
+      items,
+      subtotal: totals.subtotal,
+      tax: totals.tax,
+      total_amount: totals.total,
+      original_total_amount: order.original_total_amount ?? order.total_amount,
+      corrected: true,
+      revision: revision + 1,
+      status,
+      updated_at: FieldValue.serverTimestamp(),
+      updated_by: request.auth.uid,
+    });
+    transaction.set(recordRef, {
+      restaurant_id: order.restaurant_id,
+      requested,
+      changes: changes.map(({ index, quantity }) => ({
+        index,
+        item_id: order.items[index].item_id,
+        name_ja: order.items[index].name_ja,
+        from: order.items[index].quantity,
+        to: quantity,
+      })),
+      total_before: order.total_amount,
+      total_after: totals.total,
+      reason: note,
+      result,
+      ...staffFields,
+    });
+    if (allCancelled)
+      transaction.set(historyOf(orderRef).doc(), {
+        restaurant_id: order.restaurant_id,
+        from_status: order.status,
+        to_status: ORDER_STATUS.CANCELLED,
+        reason: `全商品の取消：${note}`,
+        ...staffFields,
+      });
+    return result;
+  });
 });
 exports.listStaffOrders = onAppCall({}, async (request) => {
   const restaurantId = await requireStaff(request);

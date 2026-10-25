@@ -407,6 +407,35 @@ async function main() {
       ).orders.length,
       7
     );
+    // Two corrections from the same displayed revision: only one is saved.
+    const { correctOrderItems } = require("../functions/src/orders");
+    const target = distinct[0].orderId;
+    const corrections = await Promise.allSettled(
+      ["fix-emulator-a", "fix-emulator-b"].map((operationId) =>
+        correctOrderItems.run({
+          auth: reactivated,
+          data: {
+            orderId: target,
+            expectedRevision: 0,
+            changes: [{ index: 0, quantity: 0 }],
+            reason: "合成データの訂正",
+            operationId,
+          },
+        })
+      )
+    );
+    assert.equal(corrections.filter((r) => r.status === "fulfilled").length, 1);
+    assert.equal(
+      corrections.find((r) => r.status === "rejected").reason.code,
+      "aborted"
+    );
+    assert.equal(
+      (await serverDb.collection(`orders/${target}/corrections`).get()).size,
+      1
+    );
+    await assertFails(
+      getDoc(doc(anonymous, `orders/${target}/corrections/fix-emulator-a`))
+    );
     // A device's visit lists only its own orders until staff clear the table.
     await serverDb
       .doc("restaurants/rest-test/tables/table-visit")
