@@ -117,7 +117,7 @@ describe("MenuScreen", () => {
   });
 
   test("メニューを正しく表示する", async () => {
-    const { getByText } = render(
+    const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
 
@@ -127,27 +127,27 @@ describe("MenuScreen", () => {
     });
   });
   test("category, language and translation mode switches do not refetch the catalog", async () => {
-    const screen = render(
+    const screen = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
     await screen.findByText("枝豆");
     expect(api.getMenuWithTranslation).toHaveBeenCalledTimes(1);
-    fireEvent.press(screen.getByText("メイン"));
+    await fireEvent.press(screen.getByText("メイン"));
     expect(screen.getByText("唐揚げ")).toBeTruthy();
-    fireEvent.press(screen.getByText("前菜"));
+    await fireEvent.press(screen.getByText("前菜"));
     useLanguage.mockReturnValue({
       ...useLanguage(),
       currentLanguage: "en",
       translationMode: "deepl_only",
     });
-    screen.rerender(
+    await screen.rerender(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
     expect(screen.getByText("枝豆")).toBeTruthy();
     expect(api.getMenuWithTranslation).toHaveBeenCalledTimes(1);
   });
   test("explicit refresh corrects a removed category without triggering another fetch", async () => {
-    const screen = render(
+    const screen = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
     await screen.findByText("枝豆");
@@ -155,13 +155,13 @@ describe("MenuScreen", () => {
       categories: [mockCategories[1]],
       items: mockMenuItems,
     });
-    fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
     await screen.findByText("唐揚げ");
     expect(screen.queryByText("前菜")).toBeNull();
     expect(api.getMenuWithTranslation).toHaveBeenCalledTimes(2);
   });
   test("switching stores immediately hides the old menu and ignores its late response", async () => {
-    const screen = render(
+    const screen = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
     await screen.findByText("枝豆");
@@ -172,7 +172,13 @@ describe("MenuScreen", () => {
           resolveOld = resolve;
         })
     );
-    fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    // RNTL 14's fireEvent resolves with the handler's promise, and this
+    // refresh request is held open on purpose. Await it after resolveOld.
+    const refresh = fireEvent.press(
+      screen.getByRole("button", { name: "更新" })
+    );
+    // Let fireEvent's own act() finish before starting the next one.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     api.getMenuWithTranslation.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
@@ -182,11 +188,14 @@ describe("MenuScreen", () => {
     const other = {
       params: { ...mockRoute.params, restaurantId: "other-store" },
     };
-    screen.rerender(<MenuScreen navigation={mockNavigation} route={other} />);
+    await screen.rerender(
+      <MenuScreen navigation={mockNavigation} route={other} />
+    );
     expect(screen.queryByText("枝豆")).toBeNull();
     await act(async () =>
       resolveOld({ categories: mockCategories, items: mockMenuItems })
     );
+    await refresh;
     expect(screen.queryByText("枝豆")).toBeNull();
     await act(async () =>
       resolveNew({
@@ -199,12 +208,12 @@ describe("MenuScreen", () => {
     expect(api.getMenuWithTranslation).toHaveBeenLastCalledWith("other-store");
   });
 
-  test("ローディング中はローディングインジケーターを表示", () => {
+  test("ローディング中はローディングインジケーターを表示", async () => {
     api.getMenuWithTranslation.mockImplementation(
       () => new Promise(() => {}) // 永久に解決しないPromise
     );
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
 
@@ -212,7 +221,7 @@ describe("MenuScreen", () => {
   });
 
   test("カテゴリを表示する", async () => {
-    const { getByText } = render(
+    const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
 
@@ -223,7 +232,7 @@ describe("MenuScreen", () => {
   });
 
   test("メニューアイテムを表示する", async () => {
-    const { getByText } = render(
+    const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
 
@@ -234,7 +243,7 @@ describe("MenuScreen", () => {
   });
 
   test("人気バッジを表示する", async () => {
-    const { getByText } = render(
+    const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
 
@@ -244,13 +253,13 @@ describe("MenuScreen", () => {
   });
 
   test("メニューアイテムをタップすると詳細画面に遷移", async () => {
-    const { getByText } = render(
+    const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
 
-    await waitFor(() => {
+    await waitFor(async () => {
       const edamameItem = getByText("枝豆");
-      fireEvent.press(edamameItem.parent.parent);
+      await fireEvent.press(edamameItem.parent.parent);
     });
 
     expect(mockNavigation.navigate).toHaveBeenCalledWith("ItemDetail", {
@@ -261,13 +270,13 @@ describe("MenuScreen", () => {
   });
 
   test("カートボタンをタップするとカート画面に遷移", async () => {
-    const { getByText } = render(
+    const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
 
-    await waitFor(() => {
+    await waitFor(async () => {
       const cartButton = getByText("🛒 カートを見る");
-      fireEvent.press(cartButton);
+      await fireEvent.press(cartButton);
     });
 
     expect(mockNavigation.navigate).toHaveBeenCalledWith("Cart", {
@@ -279,13 +288,13 @@ describe("MenuScreen", () => {
   });
 
   test("戻るボタンをタップすると前の画面に戻る", async () => {
-    const { getByText } = render(
+    const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
 
-    await waitFor(() => {
+    await waitFor(async () => {
       const backButton = getByText("←");
-      fireEvent.press(backButton);
+      await fireEvent.press(backButton);
     });
 
     expect(mockNavigation.goBack).toHaveBeenCalled();
@@ -297,7 +306,7 @@ describe("MenuScreen", () => {
       isConnected: false,
     });
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
 
@@ -311,7 +320,7 @@ describe("MenuScreen", () => {
       new Error("ネットワークエラー")
     );
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
 
@@ -326,7 +335,7 @@ describe("MenuScreen", () => {
       new Error("ネットワークエラー")
     );
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
 
@@ -340,7 +349,7 @@ describe("MenuScreen", () => {
       items: mockMenuItems,
     });
 
-    fireEvent.press(getByText("再読み込み"));
+    await fireEvent.press(getByText("再読み込み"));
 
     await waitFor(() => {
       expect(api.getMenuWithTranslation).toHaveBeenCalledTimes(2);
@@ -353,7 +362,7 @@ describe("MenuScreen", () => {
       items: [],
     });
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
 
@@ -372,7 +381,7 @@ describe("MenuScreen", () => {
       setTranslationMode: jest.fn(),
     });
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
     );
 

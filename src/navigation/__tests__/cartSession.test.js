@@ -54,15 +54,15 @@ function Harness({ route }) {
     </CartContext.Provider>
   );
 }
-test("navigation preserves the same table cart and discards a different restaurant's items", () => {
-  const view = render(<Harness route={routeFor("ItemDetail")} />);
-  fireEvent.press(view.getByText("カートに追加"));
-  view.rerender(<Harness route={routeFor("Cart")} />);
+test("navigation preserves the same table cart and discards a different restaurant's items", async () => {
+  const view = await render(<Harness route={routeFor("ItemDetail")} />);
+  await fireEvent.press(view.getByText("カートに追加"));
+  await view.rerender(<Harness route={routeFor("Cart")} />);
   expect(view.getByText("店舗Aの料理")).toBeTruthy();
-  view.rerender(<Harness route={routeFor("LanguageSelect")} />);
-  view.rerender(<Harness route={routeFor("Cart")} />);
+  await view.rerender(<Harness route={routeFor("LanguageSelect")} />);
+  await view.rerender(<Harness route={routeFor("Cart")} />);
   expect(view.getByText("店舗Aの料理")).toBeTruthy();
-  view.rerender(
+  await view.rerender(
     <Harness
       route={routeFor("ItemDetail", "rest-b", "table-b", {
         ...dish,
@@ -70,19 +70,23 @@ test("navigation preserves the same table cart and discards a different restaura
       })}
     />
   );
-  fireEvent.press(view.getByText("カートに追加"));
-  view.rerender(<Harness route={routeFor("Cart", "rest-b", "table-b")} />);
+  await fireEvent.press(view.getByText("カートに追加"));
+  await view.rerender(
+    <Harness route={routeFor("Cart", "rest-b", "table-b")} />
+  );
   expect(view.queryByText("店舗Aの料理")).toBeNull();
   expect(view.getByText("店舗Bの料理")).toBeTruthy();
-  view.rerender(<Harness route={routeFor("Cart", "rest-b", "other-table")} />);
+  await view.rerender(
+    <Harness route={routeFor("Cart", "rest-b", "other-table")} />
+  );
   expect(view.getByText("カートは空です")).toBeTruthy();
 });
-test("ending a session or starting another table invalidates old item-detail actions", () => {
-  const { result } = renderHook(() => useCart());
+test("ending a session or starting another table invalidates old item-detail actions", async () => {
+  const { result } = await renderHook(() => useCart());
   expect(result.current.addItem(dish)).toBe(false);
-  act(() => result.current.setSession("rest-a", "table-a"));
-  act(() => result.current.addItem(dish));
-  act(() => result.current.setSession("rest-a", "table-b"));
+  await act(() => result.current.setSession("rest-a", "table-a"));
+  await act(() => result.current.addItem(dish));
+  await act(() => result.current.setSession("rest-a", "table-b"));
   expect(result.current.items).toEqual([]);
   expect(
     result.current.addItem(dish, 1, "", {
@@ -90,7 +94,7 @@ test("ending a session or starting another table invalidates old item-detail act
       tableId: "table-a",
     })
   ).toBe(false);
-  act(() => result.current.endSession());
+  await act(() => result.current.endSession());
   expect(result.current.sessionKey).toBeNull();
 });
 
@@ -110,12 +114,12 @@ test.each(["success", "failure"])(
       .mockImplementation((title, message, buttons) => {
         if (title === "注文確認") buttons[1].onPress();
       });
-    const view = render(<Harness route={routeFor("ItemDetail")} />);
-    fireEvent.press(view.getByText("カートに追加"));
-    view.rerender(<Harness route={routeFor("Cart")} />);
-    fireEvent.press(view.getByText("注文を確定する"));
+    const view = await render(<Harness route={routeFor("ItemDetail")} />);
+    await fireEvent.press(view.getByText("カートに追加"));
+    await view.rerender(<Harness route={routeFor("Cart")} />);
+    await fireEvent.press(view.getByText("注文を確定する"));
     expect(createOrder).toHaveBeenCalledTimes(1);
-    view.rerender(
+    await view.rerender(
       <Harness
         route={routeFor("ItemDetail", "rest-b", "table-b", {
           ...dish,
@@ -123,8 +127,10 @@ test.each(["success", "failure"])(
         })}
       />
     );
-    fireEvent.press(view.getByText("カートに追加"));
-    view.rerender(<Harness route={routeFor("Cart", "rest-b", "table-b")} />);
+    await fireEvent.press(view.getByText("カートに追加"));
+    await view.rerender(
+      <Harness route={routeFor("Cart", "rest-b", "table-b")} />
+    );
     await act(async () => {
       if (outcome === "success")
         resolveOrder({ orderId: "old-order", orderNumber: "001" });
@@ -153,12 +159,14 @@ test("a price-change prompt opened at the old table cannot clear a new cart", as
     if (title === "注文確認") buttons[1].onPress();
     if (title === "メニュー更新が必要です") openMenu = buttons[0].onPress;
   });
-  const view = render(<Harness route={routeFor("ItemDetail")} />);
-  fireEvent.press(view.getByText("カートに追加"));
-  view.rerender(<Harness route={routeFor("Cart")} />);
-  await act(async () => fireEvent.press(view.getByText("注文を確定する")));
+  const view = await render(<Harness route={routeFor("ItemDetail")} />);
+  await fireEvent.press(view.getByText("カートに追加"));
+  await view.rerender(<Harness route={routeFor("Cart")} />);
+  await act(
+    async () => await fireEvent.press(view.getByText("注文を確定する"))
+  );
   expect(openMenu).toEqual(expect.any(Function));
-  view.rerender(
+  await view.rerender(
     <Harness
       route={routeFor("ItemDetail", "rest-b", "table-b", {
         ...dish,
@@ -166,22 +174,24 @@ test("a price-change prompt opened at the old table cannot clear a new cart", as
       })}
     />
   );
-  fireEvent.press(view.getByText("カートに追加"));
-  view.rerender(<Harness route={routeFor("Cart", "rest-b", "table-b")} />);
-  act(() => openMenu());
+  await fireEvent.press(view.getByText("カートに追加"));
+  await view.rerender(
+    <Harness route={routeFor("Cart", "rest-b", "table-b")} />
+  );
+  await act(() => openMenu());
   expect(view.getByText("店舗Bの料理")).toBeTruthy();
   expect(navigation.replace).not.toHaveBeenCalled();
 });
 
-test("reopening the same table after another session does not revive its pending request", () => {
-  const { result } = renderHook(() =>
+test("reopening the same table after another session does not revive its pending request", async () => {
+  const { result } = await renderHook(() =>
     useCart({ restaurantId: "rest-a", tableId: "table-a" })
   );
   const data = { restaurantId: "rest-a", tableId: "table-a", items: [] };
   const requestId = result.current.getOrderRequestId(data);
   expect(result.current.isOrderRequestCurrent(requestId)).toBe(true);
-  act(() => result.current.setSession("rest-b", "table-b"));
-  act(() => result.current.setSession("rest-a", "table-a"));
+  await act(() => result.current.setSession("rest-b", "table-b"));
+  await act(() => result.current.setSession("rest-a", "table-a"));
   expect(result.current.isOrderRequestCurrent(requestId)).toBe(false);
   expect(result.current.getOrderRequestId(data)).not.toBe(requestId);
 });

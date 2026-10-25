@@ -6,8 +6,10 @@ import { renderHook, act } from "@testing-library/react-native";
 import { useCart } from "../useCart";
 
 describe("useCart", () => {
-  test("初期状態は空のカート", () => {
-    const { result } = renderHook(() => useCart({ restaurantId: "rest-test", tableId: "table-test" }));
+  test("初期状態は空のカート", async () => {
+    const { result } = await renderHook(() =>
+      useCart({ restaurantId: "rest-test", tableId: "table-test" })
+    );
 
     expect(result.current.items).toEqual([]);
     expect(result.current.itemCount).toBe(0);
@@ -17,8 +19,10 @@ describe("useCart", () => {
     expect(result.current.isEmpty).toBe(true);
   });
 
-  test("アイテムを追加できる", () => {
-    const { result } = renderHook(() => useCart({ restaurantId: "rest-test", tableId: "table-test" }));
+  test("アイテムを追加できる", async () => {
+    const { result } = await renderHook(() =>
+      useCart({ restaurantId: "rest-test", tableId: "table-test" })
+    );
 
     const testItem = {
       id: "item_001",
@@ -26,7 +30,7 @@ describe("useCart", () => {
       price: 800,
     };
 
-    act(() => {
+    await act(() => {
       result.current.addItem(testItem, 2, "わさび抜き");
     });
 
@@ -42,8 +46,10 @@ describe("useCart", () => {
     expect(result.current.isEmpty).toBe(false);
   });
 
-  test("同じアイテムを追加すると数量が増える", () => {
-    const { result } = renderHook(() => useCart({ restaurantId: "rest-test", tableId: "table-test" }));
+  test("同じアイテムを追加すると数量が増える", async () => {
+    const { result } = await renderHook(() =>
+      useCart({ restaurantId: "rest-test", tableId: "table-test" })
+    );
 
     const testItem = {
       id: "item_001",
@@ -51,7 +57,7 @@ describe("useCart", () => {
       price: 800,
     };
 
-    act(() => {
+    await act(() => {
       result.current.addItem(testItem, 2);
       result.current.addItem(testItem, 3);
     });
@@ -60,8 +66,10 @@ describe("useCart", () => {
     expect(result.current.items[0].quantity).toBe(5);
   });
 
-  test("数量を更新できる", () => {
-    const { result } = renderHook(() => useCart({ restaurantId: "rest-test", tableId: "table-test" }));
+  test("数量を更新できる", async () => {
+    const { result } = await renderHook(() =>
+      useCart({ restaurantId: "rest-test", tableId: "table-test" })
+    );
 
     const testItem = {
       id: "item_001",
@@ -69,7 +77,7 @@ describe("useCart", () => {
       price: 800,
     };
 
-    act(() => {
+    await act(() => {
       result.current.addItem(testItem, 2);
       result.current.updateQuantity("item_001", 5);
     });
@@ -77,8 +85,10 @@ describe("useCart", () => {
     expect(result.current.items[0].quantity).toBe(5);
   });
 
-  test("アイテムを削除できる", () => {
-    const { result } = renderHook(() => useCart({ restaurantId: "rest-test", tableId: "table-test" }));
+  test("アイテムを削除できる", async () => {
+    const { result } = await renderHook(() =>
+      useCart({ restaurantId: "rest-test", tableId: "table-test" })
+    );
 
     const testItem = {
       id: "item_001",
@@ -86,7 +96,7 @@ describe("useCart", () => {
       price: 800,
     };
 
-    act(() => {
+    await act(() => {
       result.current.addItem(testItem, 2);
       result.current.removeItem("item_001");
     });
@@ -95,10 +105,12 @@ describe("useCart", () => {
     expect(result.current.isEmpty).toBe(true);
   });
 
-  test("カートをクリアできる", () => {
-    const { result } = renderHook(() => useCart({ restaurantId: "rest-test", tableId: "table-test" }));
+  test("カートをクリアできる", async () => {
+    const { result } = await renderHook(() =>
+      useCart({ restaurantId: "rest-test", tableId: "table-test" })
+    );
 
-    act(() => {
+    await act(() => {
       result.current.addItem({ id: "1", name: "Item 1", price: 100 }, 1);
       result.current.addItem({ id: "2", name: "Item 2", price: 200 }, 2);
       result.current.clearCart();
@@ -108,10 +120,12 @@ describe("useCart", () => {
     expect(result.current.isEmpty).toBe(true);
   });
 
-  test("小計、税、合計が正しく計算される", () => {
-    const { result } = renderHook(() => useCart({ restaurantId: "rest-test", tableId: "table-test" }));
+  test("小計、税、合計が正しく計算される", async () => {
+    const { result } = await renderHook(() =>
+      useCart({ restaurantId: "rest-test", tableId: "table-test" })
+    );
 
-    act(() => {
+    await act(() => {
       result.current.addItem({ id: "1", name: "Item 1", price: 1000 }, 2); // 2000円
       result.current.addItem({ id: "2", name: "Item 2", price: 500 }, 1); // 500円
     });
@@ -121,10 +135,12 @@ describe("useCart", () => {
     expect(result.current.total).toBe(2750);
   });
 
-  test("税は切り捨てで計算される", () => {
-    const { result } = renderHook(() => useCart({ restaurantId: "rest-test", tableId: "table-test" }));
+  test("税は切り捨てで計算される", async () => {
+    const { result } = await renderHook(() =>
+      useCart({ restaurantId: "rest-test", tableId: "table-test" })
+    );
 
-    act(() => {
+    await act(() => {
       result.current.addItem({ id: "1", name: "Item 1", price: 333 }, 3); // 999円
     });
 
@@ -134,32 +150,44 @@ describe("useCart", () => {
   });
 });
 
-test("retries keep the order request ID across rerenders until the intent changes", () => {
-  const { result, rerender } = renderHook(() => useCart({ restaurantId: "rest-test", tableId: "table-test" }));
-  const data = { restaurantId: "rest-test", tableId: "table-test", items: [{ item_id: "item-test", quantity: 1 }] };
+test("retries keep the order request ID across rerenders until the intent changes", async () => {
+  const { result, rerender } = await renderHook(() =>
+    useCart({ restaurantId: "rest-test", tableId: "table-test" })
+  );
+  const data = {
+    restaurantId: "rest-test",
+    tableId: "table-test",
+    items: [{ item_id: "item-test", quantity: 1 }],
+  };
   let first;
-  act(() => { first = result.current.getOrderRequestId(data); });
-  rerender();
+  await act(() => {
+    first = result.current.getOrderRequestId(data);
+  });
+  await rerender();
   expect(result.current.getOrderRequestId({ ...data })).toBe(first);
-  expect(() => result.current.getOrderRequestId({ ...data, tableId: "other-table" })).toThrow();
+  expect(() =>
+    result.current.getOrderRequestId({ ...data, tableId: "other-table" })
+  ).toThrow();
   const next = result.current.getOrderRequestId(data);
-  act(() => result.current.clearCart());
+  await act(() => result.current.clearCart());
   expect(result.current.getOrderRequestId(data)).not.toBe(next);
 });
 
-test("cart additions and updates never exceed 99, including repeated additions", () => {
-  const { result } = renderHook(() => useCart({ restaurantId: "rest-test", tableId: "table-test" }));
+test("cart additions and updates never exceed 99, including repeated additions", async () => {
+  const { result } = await renderHook(() =>
+    useCart({ restaurantId: "rest-test", tableId: "table-test" })
+  );
   const item = { id: "item-test", name_ja: "料理", price: 1000 };
-  act(() => result.current.addItem(item, 98));
-  act(() => result.current.addItem(item, 1));
+  await act(() => result.current.addItem(item, 98));
+  await act(() => result.current.addItem(item, 1));
   expect(result.current.items[0].quantity).toBe(99);
-  act(() => result.current.addItem(item, 1));
+  await act(() => result.current.addItem(item, 1));
   expect(result.current.items[0].quantity).toBe(99);
-  act(() => result.current.updateQuantity(item.id, 100));
+  await act(() => result.current.updateQuantity(item.id, 100));
   expect(result.current.items[0].quantity).toBe(99);
-  act(() => result.current.updateQuantity(item.id, NaN));
-  act(() => result.current.updateQuantity(item.id, 1.5));
+  await act(() => result.current.updateQuantity(item.id, NaN));
+  await act(() => result.current.updateQuantity(item.id, 1.5));
   expect(result.current.items[0].quantity).toBe(99);
-  act(() => result.current.addItem(item, 100, "different notes"));
+  await act(() => result.current.addItem(item, 100, "different notes"));
   expect(result.current.items[1].quantity).toBe(99);
 });
