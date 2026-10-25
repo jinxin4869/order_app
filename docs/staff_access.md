@@ -1,6 +1,6 @@
 # スタッフの認証・店舗権限
 
-管理APIはFirebase Authenticationのログインと、管理者が付与したCustom Claimsを要求します。注文一覧・詳細・状態更新・一括翻訳は、各リクエストでAuthの現在のアカウント状態と所属も照合します。
+管理APIはFirebase Authenticationのログインと、管理者が付与したCustom Claimsを要求します。注文一覧・詳細・状態更新・一括翻訳・単体翻訳は、各リクエストでAuthの現在のアカウント状態と所属も照合します。
 
 ```json
 { "role": "staff", "restaurantId": "restaurant-example" }
@@ -11,6 +11,7 @@
 
 - `updateOrderStatus`は対象注文の`restaurant_id`と所属店舗を照合します。
 - `batchTranslateMenu`は対象メニューの店舗と所属店舗を照合します。
+- `translateText`はスタッフであることだけを確認します。未認証で公開すると、第三者がDeepLの利用枠と`translation_cache`を消費できるためです。
 - 未ログイン・無効化・削除・失効済みのセッションは`unauthenticated`、権限不足・他店舗操作・トークンと現在の所属の不一致は`permission-denied`を返します。
 - Authの状態を取得できない場合や失効時刻を確認できない場合は`unavailable`を返し、注文情報の参照・更新や翻訳を実行しません。外部サービスのエラー詳細は返しません。
 - お客様の注文作成はログイン不要ですが、Firestoreへの直接書き込みは禁止します。

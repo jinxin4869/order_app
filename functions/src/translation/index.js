@@ -394,19 +394,23 @@ const translate = async (
   return { ...result, fromCache: false };
 };
 
-exports.translateText = onAppCall(
-  { secrets: ["DEEPL_API_KEY"], memory: "512MiB" },
-  async (request) => {
-    const { text, targetLang, useDictionary = true } = request.data || {};
-    return translate(text, targetLang, useDictionary, true);
-  }
-);
-
 const {
   requireStaff,
   requireRestaurant,
   isDocumentId,
 } = require("../utils/staffAuth");
+
+// Staff only: an open endpoint would let anyone spend the DeepL quota and
+// fill translation_cache with arbitrary text.
+exports.translateText = onAppCall(
+  { secrets: ["DEEPL_API_KEY"], memory: "512MiB" },
+  async (request) => {
+    await requireStaff(request);
+    const { text, targetLang, useDictionary = true } = request.data || {};
+    return translate(text, targetLang, useDictionary, true);
+  }
+);
+
 exports.batchTranslateMenu = onAppCall(
   { secrets: ["DEEPL_API_KEY"] },
   async (request) => {
