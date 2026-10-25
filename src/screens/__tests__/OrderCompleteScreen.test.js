@@ -11,6 +11,7 @@ import { useLanguage } from "../../hooks/useLanguage";
 
 const mockNavigation = {
   navigate: jest.fn(),
+  popTo: jest.fn(),
   reset: jest.fn(),
 };
 
@@ -85,7 +86,7 @@ describe("OrderCompleteScreen", () => {
     expect(getByText("123456")).toBeTruthy();
   });
 
-  it("追加注文ボタンを押すとメニュー画面に遷移する", () => {
+  it("追加注文ボタンを押すと既存のメニュー画面まで戻る", () => {
     const { getByText } = render(
       <OrderCompleteScreen navigation={mockNavigation} route={mockRoute} />
     );
@@ -95,7 +96,7 @@ describe("OrderCompleteScreen", () => {
     const addMoreButton = getByText("追加注文する");
     fireEvent.press(addMoreButton);
 
-    expect(mockNavigation.navigate).toHaveBeenCalledWith("Menu", {
+    expect(mockNavigation.popTo).toHaveBeenCalledWith("Menu", {
       restaurantId: "restaurant_01",
       tableId: "table_01",
       restaurant: { name: "テストレストラン" },

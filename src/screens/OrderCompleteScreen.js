@@ -45,8 +45,9 @@ const OrderCompleteScreen = ({ navigation, route }) => {
   };
 
   // 新しい注文を開始
+  // React Navigation 7 の navigate は既存の Menu に戻らず新しく積むため、popTo で戻る。
   const handleNewOrder = () => {
-    navigation.navigate("Menu", {
+    navigation.popTo("Menu", {
       restaurantId: route.params.restaurantId,
       tableId: route.params.tableId,
       restaurant,

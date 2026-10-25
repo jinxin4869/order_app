@@ -65,7 +65,7 @@ const AppStack = () => {
         headerTitleStyle: {
           fontWeight: "bold",
         },
-        headerBackTitleVisible: false,
+        headerBackButtonDisplayMode: "minimal",
       }}
     >
       <Stack.Screen
