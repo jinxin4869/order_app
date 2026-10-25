@@ -266,6 +266,55 @@ async function main() {
       ).orders.length,
       7
     );
+    // A device's visit lists only its own orders until staff clear the table.
+    await serverDb
+      .doc("restaurants/rest-test/tables/table-visit")
+      .set({ status: "available", table_number: "7" });
+    const {
+      listVisitOrders,
+      closeTableVisit,
+    } = require("../functions/src/orders");
+    const visit = {
+      restaurantId: "rest-test",
+      tableId: "table-visit",
+      visitId: "visit-emulator-1",
+    };
+    const placed = await createOrder.run({
+      data: {
+        ...orderData,
+        tableId: "table-visit",
+        requestId: "visit-emulator-order",
+        visitId: visit.visitId,
+      },
+    });
+    assert.deepEqual(
+      (await listVisitOrders.run({ data: visit })).orders.map(
+        (order) => order.order_number
+      ),
+      [placed.orderNumber]
+    );
+    assert.deepEqual(
+      (
+        await listVisitOrders.run({
+          data: { ...visit, visitId: "visit-emulator-2" },
+        })
+      ).orders,
+      []
+    );
+    await closeTableVisit.run({
+      auth: reactivated,
+      data: { tableId: "table-visit" },
+    });
+    assert.deepEqual(await listVisitOrders.run({ data: visit }), {
+      closed: true,
+      orders: [],
+    });
+    assert.equal(
+      (
+        await serverDb.doc("restaurants/rest-test/tables/table-visit").get()
+      ).data().status,
+      "available"
+    );
     await serverAuth.setCustomUserClaims(uid, {
       role: "staff",
       restaurantId: "other-store",
