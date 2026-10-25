@@ -20,7 +20,7 @@ React Native / Expo SDK 54、React 19、React Navigation 6、Firebase Cloud Func
 
 ## 初期構築
 
-Node.js **22**（FunctionsとCIも22）、npm、Gitを使用します。エミュレーター検証にはJava **21**、ブラウザ検証にはPlaywrightのChromiumが必要です。Firebase CLIは開発依存に含まれるため`npx firebase`で実行できます。
+Node.js **24**（FunctionsとCIも24。`.nvmrc` で指定）、npm、Gitを使用します。エミュレーター検証にはJava **21**、ブラウザ検証にはPlaywrightのChromiumが必要です。Firebase CLIは開発依存に含まれるため`npx firebase`で実行できます。
 
 ```bash
 git clone https://github.com/jinxin4869/order_app.git
