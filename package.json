@@ -35,7 +35,7 @@
     "expo-camera": "~17.0.10",
     "expo-constants": "^58.0.13",
     "expo-status-bar": "~3.0.9",
-    "firebase": "^12.19.0",
+    "firebase": "^13.1.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -47,7 +47,7 @@
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@eslint/js": "^9.39.1",
-    "@firebase/rules-unit-testing": "^5.0.2",
+    "@firebase/rules-unit-testing": "^6.0.0",
     "@testing-library/jest-native": "^5.4.3",
     "@testing-library/react-native": "^13.3.3",
     "babel-preset-expo": "~54.0.12",
