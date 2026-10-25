@@ -5,7 +5,8 @@ const isDocumentId = (value) =>
 
 // Callable middleware verifies the token signature. Always fetch current Auth
 // state as well: an otherwise valid token can outlive a role change or a stop.
-const requireStaff = async (request) => {
+// Returns the store and the user's current custom claims.
+const verifyStaff = async (request) => {
   if (!request.auth?.uid) {
     throw new HttpsError(
       "unauthenticated",
@@ -62,7 +63,20 @@ const requireStaff = async (request) => {
       "スタッフ権限が変更されています。再ログインしてください。"
     );
   }
-  return claims.restaurantId;
+  return { restaurantId: claims.restaurantId, claims: current };
+};
+const requireStaff = async (request) =>
+  (await verifyStaff(request)).restaurantId;
+// Editing menu content is granted per staff member (canEditMenu: true),
+// checked against the current claims like every other permission.
+const requireMenuEditor = async (request) => {
+  const { restaurantId, claims } = await verifyStaff(request);
+  if (claims.canEditMenu !== true)
+    throw new HttpsError(
+      "permission-denied",
+      "メニューを編集する権限がありません。"
+    );
+  return restaurantId;
 };
 const requireRestaurant = (staffRestaurantId, restaurantId) => {
   if (staffRestaurantId !== restaurantId) {
@@ -72,4 +86,9 @@ const requireRestaurant = (staffRestaurantId, restaurantId) => {
     );
   }
 };
-module.exports = { requireStaff, requireRestaurant, isDocumentId };
+module.exports = {
+  requireStaff,
+  requireMenuEditor,
+  requireRestaurant,
+  isDocumentId,
+};

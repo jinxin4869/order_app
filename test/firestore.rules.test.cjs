@@ -448,6 +448,46 @@ async function main() {
     ).size;
     assert.equal(daily.orders.total, placedToday);
     assert.ok(daily.orders.cancelled >= 1);
+    // Menu editing needs canEditMenu in the current claims; drafts stay private.
+    const editor = require("../functions/src/menu/editor");
+    const editDraft = {
+      itemId: "item-test",
+      expectedVersion: 0,
+      operationId: "edit-emulator-1",
+      draft: {
+        name_ja: "テスト料理",
+        description_ja: "合成データの説明",
+        price: 1000,
+        image_url: null,
+      },
+    };
+    await assert.rejects(
+      editor.saveMenuItemDraft.run({ auth: reactivated, data: editDraft }),
+      { code: "permission-denied" }
+    );
+    await serverAuth.setCustomUserClaims(uid, { ...claims, canEditMenu: true });
+    await editor.saveMenuItemDraft.run({ auth: reactivated, data: editDraft });
+    await assertFails(
+      getDoc(doc(anonymous, "restaurants/rest-test/menu_drafts/item-test"))
+    );
+    assert.deepEqual(
+      await editor.publishMenuItemDraft.run({
+        auth: reactivated,
+        data: {
+          itemId: "item-test",
+          expectedVersion: 0,
+          operationId: "edit-emulator-2",
+        },
+      }),
+      { success: true, version: 1, translationsOutdated: true }
+    );
+    assert.equal(
+      (
+        await serverDb.doc("restaurants/rest-test/menu_items/item-test").get()
+      ).data().description_ja,
+      "合成データの説明"
+    );
+    await serverAuth.setCustomUserClaims(uid, claims);
     // A device's visit lists only its own orders until staff clear the table.
     await serverDb
       .doc("restaurants/rest-test/tables/table-visit")

@@ -43,3 +43,9 @@ const staffMenu = require("./menu/staff");
 exports.getStaffMenu = staffMenu.getStaffMenu;
 exports.setMenuItemAvailability = staffMenu.setMenuItemAvailability;
 exports.setOrderingAvailability = staffMenu.setOrderingAvailability;
+
+const menuEditor = require("./menu/editor");
+exports.getEditableMenuItem = menuEditor.getEditableMenuItem;
+exports.saveMenuItemDraft = menuEditor.saveMenuItemDraft;
+exports.discardMenuItemDraft = menuEditor.discardMenuItemDraft;
+exports.publishMenuItemDraft = menuEditor.publishMenuItemDraft;
