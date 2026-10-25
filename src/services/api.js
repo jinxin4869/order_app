@@ -173,6 +173,7 @@ const staffChange = (name) => async (data) => {
 };
 export const setMenuItemAvailability = staffChange("setMenuItemAvailability");
 export const setOrderingAvailability = staffChange("setOrderingAvailability");
+export const correctOrderItems = staffChange("correctOrderItems");
 
 /**
  * 注文ステータスを更新する

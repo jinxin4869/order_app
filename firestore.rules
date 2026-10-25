@@ -53,6 +53,11 @@ service cloud.firestore {
       match /status_history/{eventId} {
         allow read, write: if false;
       }
+
+      // 商品の減数・取消の記録も同じ。
+      match /corrections/{correctionId} {
+        allow read, write: if false;
+      }
     }
 
     // 辞書・キャッシュ（サーバーサイドのみ）
