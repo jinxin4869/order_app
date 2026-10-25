@@ -4,7 +4,7 @@
  * 専門用語辞書と翻訳APIを組み合わせたハイブリッド翻訳システム
  */
 
-const { onCall } = require("firebase-functions/v2/https");
+const { onAppCall } = require("../utils/callable");
 const { HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const crypto = require("crypto");
@@ -394,8 +394,8 @@ const translate = async (
   return { ...result, fromCache: false };
 };
 
-exports.translateText = onCall(
-  { region: "asia-northeast1", secrets: ["DEEPL_API_KEY"], memory: "512MiB" },
+exports.translateText = onAppCall(
+  { secrets: ["DEEPL_API_KEY"], memory: "512MiB" },
   async (request) => {
     const { text, targetLang, useDictionary = true } = request.data || {};
     return translate(text, targetLang, useDictionary, true);
@@ -407,8 +407,8 @@ const {
   requireRestaurant,
   isDocumentId,
 } = require("../utils/staffAuth");
-exports.batchTranslateMenu = onCall(
-  { region: "asia-northeast1", secrets: ["DEEPL_API_KEY"] },
+exports.batchTranslateMenu = onAppCall(
+  { secrets: ["DEEPL_API_KEY"] },
   async (request) => {
     const staffRestaurantId = await requireStaff(request);
     const {
