@@ -19,6 +19,28 @@ jest.mock("../../services/api", () => ({
   updateOrderStatus: jest.fn(),
   closeTableVisit: jest.fn(),
   correctOrderItems: jest.fn(),
+  getDailyStats: jest.fn(async (day) => ({
+    day,
+    generatedAt: Date.now(),
+    truncated: false,
+    orders: { total: 0, active: 0, cancelled: 0, corrected: 0, served: 0 },
+    itemQuantity: 0,
+    popular: [],
+    durations: {
+      orderToServed: {
+        count: 0,
+        missing: 0,
+        medianMinutes: null,
+        averageMinutes: null,
+      },
+      confirmedToServed: {
+        count: 0,
+        missing: 0,
+        medianMinutes: null,
+        averageMinutes: null,
+      },
+    },
+  })),
   getStaffMenu: jest.fn(async () => ({
     restaurant: { name: "テスト店", ordering: "open", version: 0 },
     categories: [],
@@ -607,4 +629,45 @@ test("corrected orders are flagged in the list and show what changed", async () 
   expect(
     screen.getByRole("button", { name: "数量を訂正する（減数・取消）" })
   ).toBeTruthy();
+});
+test("an order-fetch outage over a minute is announced once, then its recovery", async () => {
+  jest.useFakeTimers();
+  try {
+    const screen = await render(<StaffScreen />);
+    await screen.findByRole("button", { name: "注文 20261009-001 未受付" });
+    listStaffOrders.mockRejectedValue(new Error("offline"));
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    expect(screen.queryByText(/分以上止まっています/)).toBeNull();
+    await act(async () => jest.advanceTimersByTime(61000));
+    expect(
+      screen.getAllByText(/注文の取得が1分以上止まっています/)
+    ).toHaveLength(1);
+    // Switching tabs keeps the warning in view.
+    await fireEvent.press(screen.getByRole("button", { name: "集計" }));
+    expect(screen.getByText(/分以上止まっています/)).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "注文受付" }));
+    listStaffOrders.mockResolvedValue({
+      orders: [order],
+      hasMore: false,
+      cursor: order.id,
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    expect(await screen.findByText(/注文の取得が回復しました/)).toBeTruthy();
+    expect(screen.queryByText(/分以上止まっています/)).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "確認しました" }));
+    expect(screen.queryByText(/回復しました/)).toBeNull();
+  } finally {
+    jest.useRealTimers();
+  }
+});
+test("a short blip is not announced as an outage", async () => {
+  const screen = await render(<StaffScreen />);
+  await screen.findByRole("button", { name: "注文 20261009-001 未受付" });
+  listStaffOrders.mockRejectedValueOnce(new Error("blip"));
+  await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+  await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+  await waitFor(() =>
+    expect(screen.queryByText(/注文を取得できません/)).toBeNull()
+  );
+  expect(screen.queryByText(/回復しました/)).toBeNull();
 });
