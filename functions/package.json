@@ -24,7 +24,7 @@
     "kuromoji": "^0.1.2"
   },
   "devDependencies": {
-    "eslint": "^8.15.0",
+    "eslint": "^10.13.0",
     "eslint-config-google": "^0.14.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.7",
