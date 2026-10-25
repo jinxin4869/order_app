@@ -5,9 +5,14 @@
  */
 
 const { initializeApp } = require("firebase-admin/app");
+const { setGlobalOptions } = require("firebase-functions/v2");
 
 // Firebase Admin初期化
 initializeApp();
+
+// 不正な大量リクエストでの課金・DeepL消費を抑えるため、全関数の同時インスタンス数に上限を設ける。
+// 各モジュールのonCallより前に設定する必要がある。
+setGlobalOptions({ maxInstances: 10 });
 
 // 各モジュールからエクスポート
 const translation = require("./translation");

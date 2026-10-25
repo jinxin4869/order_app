@@ -1,7 +1,12 @@
 // Firebase設定ファイル
 
 // Import the functions you need from the SDKs you need
+import { Platform } from "react-native";
 import { initializeApp } from "firebase/app";
+import {
+  initializeAppCheck,
+  ReCaptchaEnterpriseProvider,
+} from "firebase/app-check";
 import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 
@@ -15,6 +20,7 @@ import {
   FIREBASE_APP_ID,
   FIREBASE_MEASUREMENT_ID,
   FIREBASE_FUNCTIONS_REGION,
+  FIREBASE_APPCHECK_SITE_KEY,
 } from "@env";
 
 // Firebase configuration
@@ -30,6 +36,15 @@ const firebaseConfig = {
 
 // Firebase初期化
 const app = initializeApp(firebaseConfig);
+
+// App Check（Web のみ）。サイトキー未設定の環境（ローカル・エミュレーター）では無効のまま。
+// Functions 側で ENFORCE_APP_CHECK=true にする前に、本番ビルドへキーを設定すること。
+if (Platform.OS === "web" && FIREBASE_APPCHECK_SITE_KEY) {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider(FIREBASE_APPCHECK_SITE_KEY),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
 
 // Firestore
 export const db = getFirestore(app);

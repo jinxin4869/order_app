@@ -4,7 +4,7 @@
  * 専門用語辞書と翻訳APIを組み合わせたハイブリッド翻訳システム
  */
 
-const { onCall } = require("firebase-functions/v2/https");
+const { onAppCall } = require("../utils/callable");
 const { HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const crypto = require("crypto");
@@ -402,8 +402,8 @@ const {
 
 // Staff only: an open endpoint would let anyone spend the DeepL quota and
 // fill translation_cache with arbitrary text.
-exports.translateText = onCall(
-  { region: "asia-northeast1", secrets: ["DEEPL_API_KEY"], memory: "512MiB" },
+exports.translateText = onAppCall(
+  { secrets: ["DEEPL_API_KEY"], memory: "512MiB" },
   async (request) => {
     await requireStaff(request);
     const { text, targetLang, useDictionary = true } = request.data || {};
@@ -411,8 +411,8 @@ exports.translateText = onCall(
   }
 );
 
-exports.batchTranslateMenu = onCall(
-  { region: "asia-northeast1", secrets: ["DEEPL_API_KEY"] },
+exports.batchTranslateMenu = onAppCall(
+  { secrets: ["DEEPL_API_KEY"] },
   async (request) => {
     const staffRestaurantId = await requireStaff(request);
     const {
