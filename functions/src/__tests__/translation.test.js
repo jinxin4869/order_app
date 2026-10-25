@@ -46,20 +46,51 @@ beforeEach(() => {
 });
 test("unsupported target languages are rejected by the real handler", async () => {
   await expect(
-    api.translateText({ data: { text: "テスト料理", targetLang: "fr" } })
+    api.translateText({
+      auth: staff(),
+      data: { text: "テスト料理", targetLang: "fr" },
+    })
   ).rejects.toMatchObject({ code: "invalid-argument" });
 });
 test("empty input is rejected by the real handler", async () => {
   await expect(
-    api.translateText({ data: { text: "", targetLang: "en" } })
+    api.translateText({ auth: staff(), data: { text: "", targetLang: "en" } })
   ).rejects.toMatchObject({ code: "invalid-argument" });
 });
 test("numeric text is unchanged without service access", async () => {
   const result = await api.translateText({
+    auth: staff(),
     data: { text: "123", targetLang: "en" },
   });
   expect(result.translatedText).toBe("123");
   expect(mockDb.writes).toHaveLength(0);
+});
+
+test.each([
+  [undefined, "unauthenticated"],
+  [staff("rest-test", "customer"), "permission-denied"],
+  [staff(""), "permission-denied"],
+])(
+  "single translation rejects non-staff before DeepL or the cache",
+  async (auth, code) => {
+    const query = jest.spyOn(mockDb, "collection");
+    await expect(
+      api.translateText({ auth, data: { text: "親子丼", targetLang: "en" } })
+    ).rejects.toMatchObject({ code });
+    expect(query).not.toHaveBeenCalled();
+    expect(mockTranslate).not.toHaveBeenCalled();
+    expect(mockDb.writes).toHaveLength(0);
+  }
+);
+test("single translation rejects revoked staff accounts", async () => {
+  mockGetUser = jest.fn(async () => staffUser({ disabled: true }));
+  await expect(
+    api.translateText({
+      auth: staff(),
+      data: { text: "親子丼", targetLang: "en" },
+    })
+  ).rejects.toMatchObject({ code: "unauthenticated" });
+  expect(mockTranslate).not.toHaveBeenCalled();
 });
 
 test.each([
@@ -168,7 +199,10 @@ test.each(["en", "zh"])(
   "short Japanese names translate through the same single/batch pipeline (%s)",
   async (targetLang) => {
     for (const text of ["寿司", "鰻", "酢", "お茶"]) {
-      const single = await api.translateText({ data: { text, targetLang } });
+      const single = await api.translateText({
+        auth: staff(),
+        data: { text, targetLang },
+      });
       expect(single).toMatchObject({
         translatedText: "Synthetic translation",
         method: "deepl_api",
@@ -198,7 +232,10 @@ test.each(["en", "zh"])(
 test("numeric bypass exposes truthful metadata without configuration or dictionary access", async () => {
   delete process.env.DEEPL_API_KEY;
   expect(
-    await api.translateText({ data: { text: "12 34", targetLang: "en" } })
+    await api.translateText({
+      auth: staff(),
+      data: { text: "12 34", targetLang: "en" },
+    })
   ).toMatchObject({
     translatedText: "12 34",
     method: "passthrough",
@@ -215,7 +252,9 @@ test.each([
   { text: "  ", targetLang: "en" },
   { text: "寿司", targetLang: "en", useDictionary: "false" },
 ])("malformed requests fail before translation", async (data) => {
-  await expect(api.translateText({ data })).rejects.toMatchObject({
+  await expect(
+    api.translateText({ auth: staff(), data })
+  ).rejects.toMatchObject({
     code: "invalid-argument",
   });
   expect(mockTranslate).not.toHaveBeenCalled();
@@ -251,6 +290,7 @@ test.each([
       return { text: input.replace("と", " &amp; ") };
     });
     const result = await api.translateText({
+      auth: staff(),
       data: { text: "親子丼と親子丼", targetLang },
     });
     expect(result).toMatchObject({
@@ -261,7 +301,10 @@ test.each([
       foundTermsCount: 2,
     });
     expect(
-      await api.translateText({ data: { text: "親子丼と親子丼", targetLang } })
+      await api.translateText({
+        auth: staff(),
+        data: { text: "親子丼と親子丼", targetLang },
+      })
     ).toEqual({ ...result, fromCache: true });
     expect(mockTranslate).toHaveBeenCalledTimes(1);
   }
@@ -274,6 +317,7 @@ test("literal punctuation and XML characters cannot alter dictionary matching or
   });
   mockTranslate.mockImplementation(async (input) => ({ text: input }));
   const result = await api.translateText({
+    auth: staff(),
     data: { text: "料理(特) & <test>", targetLang: "en" },
   });
   expect(result.translatedText).toBe("Special & <dish> & <test>");
@@ -283,6 +327,7 @@ test("dictionary-only fallback is partial, uncached and never a successful batch
   dictionary();
   mockTranslate.mockRejectedValue(new Error("Synthetic outage"));
   const result = await api.translateText({
+    auth: staff(),
     data: { text: "親子丼をどうぞ", targetLang: "en" },
   });
   expect(result).toMatchObject({
@@ -320,8 +365,12 @@ test("dictionary revisions invalidate hybrid cache while methods without applied
   dictionary();
   mockTranslate.mockImplementation(async (input) => ({ text: input }));
   expect(
-    (await api.translateText({ data: { text: "親子丼", targetLang: "en" } }))
-      .translatedText
+    (
+      await api.translateText({
+        auth: staff(),
+        data: { text: "親子丼", targetLang: "en" },
+      })
+    ).translatedText
   ).toBe("Oyakodon");
   mockDb.seed("dictionary/compound", {
     term_ja: "親子丼",
@@ -330,6 +379,7 @@ test("dictionary revisions invalidate hybrid cache while methods without applied
   });
   jest.spyOn(Date, "now").mockReturnValue(Date.now() + 6 * 60 * 1000);
   const changed = await api.translateText({
+    auth: staff(),
     data: { text: "親子丼", targetLang: "en" },
   });
   expect(changed).toMatchObject({
@@ -337,8 +387,12 @@ test("dictionary revisions invalidate hybrid cache while methods without applied
     fromCache: false,
   });
   expect(
-    (await api.translateText({ data: { text: "別の料理", targetLang: "en" } }))
-      .method
+    (
+      await api.translateText({
+        auth: staff(),
+        data: { text: "別の料理", targetLang: "en" },
+      })
+    ).method
   ).toBe("deepl_api");
 });
 test("kana variants apply only to an actual matched span", async () => {
@@ -352,8 +406,12 @@ test("kana variants apply only to an actual matched span", async () => {
   );
   mockTranslate.mockImplementation(async (input) => ({ text: input }));
   expect(
-    (await api.translateText({ data: { text: "らーめん", targetLang: "en" } }))
-      .translatedText
+    (
+      await api.translateText({
+        auth: staff(),
+        data: { text: "らーめん", targetLang: "en" },
+      })
+    ).translatedText
   ).toBe("Ramen");
 });
 test("both-mode generation covers categories, names and descriptions with separate provenance and caches", async () => {
@@ -423,7 +481,10 @@ test.each([
 ])(
   "translation handler sends the supported DeepL variant for %s",
   async (targetLang, expectedTarget) => {
-    await api.translateText({ data: { text: "テスト料理", targetLang } });
+    await api.translateText({
+      auth: staff(),
+      data: { text: "テスト料理", targetLang },
+    });
     expect(mockTranslate).toHaveBeenCalledWith(
       "テスト料理",
       "JA",
