@@ -335,6 +335,32 @@ const RestaurantMenu = ({ navigation, route }) => {
           </View>
           <TouchableOpacity
             accessibilityRole="button"
+            onPress={() =>
+              navigation.navigate("OrderHistory", {
+                restaurantId,
+                tableId,
+                restaurant,
+                table,
+              })
+            }
+            style={{
+              minWidth: 44,
+              minHeight: 44,
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: 8,
+            }}
+          >
+            <Text style={{ color: COLORS.surface, fontWeight: "700" }}>
+              {currentLanguage === "zh"
+                ? "订单记录"
+                : currentLanguage === "en"
+                  ? "Orders"
+                  : "注文履歴"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
             accessibilityState={{ disabled: isRefreshing }}
             disabled={isRefreshing}
             onPress={() => reloadMenu(true)}

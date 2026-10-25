@@ -110,6 +110,39 @@ export const getOrderRequest = async ({ restaurantId, tableId, requestId }) => {
 };
 
 /**
+ * この端末が来店中に送った注文と進行状況を取得する
+ * @returns {Promise<{closed: boolean, orders: Array}>}
+ */
+export const listVisitOrders = async ({ restaurantId, tableId, visitId }) => {
+  try {
+    const list = httpsCallable(functions, "listVisitOrders");
+    const result = await withRetry(
+      () => list({ restaurantId, tableId, visitId }),
+      2,
+      1000
+    );
+    return result.data;
+  } catch (error) {
+    const userMessage = handleError(error, { function: "listVisitOrders" });
+    throw new Error(userMessage, { cause: error });
+  }
+};
+
+/**
+ * スタッフがテーブルの来店を終了する（空席に戻し、注文履歴の参照を終える）
+ */
+export const closeTableVisit = async (tableId) => {
+  try {
+    const close = httpsCallable(functions, "closeTableVisit");
+    const result = await close({ tableId });
+    return result.data;
+  } catch (error) {
+    const userMessage = handleError(error, { function: "closeTableVisit" });
+    throw Object.assign(new Error(userMessage), { code: error.code });
+  }
+};
+
+/**
  * 注文ステータスを更新する
  * @param {string} orderId - 注文ID
  * @param {string} newStatus - 新しいステータス

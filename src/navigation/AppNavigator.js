@@ -21,6 +21,7 @@ import MenuScreen from "../screens/MenuScreen";
 import ItemDetailScreen from "../screens/ItemDetailScreen";
 import CartScreen from "../screens/CartScreen";
 import OrderCompleteScreen from "../screens/OrderCompleteScreen";
+import OrderHistoryScreen from "../screens/OrderHistoryScreen";
 
 // Loading the camera module eagerly starts its Web barcode worker even when
 // the customer enters by a QR URL. Load it only when the scanner is opened.
@@ -111,6 +112,11 @@ const AppStack = () => {
         options={{ headerShown: false }}
       />
 
+      <Stack.Screen
+        name="OrderHistory"
+        component={OrderHistoryScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen
         name="OrderComplete"
         component={OrderCompleteScreen}

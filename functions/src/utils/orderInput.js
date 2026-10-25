@@ -19,6 +19,8 @@ const normalizeOrderInput = (data) => {
   if (!isDocumentId(data.restaurantId) || !isDocumentId(data.tableId))
     fail("店舗・テーブルIDが無効です。");
   if (!isDocumentId(data.requestId)) fail("リクエストIDが無効です。");
+  if (data.visitId != null && !isDocumentId(data.visitId))
+    fail("来店IDが無効です。");
   if (
     !Array.isArray(data.items) ||
     !data.items.length ||
@@ -59,6 +61,7 @@ const normalizeOrderInput = (data) => {
     ...data,
     items,
     customerLanguage: data.customerLanguage ?? "ja",
+    visitId: data.visitId ?? null,
     customerNotes: sanitizeNotes(data.customerNotes),
   };
 };

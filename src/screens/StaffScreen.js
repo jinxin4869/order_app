@@ -25,6 +25,7 @@ import {
   listStaffOrders,
   getStaffOrder,
   updateOrderStatus,
+  closeTableVisit,
 } from "../services/api";
 import { showAlert } from "../utils/dialogs";
 
@@ -240,6 +241,31 @@ const OrderConsole = ({ session }) => {
             } finally {
               updateLock.current = false;
               if (current === generation.current) setUpdating(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+  // Clearing the table ends the customers' visit: their devices stop seeing
+  // these orders and the next customers start a fresh history.
+  const closeVisit = () => {
+    const order = selected;
+    showAlert(
+      "来店を終了",
+      `${tableLabel(order)}の来店を終了しますか？\nテーブルは空席になり、お客様の端末からこれまでの注文履歴は見えなくなります。`,
+      [
+        { text: "戻る", style: "cancel" },
+        {
+          text: "終了する",
+          onPress: async () => {
+            try {
+              await closeTableVisit(order.table_id);
+              setNotice(`${tableLabel(order)}の来店を終了しました。`);
+            } catch {
+              setNotice(
+                "来店を終了できません。接続を確認して、もう一度お試しください。"
+              );
             }
           },
         },
@@ -484,6 +510,9 @@ const OrderConsole = ({ session }) => {
                     onPress={() => openOrder(selected.id)}
                   >
                     詳細を再取得
+                  </Action>
+                  <Action secondary disabled={updating} onPress={closeVisit}>
+                    このテーブルの来店を終了する
                   </Action>
                   <Text style={styles.sectionTitle}>操作履歴</Text>
                   {!selected.history?.length && (

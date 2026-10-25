@@ -347,3 +347,49 @@ test("a check that answers after switching tables does not touch the new table",
   );
   expect(result.current.recovery).toBeNull();
 });
+
+const VISIT = "@qr_order_visit";
+test("orders from one table share the device's visit ID, also after a reload", async () => {
+  const first = await sentBefore();
+  expect(first.visitId).toEqual(expect.any(String));
+  getOrderRequest.mockResolvedValue({ accepted: false });
+  const { result } = await reopen();
+  expect((await result.current.getVisit()).visitId).toBe(first.visitId);
+  const next = await result.current.prepareOrder(
+    orderData({ items: [{ ...orderData().items[0], quantity: 3 }] })
+  );
+  expect(next.visitId).toBe(first.visitId);
+  expect(next.requestId).not.toBe(first.requestId);
+});
+test("another table, an expired visit, or a closed visit starts a new visit ID", async () => {
+  const first = await sentBefore();
+  const other = await reopen("table-other");
+  expect((await other.result.current.getVisit()).visitId).not.toBe(
+    first.visitId
+  );
+  await AsyncStorage.setItem(
+    VISIT,
+    JSON.stringify({
+      sessionKey: "rest-test/table-test",
+      visitId: first.visitId,
+      startedAt: Date.now() - 13 * 60 * 60 * 1000,
+    })
+  );
+  const expired = await reopen();
+  const renewed = (await expired.result.current.getVisit()).visitId;
+  expect(renewed).not.toBe(first.visitId);
+  await act(() => expired.result.current.startNewVisit());
+  expect((await expired.result.current.getVisit()).visitId).not.toBe(renewed);
+  expect(JSON.parse(await AsyncStorage.getItem(VISIT)).visitId).toBe(
+    (await expired.result.current.getVisit()).visitId
+  );
+});
+test("rendering again does not replace the stored visit", async () => {
+  const { result, rerender } = await renderHook(() =>
+    useCart({ restaurantId: "rest-test", tableId: "table-test" })
+  );
+  const { visitId } = await result.current.getVisit();
+  await rerender();
+  await rerender();
+  expect(JSON.parse(await AsyncStorage.getItem(VISIT)).visitId).toBe(visitId);
+});
