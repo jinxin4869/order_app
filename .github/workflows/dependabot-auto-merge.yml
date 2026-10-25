@@ -1,0 +1,51 @@
+name: Dependabot auto-merge
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+permissions: {}
+jobs:
+  auto-merge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'jinxin4869/order_app'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+      # Patch and minor updates merge automatically once the required "unit"
+      # check passes (enforced by the main ruleset). Everything else waits for
+      # a human:
+      # - major updates
+      # - 0.x versions, where a minor bump may break the API
+      # - packages pinned by the Expo SDK, which must move together with it
+      - name: Enable auto-merge for patch and minor updates
+        env:
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          PREVIOUS_VERSION: ${{ steps.metadata.outputs.previous-version }}
+          DEPENDENCY_NAMES: ${{ steps.metadata.outputs.dependency-names }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          reason=""
+          case "$UPDATE_TYPE" in
+            version-update:semver-patch | version-update:semver-minor) ;;
+            *) reason="update type is '${UPDATE_TYPE:-unknown}'" ;;
+          esac
+          if [ -z "$reason" ] && [ "$UPDATE_TYPE" = "version-update:semver-minor" ] &&
+            [ "${PREVIOUS_VERSION%%.*}" = "0" ]; then
+            reason="minor update of a 0.x version ($PREVIOUS_VERSION)"
+          fi
+          expo_pinned='^(expo|expo-.*|@expo/.*|jest-expo|babel-preset-expo|react|react-dom|react-test-renderer|react-native|react-native-.*|@react-native/.*|@react-native-community/.*|@react-native-async-storage/.*)$'
+          if [ -z "$reason" ]; then
+            pinned=$(printf '%s\n' "$DEPENDENCY_NAMES" | tr ',' '\n' | sed 's/^ *//; s/ *$//' | grep -E "$expo_pinned" || true)
+            if [ -n "$pinned" ]; then
+              reason="version pinned by the Expo SDK: $(echo $pinned)"
+            fi
+          fi
+          if [ -n "$reason" ]; then
+            echo "Manual review required: $reason" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh pr merge --auto --squash "$PR_URL"
+          echo "Auto-merge enabled ($UPDATE_TYPE): $DEPENDENCY_NAMES" | tee -a "$GITHUB_STEP_SUMMARY"
