@@ -8,7 +8,23 @@ const root =
   process.env.ORDER_APP_WEB_DIR || path.join(os.tmpdir(), "order-app-web-test");
 const artifacts = process.env.ORDER_APP_WEB_ARTIFACTS || os.tmpdir();
 fs.mkdirSync(artifacts, { recursive: true });
+// Serve with the production Hosting headers so CSP violations surface here.
+const hostingHeaders = require("../firebase.json").hosting.headers.find(
+  (rule) => rule.source === "**"
+).headers;
+const csp = hostingHeaders.find(
+  (header) => header.key === "Content-Security-Policy-Report-Only"
+).value;
+// expo-camera fetches the zxing wasm from a versioned CDN path when the
+// browser lacks BarcodeDetector; the CSP must allow exactly that version.
+const jsDir = path.join(root, "_expo/static/js/web");
+for (const file of fs.readdirSync(jsDir))
+  for (const [cdn] of fs
+    .readFileSync(path.join(jsDir, file), "utf8")
+    .matchAll(/https:\/\/fastly\.jsdelivr\.net\/npm\/[^/"'`]+\//g))
+    assert.ok(csp.includes(cdn), `CSP connect-src is missing ${cdn}`);
 const server = http.createServer((req, res) => {
+  for (const { key, value } of hostingHeaders) res.setHeader(key, value);
   let file = path.join(
     root,
     decodeURIComponent(new URL(req.url, "http://localhost").pathname)
@@ -41,6 +57,13 @@ const server = http.createServer((req, res) => {
       const page = await browser.newPage({ viewport });
       const errors = [];
       page.on("pageerror", (e) => errors.push(e.message));
+      const cspViolations = [];
+      await page.exposeFunction("__reportCsp", (v) => cspViolations.push(v));
+      await page.addInitScript(() =>
+        document.addEventListener("securitypolicyviolation", (e) =>
+          window.__reportCsp(`${e.effectiveDirective} ${e.blockedURI}`)
+        )
+      );
       const calls = [];
       let staffStatus = "pending";
       let staffUpdates = 0;
@@ -396,6 +419,7 @@ const server = http.createServer((req, res) => {
         .waitFor();
       assert.equal(staffUpdates, 2);
       assert.equal(errors.length, 0, JSON.stringify(errors));
+      assert.deepEqual(cspViolations, []);
       assert.ok(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= window.innerWidth

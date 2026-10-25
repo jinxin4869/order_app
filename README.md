@@ -87,7 +87,7 @@ npx expo export --platform web --output-dir dist
 npx firebase deploy --only hosting --project <project-id>
 ```
 
-Hostingには`/order`と`/staff`を`index.html`へ返すSPAリライトが必要です。既存データがある場合の採番カウンター初期化は[注文API契約](docs/order_api.md)を先に確認してください。検証済みのローカル動作と、本番デプロイ・実APIの品質評価は別です。
+Hostingには`/order`と`/staff`を`index.html`へ返すSPAリライトが必要です。セキュリティヘッダとCSPの強制への切り替えは[Hostingのセキュリティヘッダ](docs/hosting_headers.md)を参照してください。既存データがある場合の採番カウンター初期化は[注文API契約](docs/order_api.md)を先に確認してください。検証済みのローカル動作と、本番デプロイ・実APIの品質評価は別です。
 
 ## 利用フロー
 

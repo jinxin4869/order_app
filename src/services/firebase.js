@@ -7,7 +7,6 @@ import {
   initializeAppCheck,
   ReCaptchaEnterpriseProvider,
 } from "firebase/app-check";
-import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 
 // .envファイルから環境変数を読み込み
@@ -45,9 +44,6 @@ if (Platform.OS === "web" && FIREBASE_APPCHECK_SITE_KEY) {
     isTokenAutoRefreshEnabled: true,
   });
 }
-
-// Firestore
-export const db = getFirestore(app);
 
 // Cloud Functions（リージョンは環境変数から取得、デフォルト: asia-northeast1）
 export const functions = getFunctions(
