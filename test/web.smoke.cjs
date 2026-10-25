@@ -65,6 +65,9 @@ const server = http.createServer((req, res) => {
         )
       );
       const calls = [];
+      // Requests the synthetic server accepted; set to simulate lost responses.
+      const acceptedOrders = new Map();
+      let loseOrderResponses = false;
       let staffStatus = "pending";
       let staffUpdates = 0;
       const staffOrder = () => ({
@@ -202,13 +205,24 @@ const server = http.createServer((req, res) => {
               },
             ],
           };
-        } else if (name === "createOrder")
-          result = {
+        } else if (name === "createOrder") {
+          result = acceptedOrders.get(data.requestId) || {
             success: true,
-            orderId: "test-order",
-            orderNumber: "20261009-001",
+            orderId: loseOrderResponses ? "lost-order" : "test-order",
+            orderNumber: loseOrderResponses ? "20261009-003" : "20261009-001",
           };
-        else if (
+          acceptedOrders.set(data.requestId, result);
+          if (loseOrderResponses) return route.abort("failed");
+        } else if (name === "getOrderRequest") {
+          const saved = acceptedOrders.get(data.requestId);
+          result = saved
+            ? {
+                accepted: true,
+                orderId: saved.orderId,
+                orderNumber: saved.orderNumber,
+              }
+            : { accepted: false };
+        } else if (
           ["listStaffOrders", "getStaffOrder", "updateOrderStatus"].includes(
             name
           )
@@ -441,6 +455,71 @@ const server = http.createServer((req, res) => {
         "PASS",
         viewport.width,
         "staff login, update, conflict and logout"
+      );
+      // The server accepts an order but every response is lost. After a
+      // reload the device asks about its stored request instead of reordering.
+      loseOrderResponses = true;
+      const ordersBefore = calls.filter((c) => c.name === "createOrder").length;
+      const dialogs = [];
+      const answer = (dialog) => {
+        dialogs.push(dialog.message());
+        dialog.accept();
+      };
+      page.on("dialog", answer);
+      await page.goto(
+        "http://127.0.0.1:4173/order?restaurant=rest-test&table=table-test"
+      );
+      await page.getByRole("button", { name: "日本語", exact: true }).click();
+      await page.getByText("テスト料理", { exact: true }).click();
+      await page.getByText("カートに追加", { exact: true }).click();
+      await page.getByText("🛒 カートを見る", { exact: true }).click();
+      await page.getByText("注文を確定する", { exact: true }).click();
+      for (
+        let wait = 0;
+        wait < 150 &&
+        !dialogs.some((m) => m.includes("注文の結果を確認できませんでした"));
+        wait++
+      )
+        await page.waitForTimeout(100);
+      assert.ok(
+        dialogs.some((m) => m.includes("同じ内容なら注文は重複しません")),
+        JSON.stringify(dialogs)
+      );
+      page.off("dialog", answer);
+      const lost = calls
+        .filter((c) => c.name === "createOrder")
+        .slice(ordersBefore);
+      assert.ok(lost.length >= 1);
+      assert.equal(new Set(lost.map((c) => c.data.requestId)).size, 1);
+      await page.reload();
+      await page.getByRole("button", { name: "日本語", exact: true }).click();
+      await page
+        .getByText(
+          "前回の注文は受け付けられています（注文番号 20261009-003）。",
+          { exact: true }
+        )
+        .waitFor();
+      assert.deepEqual(
+        calls
+          .filter((c) => c.name === "getOrderRequest")
+          .map((c) => c.data.requestId),
+        [lost[0].data.requestId]
+      );
+      await page
+        .getByRole("button", { name: "注文内容を見る", exact: true })
+        .click();
+      await page.getByText("20261009-003", { exact: true }).waitFor();
+      assert.equal(
+        calls.filter((c) => c.name === "createOrder").length,
+        ordersBefore + lost.length
+      );
+      loseOrderResponses = false;
+      assert.equal(errors.length, 0, JSON.stringify(errors));
+      assert.deepEqual(cspViolations, []);
+      console.log(
+        "PASS",
+        viewport.width,
+        "lost order response recovered after reload"
       );
       await page.close();
     }

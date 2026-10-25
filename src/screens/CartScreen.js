@@ -17,6 +17,7 @@ import { CartContext } from "../context/CartContext";
 import { translationDisplay } from "../utils/translationDisplay";
 import { createOrder } from "../services/api";
 import { showAlert } from "../utils/dialogs";
+import PendingOrderNotice from "../components/PendingOrderNotice";
 
 const CartScreen = ({ navigation, route }) => {
   const { restaurantId, tableId, restaurant, table } = route.params;
@@ -30,7 +31,7 @@ const CartScreen = ({ navigation, route }) => {
     tax,
     total,
     clearCart,
-    getOrderRequestId,
+    prepareOrder,
     isOrderRequestCurrent,
     isEmpty,
   } = useContext(CartContext);
@@ -134,10 +135,11 @@ const CartScreen = ({ navigation, route }) => {
         totalAmount: total,
       };
 
-      requestId = getOrderRequestId(orderData);
-      orderData.requestId = requestId;
+      // A retry of the same content resends the first payload and request ID.
+      const payload = await prepareOrder(orderData);
+      requestId = payload.requestId;
 
-      const result = await createOrder(orderData);
+      const result = await createOrder(payload);
       if (!isOrderRequestCurrent(requestId)) return;
 
       clearCart();
@@ -181,13 +183,27 @@ const CartScreen = ({ navigation, route }) => {
         return;
       }
 
+      // Without a definite answer from the server the order may have been
+      // received; resending the same cart is safe because it reuses the ID.
+      const rejected = [
+        "invalid-argument",
+        "failed-precondition",
+        "not-found",
+        "already-exists",
+      ].some((code) => error.code?.endsWith(code));
       showAlert(
         t("エラー", "Error", "错误"),
-        t(
-          "注文の送信に失敗しました。もう一度お試しください。",
-          "Failed to submit order. Please try again.",
-          "订单提交失败，请重试。"
-        )
+        rejected
+          ? t(
+              "注文を受け付けられませんでした。内容を確認してください。",
+              "The order could not be accepted. Please check your cart.",
+              "无法受理订单。请确认购物车内容。"
+            )
+          : t(
+              "注文の結果を確認できませんでした。通信を確認して、もう一度「注文を確定する」を押してください。同じ内容なら注文は重複しません。",
+              "We could not confirm your order. Check your connection and tap Place Order again. The same cart will not be ordered twice.",
+              "无法确认订单结果。请检查网络后再次点击下单。相同内容不会重复下单。"
+            )
       );
     } finally {
       submitting.current = false;
@@ -342,10 +358,18 @@ const CartScreen = ({ navigation, route }) => {
     </View>
   );
 
+  const recoveryNotice = (
+    <PendingOrderNotice
+      navigation={navigation}
+      session={{ restaurantId, tableId, restaurant, table }}
+    />
+  );
+
   // 空のカート
   if (isEmpty) {
     return (
       <SafeAreaView style={styles.container}>
+        {recoveryNotice}
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyIcon, { fontSize: scaleSize(80, 60, 80) }]}>
             🛒
@@ -401,6 +425,7 @@ const CartScreen = ({ navigation, route }) => {
           </View>
         </View>
       </View>
+      {recoveryNotice}
 
       {/* カートリスト */}
       <FlatList

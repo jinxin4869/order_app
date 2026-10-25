@@ -19,6 +19,7 @@ import {
   translationStatusLabel,
 } from "../utils/translationDisplay";
 import { getMenuWithTranslation } from "../services/api";
+import PendingOrderNotice from "../components/PendingOrderNotice";
 
 const RestaurantMenu = ({ navigation, route }) => {
   const { restaurantId, tableId, restaurant, table } = route.params;
@@ -442,6 +443,11 @@ const RestaurantMenu = ({ navigation, route }) => {
             : "可切换模式进行比较。标注的原文或参考译文不可比较。"}
         </Text>
       )}
+
+      <PendingOrderNotice
+        navigation={navigation}
+        session={{ restaurantId, tableId, restaurant, table }}
+      />
 
       {/* カテゴリタブ */}
       <FlatList

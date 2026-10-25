@@ -84,7 +84,10 @@ const createMockCartContext = (items = []) => ({
   updateQuantity: jest.fn(),
   removeItem: jest.fn(),
   clearCart: jest.fn(),
-  getOrderRequestId: jest.fn(() => "request-screen-test"),
+  prepareOrder: jest.fn(async (data) => ({
+    ...data,
+    requestId: "request-screen-test",
+  })),
   isOrderRequestCurrent: jest.fn(() => true),
   subtotal: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
   tax: Math.floor(
@@ -304,12 +307,38 @@ describe("CartScreen", () => {
     await fireEvent.press(getByText("注文を確定する"));
 
     await waitFor(() => {
-      // 最初は確認ダイアログ、次にエラーダイアログ
+      // 通信の失敗では受付済みの可能性があるため、同じ内容での再送を案内する
       expect(Alert.alert).toHaveBeenCalledWith(
         "エラー",
-        "注文の送信に失敗しました。もう一度お試しください。"
+        "注文の結果を確認できませんでした。通信を確認して、もう一度「注文を確定する」を押してください。同じ内容なら注文は重複しません。"
       );
     });
+  });
+
+  test("サーバーが拒否した注文は、再送ではなく内容の確認を案内する", async () => {
+    api.createOrder.mockRejectedValue(
+      Object.assign(new Error("closed"), {
+        code: "functions/failed-precondition",
+        details: { reason: "restaurant_closed" },
+      })
+    );
+    const mockContext = createMockCartContext(mockCartItems);
+    const { getByText } = await render(
+      <CartContext.Provider value={mockContext}>
+        <CartScreen navigation={mockNavigation} route={mockRoute} />
+      </CartContext.Provider>
+    );
+    Alert.alert.mockImplementation((title, message, buttons) => {
+      const confirm = buttons?.find((b) => b.text === "注文する");
+      if (confirm) confirm.onPress();
+    });
+    await fireEvent.press(getByText("注文を確定する"));
+    await waitFor(() =>
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "エラー",
+        "注文を受け付けられませんでした。内容を確認してください。"
+      )
+    );
   });
 
   test("戻るボタンをタップすると前の画面に戻る", async () => {
