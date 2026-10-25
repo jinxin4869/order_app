@@ -236,6 +236,18 @@ describe("API Service", () => {
       expect(result.success).toBe(true);
     });
 
+    test("キャンセル理由は指定したときだけ送る", async () => {
+      const mockFunction = jest.fn().mockResolvedValue({ data: {} });
+      httpsCallable.mockReturnValue(mockFunction);
+      await updateOrderStatus("order_123", "cancelled", "pending", "品切れ");
+      expect(mockFunction).toHaveBeenCalledWith({
+        orderId: "order_123",
+        newStatus: "cancelled",
+        expectedStatus: "pending",
+        reason: "品切れ",
+      });
+    });
+
     test("ステータス更新エラー時に例外をスローする", async () => {
       const mockError = new Error("Status update failed");
       const mockFunction = jest.fn().mockRejectedValue(mockError);

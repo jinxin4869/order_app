@@ -297,3 +297,63 @@ test("rows and details show the table number, or the ID when an old order has no
     await screen.findByText("テーブル番号未記録（ID: table-old） · 未受付")
   ).toBeTruthy();
 });
+test("the detail lists the status history with staff and reason", async () => {
+  getStaffOrder.mockResolvedValue({
+    order: {
+      ...order,
+      status: "cancelled",
+      history: [
+        {
+          from_status: "pending",
+          to_status: "confirmed",
+          staff_email: "staff@example.invalid",
+          reason: null,
+          created_at: 1791504060000,
+        },
+        {
+          from_status: "confirmed",
+          to_status: "cancelled",
+          staff_email: null,
+          reason: "品切れ",
+          created_at: 1791504120000,
+        },
+      ],
+    },
+  });
+  const screen = await render(<StaffScreen />);
+  await fireEvent.press(
+    await screen.findByRole("button", { name: "注文 20261009-001 未受付" })
+  );
+  expect(await screen.findByText("操作履歴")).toBeTruthy();
+  expect(screen.getByText("未受付 → 受付済み")).toBeTruthy();
+  expect(screen.getByText(/staff@example\.invalid/)).toBeTruthy();
+  expect(screen.getByText("受付済み → キャンセル")).toBeTruthy();
+  expect(screen.getByText(/スタッフ不明/)).toBeTruthy();
+  expect(screen.getByText("理由：品切れ")).toBeTruthy();
+  expect(screen.queryByLabelText("キャンセル理由（任意）")).toBeNull();
+});
+test("a cancellation sends the optional reason the staff typed", async () => {
+  const screen = await render(<StaffScreen />);
+  await fireEvent.press(
+    await screen.findByRole("button", { name: "注文 20261009-001 未受付" })
+  );
+  expect(await screen.findByText("まだ状態の変更はありません。")).toBeTruthy();
+  await fireEvent.changeText(
+    screen.getByLabelText("キャンセル理由（任意）"),
+    "  品切れ  "
+  );
+  await fireEvent.press(
+    screen.getByRole("button", { name: "注文をキャンセルする" })
+  );
+  expect(showAlert.mock.calls[0][1]).toContain("理由：品切れ");
+  const confirm = showAlert.mock.calls[0][2].find(
+    (button) => button.text === "変更する"
+  );
+  await act(async () => confirm.onPress());
+  expect(updateOrderStatus).toHaveBeenCalledWith(
+    order.id,
+    "cancelled",
+    "pending",
+    "品切れ"
+  );
+});

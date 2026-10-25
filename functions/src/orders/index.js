@@ -16,7 +16,11 @@ const {
 
 const { businessDay } = require("../utils/businessDay");
 const db = getFirestore();
-const { normalizeOrderInput } = require("../utils/orderInput");
+const {
+  normalizeOrderInput,
+  optionalText,
+  sanitizeNotes,
+} = require("../utils/orderInput");
 
 const {
   ORDER_STATUS,
@@ -329,14 +333,14 @@ exports.getOrderRequest = onAppCall({}, async (request) => {
  * @param {Object} data - {orderId: string, newStatus: string}
  * @returns {Object} - {success: boolean}
  */
+const millis = (value) =>
+  value?.toMillis
+    ? value.toMillis()
+    : value instanceof Date
+      ? value.getTime()
+      : null;
 const orderDTO = (doc) => {
   const data = doc.data();
-  const millis = (value) =>
-    value?.toMillis
-      ? value.toMillis()
-      : value instanceof Date
-        ? value.getTime()
-        : null;
   return {
     id: doc.id,
     restaurant_id: data.restaurant_id,
@@ -369,12 +373,29 @@ const getStaffOrderRef = async (orderId, restaurantId) => {
   requireRestaurant(restaurantId, doc.data().restaurant_id);
   return doc;
 };
+// One record per successful status change, written in the same transaction.
+const historyOf = (orderRef) => orderRef.collection("status_history");
 exports.getStaffOrder = onAppCall({}, async (request) => {
   const restaurantId = await requireStaff(request);
+  const doc = await getStaffOrderRef(request.data?.orderId, restaurantId);
+  const history = await historyOf(doc.ref)
+    .orderBy("created_at", "asc")
+    .limit(100)
+    .get();
   return {
-    order: orderDTO(
-      await getStaffOrderRef(request.data?.orderId, restaurantId)
-    ),
+    order: {
+      ...orderDTO(doc),
+      history: history.docs.map((entry) => {
+        const event = entry.data();
+        return {
+          from_status: event.from_status,
+          to_status: event.to_status,
+          staff_email: event.staff_email || null,
+          reason: event.reason || null,
+          created_at: millis(event.created_at),
+        };
+      }),
+    },
   };
 });
 exports.listStaffOrders = onAppCall({}, async (request) => {
@@ -416,7 +437,7 @@ exports.listStaffOrders = onAppCall({}, async (request) => {
 });
 exports.updateOrderStatus = onAppCall({}, async (request) => {
   const restaurantId = await requireStaff(request);
-  const { orderId, newStatus, expectedStatus } = request.data || {};
+  const { orderId, newStatus, expectedStatus, reason } = request.data || {};
   if (
     !isDocumentId(orderId) ||
     !Object.values(ORDER_STATUS).includes(newStatus) ||
@@ -425,6 +446,11 @@ exports.updateOrderStatus = onAppCall({}, async (request) => {
     throw new HttpsError(
       "invalid-argument",
       "注文IDと変更前後の状態が必要です"
+    );
+  if (!optionalText(reason, 100))
+    throw new HttpsError(
+      "invalid-argument",
+      "変更理由は100文字以下で指定してください"
     );
   const orderRef = db.collection("orders").doc(orderId);
   return db.runTransaction(async (transaction) => {
@@ -453,6 +479,16 @@ exports.updateOrderStatus = onAppCall({}, async (request) => {
     if (newStatus === ORDER_STATUS.COMPLETED)
       update.completed_at = FieldValue.serverTimestamp();
     transaction.update(orderRef, update);
+    // Who and when come from the verified token and the server clock.
+    transaction.set(historyOf(orderRef).doc(), {
+      restaurant_id: order.restaurant_id,
+      from_status: order.status,
+      to_status: newStatus,
+      staff_uid: request.auth.uid,
+      staff_email: request.auth.token?.email || null,
+      reason: sanitizeNotes(reason),
+      created_at: FieldValue.serverTimestamp(),
+    });
     return { success: true, status: newStatus };
   });
 });
