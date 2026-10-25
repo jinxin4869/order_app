@@ -192,4 +192,17 @@ describe("OrderCompleteScreen", () => {
     const dashes = getAllByText("-");
     expect(dashes.length).toBeGreaterThanOrEqual(2);
   });
+
+  test("注文履歴を見るで、この来店の注文履歴を開く", async () => {
+    const { getByText } = await render(
+      <OrderCompleteScreen navigation={mockNavigation} route={mockRoute} />
+    );
+    await fireEvent.press(getByText("注文履歴を見る"));
+    expect(mockNavigation.navigate).toHaveBeenCalledWith("OrderHistory", {
+      restaurantId: "restaurant_01",
+      tableId: "table_01",
+      restaurant: mockRoute.params.restaurant,
+      table: mockRoute.params.table,
+    });
+  });
 });

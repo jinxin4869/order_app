@@ -17,6 +17,7 @@ jest.mock("../../services/api", () => ({
   listStaffOrders: jest.fn(),
   getStaffOrder: jest.fn(),
   updateOrderStatus: jest.fn(),
+  closeTableVisit: jest.fn(),
 }));
 jest.mock("../../utils/dialogs", () => ({ showAlert: jest.fn() }));
 const order = {
@@ -356,4 +357,27 @@ test("a cancellation sends the optional reason the staff typed", async () => {
     "pending",
     "品切れ"
   );
+});
+test("staff can end the table's visit after confirming", async () => {
+  const { closeTableVisit } = require("../../services/api");
+  closeTableVisit.mockResolvedValue({ success: true });
+  getStaffOrder.mockResolvedValue({
+    order: { ...order, table_id: "table-test" },
+  });
+  const screen = await render(<StaffScreen />);
+  await fireEvent.press(
+    await screen.findByRole("button", { name: "注文 20261009-001 未受付" })
+  );
+  await fireEvent.press(
+    await screen.findByRole("button", {
+      name: "このテーブルの来店を終了する",
+    })
+  );
+  expect(closeTableVisit).not.toHaveBeenCalled();
+  const confirm = showAlert.mock.calls[0][2].find(
+    (button) => button.text === "終了する"
+  );
+  await act(async () => confirm.onPress());
+  expect(closeTableVisit).toHaveBeenCalledWith("table-test");
+  expect(screen.getByText("テーブル 1の来店を終了しました。")).toBeTruthy();
 });

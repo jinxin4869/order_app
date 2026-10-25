@@ -27,6 +27,34 @@ const orderContent = (orderData) =>
 const forgetPendingOrder = () =>
   AsyncStorage.removeItem(PENDING_ORDER_KEY).catch(() => {});
 
+// The device's visit at one table: a random ID sent with each order so this
+// device, and only it, can list them. It ends when staff clear the table (the
+// server then reports it closed) or after the server's 12-hour limit.
+const VISIT_KEY = "@qr_order_visit";
+const VISIT_TTL_MS = 12 * 60 * 60 * 1000;
+const newVisit = (sessionKey) => {
+  const visit = {
+    sessionKey,
+    visitId: createRequestId(),
+    startedAt: Date.now(),
+  };
+  AsyncStorage.setItem(VISIT_KEY, JSON.stringify(visit)).catch(() => {});
+  return visit;
+};
+const loadVisit = async (sessionKey) => {
+  try {
+    const visit = JSON.parse(await AsyncStorage.getItem(VISIT_KEY));
+    if (
+      visit?.sessionKey === sessionKey &&
+      Date.now() - visit.startedAt < VISIT_TTL_MS
+    )
+      return visit;
+  } catch {
+    // Unreadable storage starts a new visit.
+  }
+  return newVisit(sessionKey);
+};
+
 /**
  * カート管理フック
  * @returns {Object} カート操作と状態
@@ -40,6 +68,12 @@ export const useCart = (initialSession = null) => {
   const [sessionKey, setSessionKey] = useState(initialKey);
   const sessionRef = useRef(initialKey);
   const pendingRequest = useRef(null);
+  // A lazy initializer loads once; an argument to useRef would run (and
+  // store a new visit) on every render.
+  const [initialVisit] = useState(() =>
+    initialKey ? loadVisit(initialKey) : null
+  );
+  const visitRef = useRef(initialVisit);
   // null | { state: "checking" | "accepted" | "not_accepted" | "error", payload, result }
   const [recovery, setRecovery] = useState(null);
 
@@ -91,7 +125,10 @@ export const useCart = (initialSession = null) => {
         setItems([]);
         setRecovery(null);
         setSessionKey(nextKey);
-        if (nextKey) recoverPendingOrder(nextKey);
+        if (nextKey) {
+          visitRef.current = loadVisit(nextKey);
+          recoverPendingOrder(nextKey);
+        }
       }
     },
     [recoverPendingOrder]
@@ -113,10 +150,11 @@ export const useCart = (initialSession = null) => {
     }
     const signature = orderContent(orderData);
     if (pendingRequest.current?.signature !== signature) {
+      const { visitId } = await visitRef.current;
       pendingRequest.current = {
         signature,
         sessionKey: sessionRef.current,
-        payload: { ...orderData, requestId: createRequestId() },
+        payload: { ...orderData, visitId, requestId: createRequestId() },
       };
     }
     const pending = pendingRequest.current;
@@ -156,6 +194,13 @@ export const useCart = (initialSession = null) => {
       }))
     );
     setRecovery(null);
+  }, []);
+  // The current table's visit, and a way to begin the next one once the
+  // server reports the previous visit closed.
+  const getVisit = useCallback(() => visitRef.current, []);
+  const startNewVisit = useCallback(() => {
+    if (sessionRef.current)
+      visitRef.current = Promise.resolve(newVisit(sessionRef.current));
   }, []);
   const dismissRecovery = useCallback(() => {
     if (recovery?.state !== "accepted") {
@@ -294,6 +339,8 @@ export const useCart = (initialSession = null) => {
     prepareOrder,
     isOrderRequestCurrent,
     recovery,
+    getVisit,
+    startNewVisit,
     retryRecovery,
     restoreRecoveredOrder,
     dismissRecovery,
