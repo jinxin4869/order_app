@@ -31,6 +31,7 @@ import {
 import { showAlert } from "../utils/dialogs";
 import StaffMenuManager from "./StaffMenuManager";
 import OrderCorrection from "./OrderCorrection";
+import StaffStats from "./StaffStats";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import {
   enableAlertSound,
@@ -92,7 +93,7 @@ const actionLabels = {
 const OrderConsole = ({ session }) => {
   const wide = useWindowDimensions().width >= 900;
   const { isOnline } = useNetworkStatus();
-  const [mode, setMode] = useState("orders"); // orders | menu
+  const [mode, setMode] = useState("orders"); // orders | menu | stats
   const [view, setView] = useState("active");
   const [sort, setSort] = useState("newest");
   const [statusFilter, setStatusFilter] = useState(null);
@@ -389,6 +390,7 @@ const OrderConsole = ({ session }) => {
           {[
             ["orders", "注文受付"],
             ["menu", "メニュー管理"],
+            ["stats", "集計"],
           ].map(([key, label]) => (
             <Pressable
               key={key}
@@ -407,7 +409,7 @@ const OrderConsole = ({ session }) => {
             </Pressable>
           ))}
         </View>
-        {mode === "menu" ? (
+        {mode !== "orders" ? (
           <>
             {newCount > 0 && (
               <Action
@@ -420,7 +422,7 @@ const OrderConsole = ({ session }) => {
                 新着 {newCount}件を確認
               </Action>
             )}
-            <StaffMenuManager />
+            {mode === "menu" ? <StaffMenuManager /> : <StaffStats />}
           </>
         ) : (
           <>
