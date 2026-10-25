@@ -183,6 +183,10 @@ async function main() {
       await getStaffOrder.run({ auth, data: { orderId: result.orderId } })
     ).order;
     assert.equal(detail.restaurant_id, "rest-test");
+    // Only the winning update of the race above leaves a history record.
+    assert.equal(detail.history.length, 1);
+    assert.equal(detail.history[0].from_status, "pending");
+    assert.equal(detail.history[0].staff_email, credentials.email);
     assert.equal(detail.table_number, "12");
     await assert.rejects(
       getStaffOrder.run({
@@ -279,6 +283,22 @@ async function main() {
       await assertFails(getDoc(ref));
       await assertFails(updateDoc(ref, { status: "completed" }));
       await assertFails(deleteDoc(ref));
+      const events = await serverDb
+        .collection(`orders/${result.orderId}/status_history`)
+        .get();
+      await assertFails(
+        getDoc(
+          doc(
+            db,
+            `orders/${result.orderId}/status_history/${events.docs[0].id}`
+          )
+        )
+      );
+      await assertFails(
+        setDoc(doc(db, `orders/${result.orderId}/status_history/forged`), {
+          to_status: "completed",
+        })
+      );
     }
     console.log(
       "Firestore/Auth emulators: direct writes denied; orders and staff stop, revocation, transfer, reactivation verified."

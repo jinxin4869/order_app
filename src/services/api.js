@@ -96,10 +96,20 @@ export const createOrder = async (orderData) => {
  * @param {string} newStatus - 新しいステータス
  * @returns {Promise<{success: boolean}>}
  */
-export const updateOrderStatus = async (orderId, newStatus, expectedStatus) => {
+export const updateOrderStatus = async (
+  orderId,
+  newStatus,
+  expectedStatus,
+  reason
+) => {
   try {
     const updateFunction = httpsCallable(functions, "updateOrderStatus");
-    const result = await updateFunction({ orderId, newStatus, expectedStatus });
+    const result = await updateFunction({
+      orderId,
+      newStatus,
+      expectedStatus,
+      ...(reason ? { reason } : {}),
+    });
     return result.data;
   } catch (error) {
     const userMessage = handleError(error, {

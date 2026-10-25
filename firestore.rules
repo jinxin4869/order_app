@@ -30,6 +30,11 @@ service cloud.firestore {
       allow create: if false;
       allow read: if false;  // 将来的に認証実装時に変更
       allow update, delete: if false;
+
+      // 状態変更の履歴もサーバー（Admin SDK）だけが読み書きする。
+      match /status_history/{eventId} {
+        allow read, write: if false;
+      }
     }
 
     // 辞書・キャッシュ（サーバーサイドのみ）
