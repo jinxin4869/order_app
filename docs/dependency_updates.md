@@ -1,40 +1,42 @@
 # 依存ライブラリ更新と監査
 
-確認日: **2026-10-10（日本時間）**。対象はmain `e411cde`を基点にした[Issue #20](https://github.com/jinxin4869/order_app/issues/20)の更新です。Node.js 22.22.1 / npm 10.9.4 / Java 21で検証しました。
+確認日: **2026-10-25（日本時間）**。main `b36c6ea`（Expo SDK 58）で、Node.js 22 / Java 21 を使って確認しました。
 
-## 更新した範囲
+## 現在の主なバージョン
 
-通常のsemver範囲でlockfileを更新したコミットと、SDKのメジャー移行を分けています。`npm audit fix --force`は使用していません。
+| 対象                 | バージョン                                                         |
+| -------------------- | ------------------------------------------------------------------ |
+| Expo SDK             | 58.0.19                                                            |
+| React / React DOM    | 19.3.0                                                             |
+| React Native         | 0.88.0                                                             |
+| React Native Web     | 0.21.4                                                             |
+| React Navigation     | 7.5                                                                |
+| Firebase Web SDK     | 13.1.0                                                             |
+| Sentry React Native  | 8.28.0                                                             |
+| Firebase CLI（開発） | 15.34.1                                                            |
+| Rules unit testing   | 6.0.0                                                              |
+| Jest（フロント）     | 30.5.2（jest-expo 58、`@react-native/jest-preset` 0.88.0）         |
+| Functions            | firebase-admin 14.5.0、firebase-functions 7.4.0、deepl-node 1.28.1 |
+| ESLint               | ルート 9.39、Functions 10.13（ルートは #93 で対応待ち）            |
 
-| ライブラリ             | 更新前のlockfile | 更新後  |
-| ---------------------- | ---------------- | ------- |
-| Expo                   | 54.0.32          | 54.0.37 |
-| Firebase Web SDK       | 10.14.1          | 12.19.0 |
-| Firebase Admin SDK     | 13.6.0           | 14.5.0  |
-| Firebase Functions SDK | 7.0.2            | 7.4.0   |
-| DeepL SDK              | 1.24.0           | 1.28.1  |
-| Firebase CLI           | 14.27.0          | 15.33.0 |
-| Rules unit testing     | 3.0.4            | 5.0.2   |
-| lint-staged            | 15.5.2           | 17.6.0  |
-| React Native Web       | 0.21.2           | 0.21.4  |
-| Functions側Jest        | 29.7.0           | 30.5.2  |
+Expo 管理下のパッケージ（react、react-native、expo-\*、jest-expo、babel-preset-expo など）は、`npx expo install --fix` が決めるバージョンに揃えます。Dependabot ではグループにまとめ、自動マージの対象から外しています。
 
-React / React DOM / react-test-rendererは19.1.0で揃え、React NativeはExpo SDK 54指定の0.81.5を維持しています。rendererの指定を完全一致にして、React 19.3系のrendererが混入する問題を防ぎました。Babel設定が直接参照する`babel-preset-expo@~54.0.12`は明示的な開発依存にしました。
+## Expo SDK の更新手順と注意点
 
-未使用だった`firebase-functions-test`を削除しました。既存テストは実ハンドラと独自Firestoreモックを使用しており、このパッケージの旧Admin SDK peer依存は不要です。
+[公式の段階的更新手順](https://docs.expo.dev/workflow/upgrading-expo-sdk-walkthrough/)に従い、1 世代ずつ上げます（54 → 55 → 56 → 57 → 58 は #97〜#100）。各世代で次を行います。
 
-`@grpc/grpc-js`、`undici@6`、`postcss`は依存元による古い固定バージョンを、同じmajorの修正済みバージョンへoverrideしています。lockfile上はそれぞれ1.14.6、6.29.0、8.5.29です。
+1. `npx expo install expo@^<SDK>.0.0 --fix` を実行し、`package.json` の `expo` を `~` 指定に戻す。
+2. `npx expo install --check` が「最新」になるまで確認する。
+3. `npm dedupe` で重複を整理し、`npx expo-doctor@latest` を実行する。
+4. 下の「監査の再現」と「動作検証」のコマンドをすべて実行する。
 
-## SDK・検査ルールへの対応
+更新で見つかった注意点です。
 
-- Admin 14がlegacy namespace APIを削除したため、Functions・エミュレーターテスト・合成データ投入・旧サンプル投入スクリプトを`firebase-admin/app`、`firestore`、`auth`のmodular APIへ移行しました。実プロジェクトの設定は変更していません。
-- DeepLの実SDKが汎用`EN`を拒否することをローカルHTTP試験で確認しました。アプリの`en` / `zh`を`EN-US` / `ZH-HANS`へ明示的に対応付け、単体テストと実SDKの送受信試験を追加しました。実際の翻訳APIには接続していません。
-- React Hooksの検査更新に合わせ、メニュー取得の状態更新を通信完了コールバックへ移し、再読込の状態変更は操作時に行います。スタッフの詳細表示をrefからstateへ変更し、一覧フィルタのリセットを操作時に行います。遅れて届く旧フィルタの応答を表示しない回帰テストを追加しました。
-- Node 22に合わせWeb SDK 12 / Rules SDK 5を採用しました。最新版という理由だけでNode要件やExpoの互換範囲を越える更新は行っていません。
+- **jest-expo と `@react-native/jest-preset`：** jest-expo 57 以降は `@react-native/jest-preset` を必須の peer にしています。react-native を上げるときは、jest-expo と `@react-native/jest-preset` を同じ版に合わせて同時に入れてください。古い jest-expo が残っていると、`npx expo install --fix` が ERESOLVE で止まります。
+- **Sentry の設定プラグイン：** Sentry 7.11 の設定プラグインは `@expo/config-plugins` をルートから `require` します。SDK 56 への更新直後は、このパッケージが expo の配下にだけ置かれ、Web のビルドが `Cannot find module '@expo/config-plugins'` で失敗しました。`npm dedupe` で解消します。Sentry 8 では `expo/config-plugins` に直っています。
+- **ネイティブ版：** Android / iOS は、SDK を上げるたびに新しい development build が必要です。Expo Go のストア版は最新の SDK にしか対応しません。
 
-根拠は[Admin公式リリースノート](https://firebase.google.com/support/release-notes/admin/node)、[Web SDK公式リリースノート](https://firebase.google.com/support/release-notes/js)、[DeepL SDK変更履歴](https://github.com/DeepL/deepl-node/blob/main/CHANGELOG.md)、[DeepL APIの言語定義](https://github.com/DeepL/openapi/blob/main/openapi.yaml)です。
-
-## 監査の再現と結果
+## 監査の再現
 
 ```bash
 npm ci
@@ -43,56 +45,48 @@ npm run test:audit
 npm run audit:dependencies
 ```
 
-監査スクリプトは公開npmレジストリに対し、ルート／Functionsそれぞれで`npm audit --json`と`npm audit --omit=dev --json`を実行します。通常のアプリ起動や本番Firebaseには接続しません。JSONは既定でOS一時領域の`order-app-dependency-audit`へ保存し、CIではArtifactとして保存します。
+監査スクリプトは公開 npm レジストリに対し、ルートと Functions それぞれで `npm audit --json` と `npm audit --omit=dev --json` を実行します。アプリの起動や本番の Firebase には接続しません。JSON は既定で OS の一時領域の `order-app-dependency-audit` に保存し、CI では Artifact として保存します。
 
-| 範囲                   | 更新前 critical / high / moderate / low | 更新後 critical / high / moderate / low |
-| ---------------------- | --------------------------------------- | --------------------------------------- |
-| Functions 本番依存     | 4 / 9 / 13 / 1                          | **0 / 0 / 0 / 0**                       |
-| Functions 開発依存込み | 4 / 43 / 19 / 2                         | **0 / 0 / 19 / 0**                      |
-| ルート 本番指定        | 3 / 35 / 26 / 1                         | **0 / 23 / 18 / 0**                     |
-| ルート 開発依存込み    | 3 / 67 / 34 / 2                         | **0 / 51 / 22 / 0**                     |
+| 範囲                   | critical / high / moderate / low |
+| ---------------------- | -------------------------------- |
+| Functions 本番依存     | 0 / 0 / 0 / 0                    |
+| Functions 開発依存込み | 0 / 0 / 0 / 0                    |
+| ルート 本番指定        | 0 / 5 / 0 / 0                    |
+| ルート 開発依存込み    | 0 / 5 / 5 / 0                    |
 
-数値は監査のパッケージ数であり、伝播した依存元の指摘を含みます。独立した脆弱性件数・悪用可能性・ブラウザへの同梱数とは異なります。ルートのdependenciesにはExpoとそのビルドツールも含まれるため、`--omit=dev`もブラウザ実行経路だけの集計ではありません。
-
-更新前の`protobufjs`はFirestore/gRPCおよびFunctions、`proxy-addr`はFunctionsのExpress依存、`fast-xml-parser`はAdmin経由のCloud Storage依存に含まれていました。Firestoreを使う注文・メニュー・翻訳ハンドラとCallable HTTP処理は実アプリの経路です。一方、アプリの当該ハンドラにはCloud Storage利用は見当たらず、XML攻撃の到達は確認していません。`websocket-driver`はAdminのRealtime Database → faye-websocket経由ですが、当該ハンドラにRealtime Database利用は見当たりません。指摘の悪用や侵害を確認したものではなく、依存ごと更新して解消しました。
+数値は監査のパッケージ数で、依存元へ伝播した指摘を含みます。独立した脆弱性の件数や、ブラウザに含まれる件数とは異なります。ルートの dependencies には Expo とそのビルドツールも含まれるため、`--omit=dev` もブラウザで動くコードだけの集計ではありません。
 
 ## 残る指摘と期限
 
-継続対応は[Issue #40](https://github.com/jinxin4869/order_app/issues/40)です。**high例外は2027-01-31 00:00 JSTに失効**します。失効前に上流の修正を確認し、実店舗公開前にも再評価します。
+**high の例外は 2027-01-31 00:00 JST に失効**します。失効前に上流の修正を確認し、実店舗の公開前にも再評価します。例外は期限だけを自動で延長しません。
 
-highの原因は以下2パッケージ・2アドバイザリです。どちらもExpo SDK 58でも解消しません（2026-10-25確認）。対象scope・GHSA・バージョン・lockfile内のパス・理由・期限を[例外ファイル](dependency-audit-exceptions.json)で限定します。
+high の原因は次の 2 パッケージ・2 アドバイザリです。どちらも Expo SDK 58 でも解消しません。対象の scope・GHSA・バージョン・lockfile 内のパス・理由・期限を[例外ファイル](dependency-audit-exceptions.json)で限定しています。
 
-| 対象             | 主な依存経路・到達処理                                | 残した理由・暫定対策                                                                         |
-| ---------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| node-forge 1.4.0 | Expo CLI/コード署名。証明書解析                       | 修正版未公開。外部提供の証明書を扱わず上流修正を追跡する                                     |
-| zod 3.25.76      | Expo CLI → 開発サーバー。DevToolsプラグイン定義の検証 | 修正は4.6.6以降のみで、Expo CLIはzod 3系に依存する。開発サーバーを信頼できない網に公開しない |
+| 対象             | 主な依存経路・到達処理                                 | 残した理由・暫定対策                                                                              |
+| ---------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| node-forge 1.4.0 | Expo CLI → コード署名。証明書の解析                    | 修正版が未公開。外部から提供された証明書を扱わず、上流の修正を追跡する                            |
+| zod 3.25.76      | Expo CLI → 開発サーバー。DevTools プラグイン定義の検証 | 修正は 4.6.6 以降のみで、Expo CLI は zod 3 系に依存する。開発サーバーを信頼できない網に公開しない |
 
-image-size 1.2.1（2件）はExpo SDK 55で依存から外れました。
+moderate は次の 2 件で、どちらも開発用の Firebase CLI（エミュレーターとデプロイ）からだけ入ります。アプリ、Functions、Hosting には含まれません。Firebase CLI の更新で解消を確認します。
 
-Functionsにはhigh/criticalの例外を設けていません。CIは新しいhigh、対象バージョン／パスの変化、期限切れ、全critical、監査の通信失敗・不正応答で失敗します。moderateもJSONに記録しますが、現行CIの失敗閾値はhighです。
+- `@opentelemetry/core` 1.30.1：Firebase CLI → Pub/Sub。CLI の計測処理です。
+- `uuid` 9.0.1：Firebase CLI → gaxios。バッファーを渡す v3/v5/v6 の生成だけが対象です。
 
-moderateの主な残存経路も同じ期限で再評価します。
+Functions には high / critical の例外を設けていません。CI は、新しい high、対象バージョンやパスの変化、期限切れ、すべての critical、監査の通信失敗・不正な応答で失敗します。moderate も JSON に記録しますが、CI の失敗の基準は high です。
 
-- `decode-uri-component@0.2.2`: Navigation 6 → query-string。ブラウザのURL処理に到達し得るためNavigation 7移行を優先します。
-- `sprintf-js@1.0.3`: Jest/ESLint → js-yaml → argparse。設定・カバレッジ処理です。Functions開発依存19件もこの指摘の伝播で、本番依存には含まれません。上流対応またはテスト・lint依存元の移行を検討します。
-- `@opentelemetry/core@1.30.1`: Firebase CLI → Pub/Sub。CLIの計測系統です。
-- `re2@1.24.1`: Firebase CLI → superstatic。ローカル配信時のパターン処理です。
-- `uuid@9.0.1 / 7.0.3`: Firebase CLI → gaxios、Expo設定 → xcode。CLI/設定系統です。
-
-Expoは[公式の段階的更新手順](https://docs.expo.dev/workflow/upgrading-expo-sdk-walkthrough/)に従い54→55→56→57でReact/React Native/関連パッケージを揃えて検証する方針です。未公開修正の例外は自動延長せず、期限前に到達条件・代替策・上流状況を再レビューします。
+解消済みの指摘：image-size 1.2.1（2 件）は SDK 55 で依存から外れました。basic-ftp、braces、decode-uri-component、sprintf-js、re2 などは、#20 と #60 以降の更新で解消しています。
 
 ## 動作検証
 
-| 検証                         | 結果                                                                                                       |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| ルート・Functionsの`npm ci`  | 成功                                                                                                       |
-| `npm run check`              | 両lint成功、フロント20スイート183件、Functions7スイート170件成功                                           |
-| `npm run test:audit`         | 例外の期限・scope・バージョン・critical拒否・監査エラー等9件成功                                           |
-| `npm run audit:dependencies` | 上記の限定したhigh例外を適用して成功                                                                       |
-| `npm run test:sdk`           | 実DeepL SDKの英語・中国語リクエストと応答解析をloopback HTTPで確認                                         |
-| `npm run test:rules`         | 実注文ハンドラ、冪等性、並列採番、所属店舗制限・更新競合、直接書込拒否をローカルFirestoreで確認            |
-| `npm run test:demo`          | Admin 14でローカルFirestore/Authの投入・取得・スタッフClaims確認成功                                       |
-| `npm run test:web`           | 合成設定でWebビルド、1280×900 / 390×844のQR再読込・注文・スタッフログイン/更新/競合/ログアウト成功         |
-| ExpoのSDK依存整合            | `EXPO_NO_DOTENV=1 EXPO_OFFLINE=1 npx expo install --check`成功。オフラインのためオンラインの全検証ではない |
+| 検証                         | 内容                                                                                                                 |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `npm run check`              | 両方の lint、フロント 20 スイート 183 件、Functions 9 スイート 202 件                                                |
+| `npm run test:audit`         | 例外の期限・scope・バージョン・critical の拒否・監査エラーなど 9 件                                                  |
+| `npm run audit:dependencies` | 上記の限定した high の例外を適用して成功                                                                             |
+| `npm run test:sdk`           | 実際の DeepL SDK の英語・中国語のリクエストと応答の解析を loopback HTTP で確認                                       |
+| `npm run test:rules`         | 実際の注文ハンドラ、冪等性、並列の採番、所属店舗の制限・更新の競合、直接書き込みの拒否をローカルの Firestore で確認  |
+| `npm run test:demo`          | ローカルの Firestore / Auth への合成データの投入・取得・スタッフの Claims の確認                                     |
+| `npm run test:web`           | 合成の設定で Web をビルドし、1280×900 / 390×844 で QR の再読み込み・注文・スタッフのログイン・更新・競合・ログアウト |
+| `npx expo-doctor@latest`     | 20/20 成功                                                                                                           |
 
-既存の機密ファイル・Firebaseログイン・本番データは参照していません。合成テストは実DeepLの翻訳品質、公開環境の接続・認証設定、実端末や店舗運用を保証しません。Android/iOSネイティブビルドは今回検証していません。旧`import_sample_data.js`はAPIの移行と構文検査のみ行い、実プロジェクトへ接続するため実行していません。
+機密ファイル・Firebase のログイン・本番データは使っていません。合成テストは、実際の DeepL の翻訳品質、公開環境の接続・認証の設定、実機や店舗での運用を保証しません。Android / iOS のネイティブビルドは、この確認には含まれていません。

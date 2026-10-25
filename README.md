@@ -16,7 +16,7 @@
 | `scripts/seed-demo.cjs` | ローカル専用の合成データ投入                                     |
 | `docs`                  | 現行API契約、運用・テスト手順、初期設計・評価計画                |
 
-React Native / Expo SDK 54、React 19、React Navigation 6、Firebase Cloud Functions v2（`asia-northeast1`）、Firestore、Firebase Authentication、DeepL、kuromojiを使います。
+React Native / Expo SDK 58、React 19、React Navigation 7、Firebase Cloud Functions v2（`asia-northeast1`）、Firestore、Firebase Authentication、DeepL、kuromojiを使います。
 
 ## 初期構築
 
