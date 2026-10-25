@@ -3,30 +3,21 @@
   "exceptions": [
     {
       "scope": "root",
-      "package": "image-size",
-      "advisory": "https://github.com/advisories/GHSA-5p2g-fcmc-qvqq",
-      "versions": ["1.2.1"],
-      "paths": ["node_modules/image-size"],
-      "expires": "2026-11-30T00:00:00+09:00",
-      "reason": "Metroのビルド時画像メタデータ解析。修正版2.xは既存1.xのAPI契約を外れるため、信頼済みの静的画像のみビルドし、Expo/Metro移行で解消する。"
-    },
-    {
-      "scope": "root",
-      "package": "image-size",
-      "advisory": "https://github.com/advisories/GHSA-w3rx-r6r6-pgpr",
-      "versions": ["1.2.1"],
-      "paths": ["node_modules/image-size"],
-      "expires": "2026-11-30T00:00:00+09:00",
-      "reason": "Metroのビルド時画像メタデータ解析。修正版2.xは既存1.xのAPI契約を外れるため、信頼済みの静的画像のみビルドし、Expo/Metro移行で解消する。"
-    },
-    {
-      "scope": "root",
       "package": "node-forge",
       "advisory": "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
       "versions": ["1.4.0"],
       "paths": ["node_modules/node-forge"],
-      "expires": "2026-11-30T00:00:00+09:00",
-      "reason": "Expo開発CLI・コード署名証明書処理。npm auditの修正候補はExpo 44への降格のみ。外部から提供された証明書を扱わず、Expo SDK移行で解消する。"
+      "expires": "2027-01-31T00:00:00+09:00",
+      "reason": "Expo CLIのコード署名（expo-updatesの署名、iOSのローカルビルド）でのみ使用。2026-10-25時点で修正版は未公開で、SDK 58の@expo/code-signing-certificatesも1.4.0系に依存する。外部から提供された証明書を扱わず、上流の修正を追跡する。"
+    },
+    {
+      "scope": "root",
+      "package": "zod",
+      "advisory": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5",
+      "versions": ["3.25.76"],
+      "paths": ["node_modules/expo/node_modules/zod"],
+      "expires": "2027-01-31T00:00:00+09:00",
+      "reason": "Expo CLIの開発サーバーがDevToolsプラグイン定義の検証に使用。修正版は4.6.6以降のみで、SDK 58の@expo/cliもzod 3系に依存する。アプリ・Functions・Hostingには含まれない。開発サーバーを信頼できないネットワークに公開せず、上流の修正を追跡する。"
     }
   ],
   "trackingIssue": "https://github.com/jinxin4869/order_app/issues/40"
