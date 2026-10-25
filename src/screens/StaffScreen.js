@@ -30,6 +30,7 @@ import {
 } from "../services/api";
 import { showAlert } from "../utils/dialogs";
 import StaffMenuManager from "./StaffMenuManager";
+import OrderCorrection from "./OrderCorrection";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import {
   enableAlertSound,
@@ -619,6 +620,7 @@ const OrderConsole = ({ session }) => {
                         </View>
                         <Text style={styles.text}>
                           {tableLabel(order)} · {money(order.total_amount)}
+                          {order.corrected && " · 訂正あり"}
                         </Text>
                         <Text
                           style={
@@ -692,9 +694,17 @@ const OrderConsole = ({ session }) => {
                               {item.name_ja || item.name}
                             </Text>
                             <Text style={styles.itemName}>
-                              × {item.quantity}
+                              {item.quantity === 0
+                                ? "取消"
+                                : `× ${item.quantity}`}
                             </Text>
                           </View>
+                          {item.original_quantity != null && (
+                            <Text style={styles.notes}>
+                              訂正：{item.original_quantity} →{" "}
+                              {item.quantity || "取消"}
+                            </Text>
+                          )}
                           <Text style={styles.muted}>
                             {money(item.price)} / 点
                           </Text>
@@ -741,6 +751,16 @@ const OrderConsole = ({ session }) => {
                           )
                         )}
                       </View>
+                      <OrderCorrection
+                        key={`${selected.id}-${selected.revision || 0}`}
+                        order={selected}
+                        disabled={updating || busy}
+                        onDone={async (message) => {
+                          await openOrder(selected.id);
+                          setNotice(message);
+                          refreshRef.current({ quiet: true });
+                        }}
+                      />
                       <Action
                         secondary
                         disabled={updating}
@@ -755,6 +775,32 @@ const OrderConsole = ({ session }) => {
                       >
                         このテーブルの来店を終了する
                       </Action>
+                      {!!selected.corrections?.length && (
+                        <>
+                          <Text style={styles.sectionTitle}>訂正履歴</Text>
+                          {selected.corrections.map((entry, index) => (
+                            <View key={index} style={styles.historyItem}>
+                              <Text style={styles.text}>
+                                {entry.changes
+                                  .map(
+                                    (change) =>
+                                      `${change.name_ja} ${change.from} → ${change.to || "取消"}`
+                                  )
+                                  .join("、")}
+                              </Text>
+                              <Text style={styles.muted}>
+                                {dateLabel(entry.created_at)} ·{" "}
+                                {entry.staff_email || "スタッフ不明"} · 合計{" "}
+                                {money(entry.total_before)} →{" "}
+                                {money(entry.total_after)}
+                              </Text>
+                              <Text style={styles.notes}>
+                                理由：{entry.reason}
+                              </Text>
+                            </View>
+                          ))}
+                        </>
+                      )}
                       <Text style={styles.sectionTitle}>操作履歴</Text>
                       {!selected.history?.length && (
                         <Text style={styles.muted}>

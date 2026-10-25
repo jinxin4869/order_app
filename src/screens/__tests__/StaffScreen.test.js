@@ -18,6 +18,7 @@ jest.mock("../../services/api", () => ({
   getStaffOrder: jest.fn(),
   updateOrderStatus: jest.fn(),
   closeTableVisit: jest.fn(),
+  correctOrderItems: jest.fn(),
   getStaffMenu: jest.fn(async () => ({
     restaurant: { name: "テスト店", ordering: "open", version: 0 },
     categories: [],
@@ -564,5 +565,46 @@ test("order-limit hits this hour are shown with the advice to pause", async () =
     await screen.findByText(
       /直近1時間に、短時間の連続注文の制限が2回ありました（最後：テーブル 12）。該当の注文は受け付けていません。/
     )
+  ).toBeTruthy();
+});
+test("corrected orders are flagged in the list and show what changed", async () => {
+  const corrected = {
+    ...order,
+    corrected: true,
+    revision: 1,
+    status: "confirmed",
+    items: [
+      { name_ja: "テスト料理", quantity: 1, original_quantity: 3, price: 1000 },
+      { name_ja: "お茶", quantity: 0, original_quantity: 1, price: 200 },
+    ],
+    corrections: [
+      {
+        changes: [{ name_ja: "テスト料理", from: 3, to: 1 }],
+        total_before: 3520,
+        total_after: 1100,
+        reason: "品切れ",
+        staff_email: "staff@example.invalid",
+        created_at: Date.now(),
+      },
+    ],
+  };
+  listStaffOrders.mockResolvedValue({
+    orders: [corrected],
+    hasMore: false,
+    cursor: order.id,
+  });
+  getStaffOrder.mockResolvedValue({ order: corrected });
+  const screen = await render(<StaffScreen />);
+  expect(await screen.findByText(/訂正あり/)).toBeTruthy();
+  await fireEvent.press(
+    screen.getByRole("button", { name: "注文 20261009-001 受付済み" })
+  );
+  expect(await screen.findByText("訂正：3 → 1")).toBeTruthy();
+  expect(screen.getByText("取消")).toBeTruthy();
+  expect(screen.getByText("訂正履歴")).toBeTruthy();
+  expect(screen.getByText("テスト料理 3 → 1")).toBeTruthy();
+  expect(screen.getByText("理由：品切れ")).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "数量を訂正する（減数・取消）" })
   ).toBeTruthy();
 });

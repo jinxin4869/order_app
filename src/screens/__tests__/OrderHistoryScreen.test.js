@@ -96,3 +96,23 @@ test("a failed load says the list may be out of date and can be retried", async 
     )
   ).toBeNull();
 });
+test("a corrected order shows the staff correction and cancelled lines", async () => {
+  listVisitOrders.mockResolvedValue({
+    closed: false,
+    orders: [
+      order({
+        corrected: true,
+        items: [
+          { name_ja: "テスト料理", quantity: 1, original_quantity: 2 },
+          { name_ja: "お茶", quantity: 0, original_quantity: 1 },
+        ],
+      }),
+    ],
+  });
+  const screen = await show();
+  expect(
+    await screen.findByText("スタッフが注文内容を訂正しました。")
+  ).toBeTruthy();
+  expect(screen.getByText("テスト料理 × 1（訂正前 2）")).toBeTruthy();
+  expect(screen.getByText("お茶 （取消）")).toBeTruthy();
+});

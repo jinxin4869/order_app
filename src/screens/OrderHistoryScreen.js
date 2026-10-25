@@ -172,9 +172,28 @@ const OrderHistoryScreen = ({ navigation, route }) => {
               </Text>
             </View>
             <Text style={styles.muted}>{time(order.created_at)}</Text>
+            {order.corrected && (
+              <Text style={styles.muted}>
+                {t(
+                  "スタッフが注文内容を訂正しました。",
+                  "Our staff corrected this order.",
+                  "店员已更正此订单。"
+                )}
+              </Text>
+            )}
             {order.items.map((item, position) => (
               <Text key={position} style={styles.item}>
-                {itemName(item)} × {item.quantity}
+                {itemName(item)}{" "}
+                {item.quantity === 0
+                  ? t("（取消）", "(cancelled)", "（已取消）")
+                  : `× ${item.quantity}`}
+                {item.original_quantity != null &&
+                  item.quantity !== 0 &&
+                  t(
+                    `（訂正前 ${item.original_quantity}）`,
+                    ` (was ${item.original_quantity})`,
+                    `（更正前 ${item.original_quantity}）`
+                  )}
               </Text>
             ))}
             <Text style={styles.total}>
