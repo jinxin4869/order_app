@@ -36,6 +36,11 @@ service cloud.firestore {
       match /rate_limits/{counterId} {
         allow read, write: if false;
       }
+
+      // テーブルのQRトークンのハッシュ。サーバーだけが読む。
+      match /table_secrets/{tableId} {
+        allow read, write: if false;
+      }
     }
 
     // 注文は検証済みCallableのみが作成・更新する（Admin SDK）。

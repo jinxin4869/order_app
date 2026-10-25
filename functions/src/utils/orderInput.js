@@ -1,6 +1,7 @@
 const { HttpsError } = require("firebase-functions/v2/https");
 const { isDocumentId } = require("./staffAuth");
 const { MIN_ORDER_QUANTITY, MAX_ORDER_QUANTITY } = require("./orderLimits");
+const { validToken } = require("./qr");
 const record = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 const money = (value) =>
@@ -21,6 +22,8 @@ const normalizeOrderInput = (data) => {
   if (!isDocumentId(data.requestId)) fail("リクエストIDが無効です。");
   if (data.visitId != null && !isDocumentId(data.visitId))
     fail("来店IDが無効です。");
+  if (data.tableToken != null && !validToken(data.tableToken))
+    fail("テーブルのQRコードが無効です。");
   if (
     !Array.isArray(data.items) ||
     !data.items.length ||
@@ -62,6 +65,7 @@ const normalizeOrderInput = (data) => {
     items,
     customerLanguage: data.customerLanguage ?? "ja",
     visitId: data.visitId ?? null,
+    tableToken: data.tableToken ?? null,
     customerNotes: sanitizeNotes(data.customerNotes),
   };
 };

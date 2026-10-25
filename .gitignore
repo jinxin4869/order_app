@@ -93,3 +93,6 @@ ios/
 
 # Generated application output
 dist/
+
+# QR token sheets from scripts/issue-table-tokens.cjs contain secrets
+*tokens*.csv
