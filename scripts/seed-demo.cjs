@@ -49,9 +49,11 @@ async function main() {
       password: "demo-only-password",
     });
   }
+  // The demo staff may also try menu editing (docs/menu_management.md).
   await auth.setCustomUserClaims(uid, {
     role: "staff",
     restaurantId: "rest-test",
+    canEditMenu: true,
   });
   if (process.argv.includes("--verify")) {
     const assert = require("node:assert/strict");
@@ -64,6 +66,7 @@ async function main() {
     assert.deepEqual((await auth.getUser(uid)).customClaims, {
       role: "staff",
       restaurantId: "rest-test",
+      canEditMenu: true,
     });
   }
   console.log(

@@ -14,7 +14,7 @@ npx firebase emulators:start --project demo-order-app --config firebase.demo.jso
 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 node scripts/seed-demo.cjs --verify
 ```
 
-`rest-test / table-test`の店舗・テーブル、カテゴリ1件、料理1件、辞書1件、スタッフ1人を作成します。デモ用スタッフは`staff@example.invalid / demo-only-password`です。これはエミュレーターだけの合成アカウントで、実環境には使用しません。同じIDへの再投入はデモのマスターとスタッフClaimsを更新します。任意の非ローカル接続先を渡した場合は書き込み前に拒否します。
+`rest-test / table-test`の店舗・テーブル、カテゴリ1件、料理1件、辞書1件、スタッフ1人を作成します。デモ用スタッフは`staff@example.invalid / demo-only-password`です（メニューの編集の権限`canEditMenu`も持ちます）。これはエミュレーターだけの合成アカウントで、実環境には使用しません。同じIDへの再投入はデモのマスターとスタッフClaimsを更新します。任意の非ローカル接続先を渡した場合は書き込み前に拒否します。
 
 自動で起動・投入・API取得・Claimsを確認して終了する方法は`npm run test:demo`です。エミュレーター終了後はデータを保持しません。
 
