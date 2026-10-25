@@ -54,6 +54,15 @@ const validatePriceCalculation = (orderData) => {
   };
 };
 
+// The number printed on the table, copied from the master when the order is
+// placed so later renumbering does not change past orders.
+const tableNumberOf = (value) =>
+  typeof value === "string" && value.trim() && value.trim().length <= 32
+    ? value.trim()
+    : Number.isSafeInteger(value) && value >= 0
+      ? String(value)
+      : null;
+
 // ===== Cloud Functions =====
 
 /**
@@ -231,6 +240,7 @@ exports.createOrder = onAppCall({}, async (request) => {
       const orderDoc = {
         restaurant_id: data.restaurantId,
         table_id: data.tableId,
+        table_number: tableNumberOf(table.table_number),
         order_number: orderNumber,
         business_day: day,
         customer_language: data.customerLanguage || "ja",
@@ -308,7 +318,7 @@ const orderDTO = (doc) => {
     id: doc.id,
     restaurant_id: data.restaurant_id,
     table_id: data.table_id,
-    table_number: data.table_number || data.table_id,
+    table_number: data.table_number || null,
     order_number: data.order_number,
     status: data.status,
     customer_language: data.customer_language,

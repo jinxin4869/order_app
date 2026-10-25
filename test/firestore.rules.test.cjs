@@ -156,6 +156,12 @@ async function main() {
       7
     );
     assert.equal(third.hasMore, false);
+    // The number comes from the table master at order time, not the internal ID.
+    for (const listed of first.orders)
+      assert.deepEqual(
+        [listed.table_id, listed.table_number],
+        ["table-test", "12"]
+      );
     const race = await Promise.allSettled(
       ["confirmed", "cancelled"].map((newStatus) =>
         updateOrderStatus.run({
@@ -173,11 +179,11 @@ async function main() {
       race.find((item) => item.status === "rejected").reason.code,
       "aborted"
     );
-    assert.equal(
-      (await getStaffOrder.run({ auth, data: { orderId: result.orderId } }))
-        .order.restaurant_id,
-      "rest-test"
-    );
+    const detail = (
+      await getStaffOrder.run({ auth, data: { orderId: result.orderId } })
+    ).order;
+    assert.equal(detail.restaurant_id, "rest-test");
+    assert.equal(detail.table_number, "12");
     await assert.rejects(
       getStaffOrder.run({
         auth: {

@@ -156,6 +156,7 @@ test("real createOrder stores an order and occupies the table", async () => {
   expect(mockDb.read("orders/" + result.orderId)).toMatchObject({
     restaurant_id: "rest-test",
     table_id: "table-test",
+    table_number: "12",
     status: "pending",
     total_amount: 2200,
   });
@@ -525,4 +526,46 @@ test("the shared maximum quantity of 99 is accepted by the real order handler", 
   data.items[0].quantity = 99;
   const result = await api.createOrder({ data });
   expect(mockDb.read("orders/" + result.orderId).items[0].quantity).toBe(99);
+});
+test.each([
+  [12, "12"],
+  [" A-3 ", "A-3"],
+  [undefined, null],
+  ["", null],
+  ["x".repeat(33), null],
+  [{ n: 1 }, null],
+])(
+  "the order keeps the master table number %p as %p",
+  async (master, stored) => {
+    mockDb.seed("restaurants/rest-test/tables/table-test", {
+      status: "available",
+      table_number: master,
+    });
+    const { orderId } = await api.createOrder({ data: order() });
+    expect(mockDb.read("orders/" + orderId).table_number).toBe(stored);
+  }
+);
+test("staff see the number from order time, and legacy orders keep their ID", async () => {
+  const { orderId } = await api.createOrder({ data: order() });
+  mockDb.seed("restaurants/rest-test/tables/table-test", {
+    status: "available",
+    table_number: "99",
+  });
+  mockDb.seed("orders/legacy", {
+    restaurant_id: "rest-test",
+    table_id: "table-old",
+    status: "pending",
+    created_at: new Date(),
+    items: [],
+  });
+  const read = async (id) =>
+    (await api.getStaffOrder({ auth: staff(), data: { orderId: id } })).order;
+  expect(await read(orderId)).toMatchObject({
+    table_id: "table-test",
+    table_number: "12",
+  });
+  expect(await read("legacy")).toMatchObject({
+    table_id: "table-old",
+    table_number: null,
+  });
 });

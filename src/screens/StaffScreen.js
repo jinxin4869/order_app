@@ -56,6 +56,11 @@ const dateLabel = (millis) =>
       })
     : "時刻不明";
 const money = (value) => `¥${Number(value || 0).toLocaleString("ja-JP")}`;
+// Orders placed before table numbers were recorded only have the internal ID.
+const tableLabel = (order) =>
+  order.table_number
+    ? `テーブル ${order.table_number}`
+    : `テーブル番号未記録（ID: ${order.table_id}）`;
 const actionLabels = {
   confirmed: "注文を受け付ける",
   preparing: "調理を開始する",
@@ -363,8 +368,7 @@ const OrderConsole = ({ session }) => {
                       </Text>
                     </View>
                     <Text style={styles.text}>
-                      テーブル {order.table_number} ·{" "}
-                      {money(order.total_amount)}
+                      {tableLabel(order)} · {money(order.total_amount)}
                     </Text>
                     <Text style={styles.muted}>
                       {dateLabel(order.created_at)}
@@ -409,8 +413,7 @@ const OrderConsole = ({ session }) => {
                     {selected.order_number}
                   </Text>
                   <Text style={styles.text}>
-                    テーブル {selected.table_number} ·{" "}
-                    {STATUS_LABELS[selected.status]}
+                    {tableLabel(selected)} · {STATUS_LABELS[selected.status]}
                   </Text>
                   <Text style={styles.muted}>
                     {dateLabel(selected.created_at)} · 注文時の言語：

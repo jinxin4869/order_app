@@ -175,7 +175,10 @@ const createFirestore = (initial = {}) => {
 };
 const fixtures = () => ({
   "restaurants/rest-test": { name: "Test restaurant", is_active: true },
-  "restaurants/rest-test/tables/table-test": { status: "available" },
+  "restaurants/rest-test/tables/table-test": {
+    status: "available",
+    table_number: "12",
+  },
   "restaurants/rest-test/menu_items/item-test": {
     name_ja: "テスト料理",
     name_en: "Test dish",
