@@ -226,9 +226,15 @@ async function main() {
     await serverAuth.updateUser(uid, { disabled: false });
     await assertDenied(auth, "unauthenticated");
     const reactivated = await signIn();
+    // The confirmed/cancelled race above has no fixed winner, and a cancelled
+    // order leaves the active view, so count every order instead.
     assert.equal(
-      (await listStaffOrders.run({ auth: reactivated, data: {} })).orders
-        .length,
+      (
+        await listStaffOrders.run({
+          auth: reactivated,
+          data: { view: "all" },
+        })
+      ).orders.length,
       7
     );
     await serverAuth.setCustomUserClaims(uid, {
