@@ -1,7 +1,5 @@
 import js from "@eslint/js";
-import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
-import reactNative from "eslint-plugin-react-native";
 import prettier from "eslint-plugin-prettier";
 import prettierConfig from "eslint-config-prettier";
 
@@ -38,33 +36,22 @@ export default [
       },
     },
     plugins: {
-      react,
       "react-hooks": reactHooks,
-      "react-native": reactNative,
       prettier,
     },
     rules: {
       ...prettierConfig.rules,
       "prettier/prettier": "error",
-      "react/prop-types": "off",
-      "react/react-in-jsx-scope": "off",
       "no-console": "off",
       "no-unused-vars": ["warn", {
         "varsIgnorePattern": "^React$",
         "args": "after-used",
         "ignoreRestSiblings": true
       }],
-      "react/jsx-uses-react": "error",
-      "react/jsx-uses-vars": "error",
       quotes: ["error", "double", { allowTemplateLiterals: true }],
       semi: ["error", "always"],
       "prefer-arrow-callback": "error",
       ...reactHooks.configs.recommended.rules,
-    },
-    settings: {
-      react: {
-        version: "detect",
-      },
     },
   },
   {
