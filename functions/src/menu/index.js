@@ -7,7 +7,7 @@
 const { onAppCall } = require("../utils/callable");
 const { HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore } = require("firebase-admin/firestore");
-const { parseQRCode } = require("../utils/qr");
+const { parseQRCode, validId } = require("../utils/qr");
 
 const db = getFirestore();
 const translationMetadata = (data) => {
@@ -28,10 +28,10 @@ const translationMetadata = (data) => {
  * @returns {Object} - {categories: Array, items: Array}
  */
 exports.getMenuWithTranslation = onAppCall({}, async (request) => {
-  const { restaurantId } = request.data;
+  const { restaurantId } = request.data || {};
 
   // バリデーション
-  if (!restaurantId) {
+  if (!validId(restaurantId)) {
     throw new HttpsError("invalid-argument", "レストランIDが必要です");
   }
 
@@ -286,78 +286,12 @@ exports.validateQRCode = onAppCall({}, async (request) => {
       },
     };
   } catch (error) {
-    console.error(`QR validation error for ${qrData}:`, error);
+    console.error(`QR validation error for ${restaurantId}/${tableId}:`, error);
 
     return {
       valid: false,
       error:
         "QRコードの検証中に通信エラーが発生しました。時間を置いて再度お試しください。",
     };
-  }
-});
-
-/**
- * 特定メニューアイテムの詳細を取得
- *
- * @param {Object} data - {restaurantId: string, itemId: string}
- * @returns {Object} - メニューアイテムの詳細
- */
-exports.getMenuItem = onAppCall({}, async (request) => {
-  const { restaurantId, itemId } = request.data;
-
-  // バリデーション
-  if (!restaurantId || !itemId) {
-    throw new HttpsError(
-      "invalid-argument",
-      "Restaurant ID and Item ID are required"
-    );
-  }
-
-  try {
-    const itemDoc = await db
-      .collection("restaurants")
-      .doc(restaurantId)
-      .collection("menu_items")
-      .doc(itemId)
-      .get();
-
-    if (!itemDoc.exists) {
-      console.warn(
-        `Menu item not found: ${itemId} in restaurant ${restaurantId}`
-      );
-      throw new HttpsError(
-        "not-found",
-        "指定されたメニューアイテムが見つかりません。"
-      );
-    }
-
-    const itemData = itemDoc.data();
-
-    // 提供可能かチェック
-    if (!itemData.is_available) {
-      throw new HttpsError(
-        "failed-precondition",
-        "この商品は現在品切れ中または提供を停止しています。"
-      );
-    }
-
-    return {
-      id: itemDoc.id,
-      ...itemData,
-    };
-  } catch (error) {
-    console.error(`Get menu item error (ID: ${itemId}):`, error);
-
-    if (
-      error instanceof HttpsError ||
-      (error.code && typeof error.code === "string" && error.message)
-    ) {
-      throw error;
-    }
-
-    throw new HttpsError(
-      "internal",
-      "メニューアイテムの取得中にエラーが発生しました。"
-    );
   }
 });
