@@ -62,4 +62,4 @@ const normalizeOrderInput = (data) => {
     customerNotes: sanitizeNotes(data.customerNotes),
   };
 };
-module.exports = { normalizeOrderInput };
+module.exports = { normalizeOrderInput, optionalText, sanitizeNotes };

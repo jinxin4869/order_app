@@ -137,7 +137,11 @@ test("two staff updates from the same displayed state cannot overwrite each othe
   expect(
     results.find((result) => result.status === "rejected").reason
   ).toMatchObject({ code: "aborted", details: { reason: "status_changed" } });
-  expect(mockDb.writes).toHaveLength(1);
+  // The winner writes the order and one history record; the loser nothing.
+  expect(mockDb.writes.map((write) => write.path)).toEqual([
+    "orders/order-test",
+    expect.stringMatching(/^orders\/order-test\/status_history\//),
+  ]);
   expect(mockDb.read("orders/order-test").updated_by).toBe("staff-test");
 });
 test("status updates require the state the staff actually reviewed", async () => {
@@ -568,4 +572,112 @@ test("staff see the number from order time, and legacy orders keep their ID", as
     table_id: "table-old",
     table_number: null,
   });
+});
+const history = () =>
+  [...mockDb.all()]
+    .filter(([path]) => path.startsWith("orders/order-test/status_history/"))
+    .map(([, value]) => value);
+const changeStatus = (data, auth = staff()) =>
+  api.updateOrderStatus({ auth, data: { orderId: "order-test", ...data } });
+test("each successful change records who, when, from, to and an optional reason", async () => {
+  mockDb.seed("orders/order-test", {
+    restaurant_id: "rest-test",
+    status: "pending",
+  });
+  const withEmail = {
+    ...staff(),
+    token: { ...staff().token, email: "staff@example.invalid" },
+  };
+  await changeStatus(
+    { expectedStatus: "pending", newStatus: "confirmed" },
+    withEmail
+  );
+  await changeStatus(
+    {
+      expectedStatus: "confirmed",
+      newStatus: "cancelled",
+      reason: " <b>品切れ</b> ",
+    },
+    withEmail
+  );
+  expect(history()).toEqual([
+    expect.objectContaining({
+      restaurant_id: "rest-test",
+      from_status: "pending",
+      to_status: "confirmed",
+      staff_uid: "staff-test",
+      staff_email: "staff@example.invalid",
+      reason: null,
+      created_at: expect.any(Date),
+    }),
+    expect.objectContaining({
+      from_status: "confirmed",
+      to_status: "cancelled",
+      reason: "品切れ",
+    }),
+  ]);
+  const { order: detail } = await api.getStaffOrder({
+    auth: staff(),
+    data: { orderId: "order-test" },
+  });
+  expect(detail.history).toEqual([
+    {
+      from_status: "pending",
+      to_status: "confirmed",
+      staff_email: "staff@example.invalid",
+      reason: null,
+      created_at: expect.any(Number),
+    },
+    expect.objectContaining({ to_status: "cancelled", reason: "品切れ" }),
+  ]);
+  expect(detail.history[0]).not.toHaveProperty("staff_uid");
+});
+test("a retry after a lost response, a bad transition or another store adds no history", async () => {
+  mockDb.seed("orders/order-test", {
+    restaurant_id: "rest-test",
+    status: "pending",
+  });
+  await changeStatus({ expectedStatus: "pending", newStatus: "confirmed" });
+  await expect(
+    changeStatus({ expectedStatus: "pending", newStatus: "confirmed" })
+  ).rejects.toMatchObject({ code: "aborted" });
+  await expect(
+    changeStatus({ expectedStatus: "confirmed", newStatus: "completed" })
+  ).rejects.toMatchObject({ code: "failed-precondition" });
+  await expect(
+    changeStatus(
+      { expectedStatus: "confirmed", newStatus: "preparing" },
+      staff("other-store")
+    )
+  ).rejects.toMatchObject({ code: "permission-denied" });
+  expect(history()).toHaveLength(1);
+});
+test.each([101, 0])(
+  "a reason longer than 100 characters or not a string is rejected before writes",
+  async (length) => {
+    mockDb.seed("orders/order-test", {
+      restaurant_id: "rest-test",
+      status: "pending",
+    });
+    await expect(
+      changeStatus({
+        expectedStatus: "pending",
+        newStatus: "cancelled",
+        reason: length ? "x".repeat(length) : { text: "x" },
+      })
+    ).rejects.toMatchObject({ code: "invalid-argument" });
+    expect(mockDb.writes).toHaveLength(0);
+  }
+);
+test("a failed order update leaves no history record behind", async () => {
+  mockDb.seed("orders/order-test", {
+    restaurant_id: "rest-test",
+    status: "pending",
+  });
+  mockDb.failNextWrite("orders/order-test");
+  await expect(
+    changeStatus({ expectedStatus: "pending", newStatus: "confirmed" })
+  ).rejects.toThrow("Synthetic write failure");
+  expect(history()).toHaveLength(0);
+  expect(mockDb.read("orders/order-test").status).toBe("pending");
 });

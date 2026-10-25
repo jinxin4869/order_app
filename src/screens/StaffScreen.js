@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../constants";
 import {
+  ORDER_STATUS,
   STATUS_LABELS,
   VALID_STATUS_TRANSITIONS,
 } from "../../functions/src/utils/orderStatus";
@@ -89,6 +90,7 @@ const OrderConsole = ({ session }) => {
   const loading = useRef(false);
   const seen = useRef(null);
   const [selectedId, setSelectedId] = useState(null);
+  const [cancelReason, setCancelReason] = useState("");
   const detailRequest = useRef(0);
   const updateLock = useRef(false);
 
@@ -179,6 +181,7 @@ const OrderConsole = ({ session }) => {
     const request = ++detailRequest.current;
     setSelectedId(id);
     setSelected(null);
+    setCancelReason("");
     setNotice("注文の詳細を取得しています…");
     try {
       const result = await getStaffOrder(id);
@@ -192,9 +195,11 @@ const OrderConsole = ({ session }) => {
   };
   const changeStatus = (newStatus) => {
     const order = selected;
+    const reason =
+      newStatus === ORDER_STATUS.CANCELLED ? cancelReason.trim() : "";
     showAlert(
       "注文の状態を変更",
-      `${order.order_number}を「${STATUS_LABELS[newStatus]}」に変更しますか？`,
+      `${order.order_number}を「${STATUS_LABELS[newStatus]}」に変更しますか？${reason ? `\n理由：${reason}` : ""}`,
       [
         { text: "戻る", style: "cancel" },
         {
@@ -205,7 +210,9 @@ const OrderConsole = ({ session }) => {
             setUpdating(true);
             const current = generation.current;
             try {
-              await updateOrderStatus(order.id, newStatus, order.status);
+              const args = [order.id, newStatus, order.status];
+              if (reason) args.push(reason);
+              await updateOrderStatus(...args);
               if (current !== generation.current) return;
               await openOrder(order.id);
               setNotice("状態を更新しました。");
@@ -419,6 +426,19 @@ const OrderConsole = ({ session }) => {
                       {money(selected.total_amount)}
                     </Text>
                   </View>
+                  {(VALID_STATUS_TRANSITIONS[selected.status] || []).includes(
+                    ORDER_STATUS.CANCELLED
+                  ) && (
+                    <TextInput
+                      accessibilityLabel="キャンセル理由（任意）"
+                      placeholder="キャンセル理由（任意・100文字まで）"
+                      maxLength={100}
+                      value={cancelReason}
+                      onChangeText={setCancelReason}
+                      editable={!updating}
+                      style={styles.input}
+                    />
+                  )}
                   <View style={styles.actions}>
                     {(VALID_STATUS_TRANSITIONS[selected.status] || []).map(
                       (status) => (
@@ -440,6 +460,27 @@ const OrderConsole = ({ session }) => {
                   >
                     詳細を再取得
                   </Action>
+                  <Text style={styles.sectionTitle}>操作履歴</Text>
+                  {!selected.history?.length && (
+                    <Text style={styles.muted}>
+                      まだ状態の変更はありません。
+                    </Text>
+                  )}
+                  {(selected.history || []).map((entry, index) => (
+                    <View key={index} style={styles.historyItem}>
+                      <Text style={styles.text}>
+                        {STATUS_LABELS[entry.from_status] || entry.from_status}{" "}
+                        → {STATUS_LABELS[entry.to_status] || entry.to_status}
+                      </Text>
+                      <Text style={styles.muted}>
+                        {dateLabel(entry.created_at)} ·{" "}
+                        {entry.staff_email || "スタッフ不明"}
+                      </Text>
+                      {!!entry.reason && (
+                        <Text style={styles.notes}>理由：{entry.reason}</Text>
+                      )}
+                    </View>
+                  ))}
                 </>
               )}
             </ScrollView>
@@ -635,6 +676,18 @@ const styles = StyleSheet.create({
   },
   itemName: { fontSize: 18, fontWeight: "600", color: COLORS.text },
   notes: { fontSize: 16, lineHeight: 24, color: "#8A3B00" },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: COLORS.text,
+    marginTop: 8,
+  },
+  historyItem: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    gap: 2,
+  },
   total: {
     flexDirection: "row",
     alignItems: "center",
