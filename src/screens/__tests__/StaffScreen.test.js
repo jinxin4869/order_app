@@ -208,3 +208,30 @@ test("changing the order filter clears old rows and ignores an earlier in-flight
   ).toBeTruthy();
   expect(listStaffOrders).toHaveBeenLastCalledWith({ view: "all" });
 });
+test("rows and details show the table number, or the ID when an old order has none", async () => {
+  const legacy = {
+    ...order,
+    id: "order-legacy",
+    order_number: "20261009-002",
+    table_id: "table-old",
+    table_number: null,
+  };
+  listStaffOrders.mockResolvedValue({
+    orders: [{ ...order, table_id: "table-test" }, legacy],
+    hasMore: false,
+    cursor: legacy.id,
+  });
+  getStaffOrder.mockResolvedValue({ order: legacy });
+  const screen = await render(<StaffScreen />);
+  expect(await screen.findByText(/^テーブル 1 ·/)).toBeTruthy();
+  expect(
+    screen.getByText(/^テーブル番号未記録（ID: table-old） ·/)
+  ).toBeTruthy();
+  expect(screen.queryByText(/テーブル table-test/)).toBeNull();
+  await fireEvent.press(
+    screen.getByRole("button", { name: "注文 20261009-002 未受付" })
+  );
+  expect(
+    await screen.findByText("テーブル番号未記録（ID: table-old） · 未受付")
+  ).toBeTruthy();
+});
