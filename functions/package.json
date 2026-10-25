@@ -14,7 +14,7 @@
     "consolidate": "node scripts/consolidate-data.js"
   },
   "engines": {
-    "node": "22"
+    "node": "24"
   },
   "main": "src/index.js",
   "dependencies": {
