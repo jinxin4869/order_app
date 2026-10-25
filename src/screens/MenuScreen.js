@@ -5,7 +5,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Image,
   FlatList,
   ActivityIndicator,
   RefreshControl,
@@ -21,6 +20,7 @@ import {
 import { getMenuWithTranslation } from "../services/api";
 import PendingOrderNotice from "../components/PendingOrderNotice";
 import OrderingNotice from "../components/OrderingNotice";
+import MenuImage from "../components/MenuImage";
 import { useMenuAvailability, isSoldOut } from "../hooks/useMenuAvailability";
 
 const RestaurantMenu = ({ navigation, route }) => {
@@ -180,32 +180,14 @@ const RestaurantMenu = ({ navigation, route }) => {
       accessibilityRole="button"
       onPress={() => handleItemPress(item)}
     >
-      {item.image_url ? (
-        <Image
-          source={{ uri: item.image_url }}
-          style={[
-            styles.itemImage,
-            { width: itemImageSize, height: itemImageSize },
-          ]}
-        />
-      ) : (
-        <View
-          style={[
-            styles.itemImage,
-            styles.itemImagePlaceholder,
-            { width: itemImageSize, height: itemImageSize },
-          ]}
-        >
-          <Text
-            style={[
-              styles.placeholderText,
-              { fontSize: scaleSize(30, 22, 32) },
-            ]}
-          >
-            🍽️
-          </Text>
-        </View>
-      )}
+      <MenuImage
+        uri={item.image_url}
+        style={[
+          styles.itemImage,
+          { width: itemImageSize, height: itemImageSize },
+        ]}
+        placeholderSize={scaleSize(30, 22, 32)}
+      />
 
       <View style={styles.itemInfo}>
         <View style={styles.itemHeader}>
@@ -759,14 +741,6 @@ const styles = StyleSheet.create({
   },
   itemImage: {
     // width and height set dynamically
-  },
-  itemImagePlaceholder: {
-    backgroundColor: COLORS.background,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  placeholderText: {
-    // fontSize set dynamically
   },
   itemInfo: {
     flex: 1,

@@ -5,6 +5,7 @@ import {
   getStaffMenu,
   setMenuItemAvailability,
   setOrderingAvailability,
+  batchTranslateMenu,
 } from "../../services/api";
 import { showAlert } from "../../utils/dialogs";
 import { useNetworkStatus } from "../../hooks/useNetworkStatus";
@@ -12,6 +13,19 @@ jest.mock("../../services/api", () => ({
   getStaffMenu: jest.fn(),
   setMenuItemAvailability: jest.fn(),
   setOrderingAvailability: jest.fn(),
+  batchTranslateMenu: jest.fn(),
+  getEditableMenuItem: jest.fn(async () => ({
+    item: {
+      id: "a",
+      name_ja: "唐揚げ",
+      description_ja: "",
+      price: 600,
+      image_url: null,
+      allergens: [],
+      version: 0,
+    },
+    draft: null,
+  })),
 }));
 jest.mock("../../utils/dialogs", () => ({ showAlert: jest.fn() }));
 jest.mock("../../hooks/useNetworkStatus", () => ({
@@ -159,5 +173,30 @@ test("a failed first load offers a retry", async () => {
     )
   ).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+  expect(await screen.findByText("テスト店：注文受付中")).toBeTruthy();
+});
+test("only editors see editing and translation controls", async () => {
+  const screen = await render(<StaffMenuManager restaurantId="rest-test" />);
+  await screen.findByText("テスト店：注文受付中");
+  expect(screen.queryByRole("button", { name: "唐揚げを編集" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "翻訳を更新" })).toBeNull();
+});
+test("an editor opens the item editor and regenerates both languages", async () => {
+  batchTranslateMenu.mockResolvedValue({ count: 2 });
+  const screen = await render(
+    <StaffMenuManager restaurantId="rest-test" canEditMenu />
+  );
+  await fireEvent.press(
+    await screen.findByRole("button", { name: "翻訳を更新" })
+  );
+  await confirm("更新する");
+  expect(batchTranslateMenu.mock.calls).toEqual([
+    ["rest-test", "en", { generateBothModes: true }],
+    ["rest-test", "zh", { generateBothModes: true }],
+  ]);
+  expect(screen.getByText("英語・中国語の翻訳を更新しました。")).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "唐揚げを編集" }));
+  expect(await screen.findByText("商品情報の編集：唐揚げ")).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "一覧に戻る" }));
   expect(await screen.findByText("テスト店：注文受付中")).toBeTruthy();
 });

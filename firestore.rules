@@ -37,6 +37,11 @@ service cloud.firestore {
         allow read, write: if false;
       }
 
+      // 商品情報の下書き。公開するまでお客様にもクライアントにも見せない。
+      match /menu_drafts/{itemId} {
+        allow read, write: if false;
+      }
+
       // テーブルのQRトークンのハッシュ。サーバーだけが読む。
       match /table_secrets/{tableId} {
         allow read, write: if false;

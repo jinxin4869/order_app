@@ -62,14 +62,34 @@
 
 ## API
 
-| API                       | 権限               | 入力                                                              | 出力                                                                       |
-| ------------------------- | ------------------ | ----------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `getStaffMenu`            | 所属店舗のスタッフ | なし                                                              | 店舗（名前・受付状態・版番号）、公開カテゴリ、公開商品（販売状態・版番号） |
-| `setMenuItemAvailability` | 同上               | `itemId`、`available`（真偽値）、`expectedVersion`、`operationId` | `{ success, available, version }`                                          |
-| `setOrderingAvailability` | 同上               | `enabled`（真偽値）、`expectedVersion`、`operationId`             | `{ success, ordering, version }`                                           |
-| `getMenuAvailability`     | 不要               | `restaurantId`                                                    | `{ ordering: "open" \| "paused" \| "invalid", soldOut: [商品ID] }`         |
+| API                       | 権限                    | 入力                                                              | 出力                                                                       |
+| ------------------------- | ----------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `getStaffMenu`            | 所属店舗のスタッフ      | なし                                                              | 店舗（名前・受付状態・版番号）、公開カテゴリ、公開商品（販売状態・版番号） |
+| `setMenuItemAvailability` | 同上                    | `itemId`、`available`（真偽値）、`expectedVersion`、`operationId` | `{ success, available, version }`                                          |
+| `setOrderingAvailability` | 同上                    | `enabled`（真偽値）、`expectedVersion`、`operationId`             | `{ success, ordering, version }`                                           |
+| `getEditableMenuItem`     | `canEditMenu`のスタッフ | `itemId`                                                          | 公開中の内容・版番号・アレルゲン、下書き                                   |
+| `saveMenuItemDraft`       | 同上                    | `itemId`、`expectedVersion`、`draft`（4項目）、`operationId`      | `{ success, draft, base_version }`                                         |
+| `publishMenuItemDraft`    | 同上                    | `itemId`、`expectedVersion`、`operationId`                        | `{ success, version, translationsOutdated }`                               |
+| `discardMenuItemDraft`    | 同上                    | `itemId`                                                          | `{ success }`                                                              |
+| `getMenuAvailability`     | 不要                    | `restaurantId`                                                    | `{ ordering: "open" \| "paused" \| "invalid", soldOut: [商品ID] }`         |
 
 非公開の商品は、`getStaffMenu`・`setMenuItemAvailability`の対象外（`not-found`）です。Firestoreの`menu_items`の直接の読み取りも、公開中の商品だけに限ります。
+
+## 商品情報の編集（商品名・価格・説明・画像）
+
+商品の情報を変えられるのは、Custom Claimsに`canEditMenu: true`を持つスタッフだけです（付け方は[スタッフ認証・店舗権限](staff_access.md)）。権限は毎回、Authの現在のClaimsで確認します。メニュー管理の各商品の「商品名・価格・写真を編集」から開きます。
+
+1. **下書き**：商品名（日本語・1〜100文字・必須）、説明（日本語・500文字まで）、価格（税抜・0〜1,000,000円の整数）、画像URL（`https://`で始まる500文字までのURL。空なら画像なし）を入力して「下書きを保存」します。HTMLタグと前後の空白は除去します。下書きは`restaurants/{restaurantId}/menu_drafts/{itemId}`に保存され、お客様にもクライアントにも見えません。
+2. **プレビュー**：入力中の内容を、画像・名前・価格・説明で確認できます。
+3. **公開**：「下書きを公開」で、変更点（商品名・価格・説明・画像）を確認してから公開します。お客様のメニューにすぐ反映されます。
+4. **翻訳の更新**：商品名や説明を変えた場合は、メニュー管理の「翻訳を更新」で英語・中国語（辞書あり・なし）を作り直します。それまでの間、英語・中国語の画面は、古い翻訳ではなく日本語の原文を「翻訳未確認」として表示します（[翻訳の生成・比較](translation_contract.md)）。
+
+- 公開と下書きの保存は、画面で見ていた版番号（`content_version`）を付けて送ります。ほかのスタッフが先に公開していた場合や、下書きを作ったあとに公開中の内容が変わった場合は`aborted`になり、最新の内容を表示して確認し直してもらいます。同じ操作IDの再送は保存済みの結果を返します。
+- 下書きの保存と公開は、変更前と変更後、スタッフ、サーバーの時刻を`menu_events`に記録します（`item_draft` / `item_content`）。
+- **価格の変更**：受付済みの注文は注文時の価格と商品名を保持します。古い価格のままのカートから注文すると`price_changed`で止まり、メニューの更新と選び直しを案内します。
+- **画像**：URLで指定します（Storageへのアップロードは初期版の対象外）。お客様の画面は、画像がない・読み込めない場合に代わりの表示を出し、表示が崩れないようにします。CSPの`img-src`は`https:`を許可しています（[Hostingのセキュリティヘッダ](hosting_headers.md)）。
+- **食材・アレルゲン**：この画面では変更しません。表示だけを行い、変更は店舗で確認したうえで管理者が行います。編集や翻訳で黙って書き換えることはありません。
+- 初期版の判断：公開前の別のスタッフによる承認はありません（編集権限のあるスタッフが確認して公開します）。商品の追加・削除、カテゴリの編集は対象外です。
 
 ## 運用
 

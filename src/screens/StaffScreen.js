@@ -422,7 +422,14 @@ const OrderConsole = ({ session }) => {
                 新着 {newCount}件を確認
               </Action>
             )}
-            {mode === "menu" ? <StaffMenuManager /> : <StaffStats />}
+            {mode === "menu" ? (
+              <StaffMenuManager
+                restaurantId={session.restaurantId}
+                canEditMenu={session.canEditMenu}
+              />
+            ) : (
+              <StaffStats />
+            )}
           </>
         ) : (
           <>

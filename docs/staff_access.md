@@ -17,6 +17,14 @@
 - お客様の注文作成はログイン不要ですが、Firestoreへの直接書き込みは禁止します。
 
 Claimsの付与・変更は信頼できる管理者環境のAdmin SDKで行います。スタッフ本人にはClaimsを更新する権限を付与しません。
+
+商品名・価格・説明・画像の編集（[メニュー管理](menu_management.md)の「商品情報の編集」）は、全スタッフではなく、`canEditMenu: true`を加えたスタッフだけができます。
+
+```json
+{ "role": "staff", "restaurantId": "restaurant-example", "canEditMenu": true }
+```
+
+`setCustomUserClaims`はClaims全体を上書きするため、`role`と`restaurantId`も含めて設定します。サーバーは操作のたびにAuthの現在のClaimsを確認します。画面の編集ボタンはログイン時のIDトークンで表示を切り替えるため、付与・取り消しのあとはスタッフに再ログインしてもらってください。
 認証情報や秘密鍵をリポジトリへ保存しないでください。
 
 ## 停止・所属変更・再有効化
