@@ -26,8 +26,8 @@ describe("ErrorBoundary", () => {
     console.error = originalError;
   });
 
-  test("エラーがない場合は子コンポーネントを表示", () => {
-    const { getByText } = render(
+  test("エラーがない場合は子コンポーネントを表示", async () => {
+    const { getByText } = await render(
       <ErrorBoundary>
         <Text>Test content</Text>
       </ErrorBoundary>
@@ -36,8 +36,8 @@ describe("ErrorBoundary", () => {
     expect(getByText("Test content")).toBeTruthy();
   });
 
-  test("エラーが発生した場合はエラーメッセージを表示", () => {
-    const { getByText, queryByText } = render(
+  test("エラーが発生した場合はエラーメッセージを表示", async () => {
+    const { getByText, queryByText } = await render(
       <ErrorBoundary>
         <ThrowError shouldThrow={true} />
       </ErrorBoundary>
@@ -50,8 +50,8 @@ describe("ErrorBoundary", () => {
     expect(queryByText("Normal content")).toBeNull();
   });
 
-  test("再試行ボタンをクリックするとエラー状態がリセットされる", () => {
-    const { getByText, rerender } = render(
+  test("再試行ボタンをクリックするとエラー状態がリセットされる", async () => {
+    const { getByText, rerender } = await render(
       <ErrorBoundary>
         <ThrowError shouldThrow={true} />
       </ErrorBoundary>
@@ -64,21 +64,21 @@ describe("ErrorBoundary", () => {
     const retryButton = getByText("再試行");
 
     // エラーなしで再レンダリング (Propsを更新しておく)
-    rerender(
+    await rerender(
       <ErrorBoundary>
         <ThrowError shouldThrow={false} />
       </ErrorBoundary>
     );
 
     // 再試行ボタンをクリック (エラー状態リセット -> 新しいPropsでレンダリング)
-    fireEvent.press(retryButton);
+    await fireEvent.press(retryButton);
 
     // 通常のコンテンツが表示される
     expect(getByText("Normal content")).toBeTruthy();
   });
 
-  test("エラーメッセージが表示される", () => {
-    const { getByText } = render(
+  test("エラーメッセージが表示される", async () => {
+    const { getByText } = await render(
       <ErrorBoundary>
         <ThrowError shouldThrow={true} />
       </ErrorBoundary>

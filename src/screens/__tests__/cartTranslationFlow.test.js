@@ -57,33 +57,33 @@ const language = (mode) =>
     getItemDescription: () => "",
   });
 
-test("detail additions preserve verified names for both comparison modes in the real cart", () => {
+test("detail additions preserve verified names for both comparison modes in the real cart", async () => {
   language("dictionary");
-  const view = render(<Harness screen="detail" item={translatedDish} />);
+  const view = await render(<Harness screen="detail" item={translatedDish} />);
   expect(view.getByText("Dictionary dish")).toBeTruthy();
-  fireEvent.press(view.getByText(/Add to Cart/));
-  view.rerender(<Harness screen="cart" item={translatedDish} />);
+  await fireEvent.press(view.getByText(/Add to Cart/));
+  await view.rerender(<Harness screen="cart" item={translatedDish} />);
   expect(view.getByText("Dictionary dish")).toBeTruthy();
   expect(view.queryByText(/Translation unverified/)).toBeNull();
   language("deepl_only");
-  view.rerender(<Harness screen="cart" item={translatedDish} />);
+  await view.rerender(<Harness screen="cart" item={translatedDish} />);
   expect(view.getByText("Plain dish")).toBeTruthy();
   expect(view.queryByText("Dictionary dish")).toBeNull();
 });
 
-test("the detail-to-cart flow keeps missing plain translations distinct from hybrid translations", () => {
+test("the detail-to-cart flow keeps missing plain translations distinct from hybrid translations", async () => {
   language("dictionary");
   const item = {
     ...translatedDish,
     name_en_nodic: null,
     name_en_nodic_translation: null,
   };
-  const view = render(<Harness screen="detail" item={item} />);
-  fireEvent.press(view.getByText(/Add to Cart/));
-  view.rerender(<Harness screen="cart" item={item} />);
+  const view = await render(<Harness screen="detail" item={item} />);
+  await fireEvent.press(view.getByText(/Add to Cart/));
+  await view.rerender(<Harness screen="cart" item={item} />);
   expect(view.getByText("Dictionary dish")).toBeTruthy();
   language("deepl_only");
-  view.rerender(<Harness screen="cart" item={item} />);
+  await view.rerender(<Harness screen="cart" item={item} />);
   expect(
     view.getByText("親子丼 [Translation unavailable; Japanese original]")
   ).toBeTruthy();

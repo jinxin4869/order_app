@@ -14,7 +14,7 @@ describe("useNetworkStatus", () => {
     jest.clearAllMocks();
   });
 
-  test("初期状態はオンライン", () => {
+  test("初期状態はオンライン", async () => {
     // fetchをモック
     NetInfo.fetch.mockResolvedValue({
       isConnected: true,
@@ -24,7 +24,7 @@ describe("useNetworkStatus", () => {
     // addEventListenerをモック
     NetInfo.addEventListener.mockReturnValue(() => {});
 
-    const { result } = renderHook(() => useNetworkStatus());
+    const { result } = await renderHook(() => useNetworkStatus());
 
     expect(result.current.isConnected).toBe(true);
     expect(result.current.isInternetReachable).toBe(true);
@@ -45,7 +45,7 @@ describe("useNetworkStatus", () => {
       isInternetReachable: true,
     });
 
-    const { result } = renderHook(() => useNetworkStatus());
+    const { result } = await renderHook(() => useNetworkStatus());
 
     // 初期状態を確認
     await waitFor(() => {
@@ -53,7 +53,7 @@ describe("useNetworkStatus", () => {
     });
 
     // ネットワーク状態を変更
-    act(() => {
+    await act(() => {
       networkListener({
         isConnected: false,
         isInternetReachable: false,
@@ -79,9 +79,9 @@ describe("useNetworkStatus", () => {
       isInternetReachable: true,
     });
 
-    const { result } = renderHook(() => useNetworkStatus());
+    const { result } = await renderHook(() => useNetworkStatus());
 
-    act(() => {
+    await act(() => {
       networkListener({
         isConnected: true,
         isInternetReachable: false,
@@ -91,7 +91,7 @@ describe("useNetworkStatus", () => {
     expect(result.current.isOnline).toBe(false);
   });
 
-  test("アンマウント時にリスナーを解除する", () => {
+  test("アンマウント時にリスナーを解除する", async () => {
     const unsubscribe = jest.fn();
     NetInfo.addEventListener.mockReturnValue(unsubscribe);
     NetInfo.fetch.mockResolvedValue({
@@ -99,9 +99,9 @@ describe("useNetworkStatus", () => {
       isInternetReachable: true,
     });
 
-    const { unmount } = renderHook(() => useNetworkStatus());
+    const { unmount } = await renderHook(() => useNetworkStatus());
 
-    unmount();
+    await unmount();
 
     expect(unsubscribe).toHaveBeenCalled();
   });

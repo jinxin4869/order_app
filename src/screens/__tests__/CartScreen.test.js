@@ -115,10 +115,10 @@ describe("CartScreen", () => {
     });
   });
 
-  test("カートアイテムを表示する", () => {
+  test("カートアイテムを表示する", async () => {
     const mockContext = createMockCartContext(mockCartItems);
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <CartContext.Provider value={mockContext}>
         <CartScreen navigation={mockNavigation} route={mockRoute} />
       </CartContext.Provider>
@@ -129,10 +129,10 @@ describe("CartScreen", () => {
     expect(getByText("📝 わさび抜き")).toBeTruthy();
   });
 
-  test("空のカート時にメッセージを表示", () => {
+  test("空のカート時にメッセージを表示", async () => {
     const mockContext = createMockCartContext([]);
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <CartContext.Provider value={mockContext}>
         <CartScreen navigation={mockNavigation} route={mockRoute} />
       </CartContext.Provider>
@@ -143,60 +143,60 @@ describe("CartScreen", () => {
     expect(getByText("メニューに戻る")).toBeTruthy();
   });
 
-  test("空のカートから「メニューに戻る」ボタンで戻る", () => {
+  test("空のカートから「メニューに戻る」ボタンで戻る", async () => {
     const mockContext = createMockCartContext([]);
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <CartContext.Provider value={mockContext}>
         <CartScreen navigation={mockNavigation} route={mockRoute} />
       </CartContext.Provider>
     );
 
-    fireEvent.press(getByText("メニューに戻る"));
+    await fireEvent.press(getByText("メニューに戻る"));
     expect(mockNavigation.goBack).toHaveBeenCalled();
   });
 
-  test("数量を増やすボタンが機能する", () => {
+  test("数量を増やすボタンが機能する", async () => {
     const mockContext = createMockCartContext(mockCartItems);
 
-    const { getAllByText } = render(
+    const { getAllByText } = await render(
       <CartContext.Provider value={mockContext}>
         <CartScreen navigation={mockNavigation} route={mockRoute} />
       </CartContext.Provider>
     );
 
     const plusButtons = getAllByText("+");
-    fireEvent.press(plusButtons[0]);
+    await fireEvent.press(plusButtons[0]);
 
     expect(mockContext.updateQuantity).toHaveBeenCalledWith("item_01", 3, "");
   });
 
-  test("数量を減らすボタンが機能する", () => {
+  test("数量を減らすボタンが機能する", async () => {
     const mockContext = createMockCartContext(mockCartItems);
 
-    const { getAllByText } = render(
+    const { getAllByText } = await render(
       <CartContext.Provider value={mockContext}>
         <CartScreen navigation={mockNavigation} route={mockRoute} />
       </CartContext.Provider>
     );
 
     const minusButtons = getAllByText("−");
-    fireEvent.press(minusButtons[0]);
+    await fireEvent.press(minusButtons[0]);
 
     expect(mockContext.updateQuantity).toHaveBeenCalledWith("item_01", 1, "");
   });
 
-  test("削除ボタンをタップすると確認ダイアログを表示", () => {
+  test("削除ボタンをタップすると確認ダイアログを表示", async () => {
     const mockContext = createMockCartContext(mockCartItems);
 
-    const { getAllByText } = render(
+    const { getAllByText } = await render(
       <CartContext.Provider value={mockContext}>
         <CartScreen navigation={mockNavigation} route={mockRoute} />
       </CartContext.Provider>
     );
 
     const deleteButtons = getAllByText("×");
-    fireEvent.press(deleteButtons[0]);
+    await fireEvent.press(deleteButtons[0]);
 
     expect(Alert.alert).toHaveBeenCalledWith(
       "削除確認",
@@ -205,14 +205,14 @@ describe("CartScreen", () => {
     );
   });
 
-  test("言語切り替え時に正しい言語でアイテム名を表示", () => {
+  test("言語切り替え時に正しい言語でアイテム名を表示", async () => {
     useLanguage.mockReturnValue({
       currentLanguage: "en",
     });
 
     const mockContext = createMockCartContext(mockCartItems);
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <CartContext.Provider value={mockContext}>
         <CartScreen navigation={mockNavigation} route={mockRoute} />
       </CartContext.Provider>
@@ -222,16 +222,16 @@ describe("CartScreen", () => {
     expect(getByText("Fried Chicken")).toBeTruthy();
   });
 
-  test("注文確定ボタンをタップすると確認ダイアログを表示", () => {
+  test("注文確定ボタンをタップすると確認ダイアログを表示", async () => {
     const mockContext = createMockCartContext(mockCartItems);
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <CartContext.Provider value={mockContext}>
         <CartScreen navigation={mockNavigation} route={mockRoute} />
       </CartContext.Provider>
     );
 
-    fireEvent.press(getByText("注文を確定する"));
+    await fireEvent.press(getByText("注文を確定する"));
 
     expect(Alert.alert).toHaveBeenCalledWith(
       "注文確認",
@@ -243,7 +243,7 @@ describe("CartScreen", () => {
   test("注文確定が成功すると注文完了画面に遷移", async () => {
     const mockContext = createMockCartContext(mockCartItems);
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <CartContext.Provider value={mockContext}>
         <CartScreen navigation={mockNavigation} route={mockRoute} />
       </CartContext.Provider>
@@ -255,7 +255,7 @@ describe("CartScreen", () => {
       if (confirmButton) confirmButton.onPress();
     });
 
-    fireEvent.press(getByText("注文を確定する"));
+    await fireEvent.press(getByText("注文を確定する"));
 
     await waitFor(() => {
       expect(api.createOrder).toHaveBeenCalledWith({
@@ -287,7 +287,7 @@ describe("CartScreen", () => {
 
     const mockContext = createMockCartContext(mockCartItems);
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <CartContext.Provider value={mockContext}>
         <CartScreen navigation={mockNavigation} route={mockRoute} />
       </CartContext.Provider>
@@ -301,7 +301,7 @@ describe("CartScreen", () => {
       }
     });
 
-    fireEvent.press(getByText("注文を確定する"));
+    await fireEvent.press(getByText("注文を確定する"));
 
     await waitFor(() => {
       // 最初は確認ダイアログ、次にエラーダイアログ
@@ -312,27 +312,27 @@ describe("CartScreen", () => {
     });
   });
 
-  test("戻るボタンをタップすると前の画面に戻る", () => {
+  test("戻るボタンをタップすると前の画面に戻る", async () => {
     const mockContext = createMockCartContext(mockCartItems);
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <CartContext.Provider value={mockContext}>
         <CartScreen navigation={mockNavigation} route={mockRoute} />
       </CartContext.Provider>
     );
 
-    fireEvent.press(getByText("←"));
+    await fireEvent.press(getByText("←"));
     expect(mockNavigation.goBack).toHaveBeenCalled();
   });
 
-  test("中国語表示時に正しく翻訳される", () => {
+  test("中国語表示時に正しく翻訳される", async () => {
     useLanguage.mockReturnValue({
       currentLanguage: "zh",
     });
 
     const mockContext = createMockCartContext(mockCartItems);
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <CartContext.Provider value={mockContext}>
         <CartScreen navigation={mockNavigation} route={mockRoute} />
       </CartContext.Provider>
@@ -347,12 +347,12 @@ describe("CartScreen", () => {
     jest.replaceProperty(Platform, "OS", "web");
     window.confirm = jest.fn().mockReturnValue(true);
     const context = createMockCartContext(mockCartItems);
-    const { getByText } = render(
+    const { getByText } = await render(
       <CartContext.Provider value={context}>
         <CartScreen navigation={mockNavigation} route={mockRoute} />
       </CartContext.Provider>
     );
-    fireEvent.press(getByText("注文を確定する"));
+    await fireEvent.press(getByText("注文を確定する"));
     await waitFor(() => expect(api.createOrder).toHaveBeenCalledTimes(1));
     await waitFor(() =>
       expect(mockNavigation.navigate).toHaveBeenCalledWith(
@@ -362,16 +362,16 @@ describe("CartScreen", () => {
     );
   });
 
-  test("Webで注文確認を取り消すとAPIを呼ばない", () => {
+  test("Webで注文確認を取り消すとAPIを呼ばない", async () => {
     jest.replaceProperty(Platform, "OS", "web");
     window.confirm = jest.fn().mockReturnValue(false);
     const context = createMockCartContext(mockCartItems);
-    const { getByText } = render(
+    const { getByText } = await render(
       <CartContext.Provider value={context}>
         <CartScreen navigation={mockNavigation} route={mockRoute} />
       </CartContext.Provider>
     );
-    fireEvent.press(getByText("注文を確定する"));
+    await fireEvent.press(getByText("注文を確定する"));
     expect(api.createOrder).not.toHaveBeenCalled();
   });
 });
@@ -379,27 +379,49 @@ describe("CartScreen", () => {
 test("price changes prompt a fresh menu and clear the outdated cart on confirmation", async () => {
   jest.clearAllMocks();
   useLanguage.mockReturnValue({ currentLanguage: "ja" });
-  api.createOrder.mockRejectedValue(Object.assign(new Error("Price changed"), { details: { reason: "price_changed" } }));
+  api.createOrder.mockRejectedValue(
+    Object.assign(new Error("Price changed"), {
+      details: { reason: "price_changed" },
+    })
+  );
   const context = createMockCartContext(mockCartItems);
   const navigation = { ...mockNavigation, replace: jest.fn() };
   jest.spyOn(Alert, "alert").mockImplementation((title, message, buttons) => {
     if (title === "注文確認") buttons[1].onPress();
   });
-  const view = render(<CartContext.Provider value={context}><CartScreen navigation={navigation} route={mockRoute} /></CartContext.Provider>);
-  fireEvent.press(view.getByText("注文を確定する"));
-  await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith("メニュー更新が必要です", expect.any(String), expect.any(Array)));
-  const prompt = Alert.alert.mock.calls.find(([title]) => title === "メニュー更新が必要です");
+  const view = await render(
+    <CartContext.Provider value={context}>
+      <CartScreen navigation={navigation} route={mockRoute} />
+    </CartContext.Provider>
+  );
+  await fireEvent.press(view.getByText("注文を確定する"));
+  await waitFor(() =>
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "メニュー更新が必要です",
+      expect.any(String),
+      expect.any(Array)
+    )
+  );
+  const prompt = Alert.alert.mock.calls.find(
+    ([title]) => title === "メニュー更新が必要です"
+  );
   prompt[2][0].onPress();
   expect(context.clearCart).toHaveBeenCalledTimes(1);
   expect(navigation.replace).toHaveBeenCalledWith("Menu", mockRoute.params);
 });
 
-test("the cart shows the quantity limit and disables further increments at 99", () => {
+test("the cart shows the quantity limit and disables further increments at 99", async () => {
   jest.clearAllMocks();
   useLanguage.mockReturnValue({ currentLanguage: "ja" });
-  const context = createMockCartContext([{ ...mockCartItems[0], quantity: 99 }]);
-  const view = render(<CartContext.Provider value={context}><CartScreen navigation={mockNavigation} route={mockRoute} /></CartContext.Provider>);
+  const context = createMockCartContext([
+    { ...mockCartItems[0], quantity: 99 },
+  ]);
+  const view = await render(
+    <CartContext.Provider value={context}>
+      <CartScreen navigation={mockNavigation} route={mockRoute} />
+    </CartContext.Provider>
+  );
   expect(view.getByText("上限99個")).toBeTruthy();
-  fireEvent.press(view.getByRole("button", { name: "数量を増やす" }));
+  await fireEvent.press(view.getByRole("button", { name: "数量を増やす" }));
   expect(context.updateQuantity).not.toHaveBeenCalled();
 });

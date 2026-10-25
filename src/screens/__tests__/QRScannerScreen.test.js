@@ -21,6 +21,13 @@ import * as api from "../../services/api";
 
 jest.spyOn(Alert, "alert");
 
+// RNTL 14 removed UNSAFE_root; find the mocked host component directly.
+const findCamera = (container) => {
+  const [camera] = container.queryAll((node) => node.type === "CameraView");
+  if (!camera) throw new Error("CameraView was not rendered");
+  return camera;
+};
+
 const mockNavigation = {
   navigate: jest.fn(),
 };
@@ -31,10 +38,10 @@ describe("QRScannerScreen", () => {
   });
 
   describe("権限の状態", () => {
-    it("権限リクエスト中はローディングが表示される", () => {
+    it("権限リクエスト中はローディングが表示される", async () => {
       useCameraPermissions.mockReturnValue([null, jest.fn()]);
 
-      const { getByText } = render(
+      const { getByText } = await render(
         <QRScannerScreen navigation={mockNavigation} />
       );
 
@@ -42,14 +49,14 @@ describe("QRScannerScreen", () => {
       expect(getByText(/Requesting camera permission/)).toBeTruthy();
     });
 
-    it("権限が拒否された場合はエラーメッセージと許可ボタンが表示される", () => {
+    it("権限が拒否された場合はエラーメッセージと許可ボタンが表示される", async () => {
       const mockRequestPermission = jest.fn();
       useCameraPermissions.mockReturnValue([
         { granted: false },
         mockRequestPermission,
       ]);
 
-      const { getByText } = render(
+      const { getByText } = await render(
         <QRScannerScreen navigation={mockNavigation} />
       );
 
@@ -57,15 +64,15 @@ describe("QRScannerScreen", () => {
       expect(getByText(/Camera access is required/)).toBeTruthy();
 
       const permissionButton = getByText(/権限を許可/);
-      fireEvent.press(permissionButton);
+      await fireEvent.press(permissionButton);
 
       expect(mockRequestPermission).toHaveBeenCalled();
     });
 
-    it("権限が許可された場合はカメラビューが表示される", () => {
+    it("権限が許可された場合はカメラビューが表示される", async () => {
       useCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
 
-      const { getByText } = render(
+      const { getByText } = await render(
         <QRScannerScreen navigation={mockNavigation} />
       );
 
@@ -89,12 +96,12 @@ describe("QRScannerScreen", () => {
       };
       api.validateQRCode.mockResolvedValue(mockResult);
 
-      const { UNSAFE_root } = render(
+      const { container } = await render(
         <QRScannerScreen navigation={mockNavigation} />
       );
 
       // CameraViewのonBarcodeScannedをシミュレート
-      const cameraView = UNSAFE_root.findByType("CameraView");
+      const cameraView = findCamera(container);
 
       await act(async () => {
         if (cameraView.props.onBarcodeScanned) {
@@ -118,11 +125,11 @@ describe("QRScannerScreen", () => {
     });
 
     it("無効なQRコード形式の場合はエラーアラートが表示される", async () => {
-      const { UNSAFE_root } = render(
+      const { container } = await render(
         <QRScannerScreen navigation={mockNavigation} />
       );
 
-      const cameraView = UNSAFE_root.findByType("CameraView");
+      const cameraView = findCamera(container);
 
       await act(async () => {
         if (cameraView.props.onBarcodeScanned) {
@@ -147,11 +154,11 @@ describe("QRScannerScreen", () => {
         error: "テーブルが見つかりません",
       });
 
-      const { UNSAFE_root } = render(
+      const { container } = await render(
         <QRScannerScreen navigation={mockNavigation} />
       );
 
-      const cameraView = UNSAFE_root.findByType("CameraView");
+      const cameraView = findCamera(container);
 
       await act(async () => {
         if (cameraView.props.onBarcodeScanned) {
@@ -173,11 +180,11 @@ describe("QRScannerScreen", () => {
     it("API呼び出しでエラーが発生した場合は接続エラーアラートが表示される", async () => {
       api.validateQRCode.mockRejectedValue(new Error("Network error"));
 
-      const { UNSAFE_root } = render(
+      const { container } = await render(
         <QRScannerScreen navigation={mockNavigation} />
       );
 
-      const cameraView = UNSAFE_root.findByType("CameraView");
+      const cameraView = findCamera(container);
 
       await act(async () => {
         if (cameraView.props.onBarcodeScanned) {
@@ -202,11 +209,11 @@ describe("QRScannerScreen", () => {
       useCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
       api.validateQRCode.mockRejectedValue(new Error("Error"));
 
-      const { UNSAFE_root, findByText } = render(
+      const { container, findByText } = await render(
         <QRScannerScreen navigation={mockNavigation} />
       );
 
-      const cameraView = UNSAFE_root.findByType("CameraView");
+      const cameraView = findCamera(container);
 
       await act(async () => {
         if (cameraView.props.onBarcodeScanned) {
@@ -233,24 +240,24 @@ describe("QRScannerScreen", () => {
   });
 
   describe("デモ用スキップボタン", () => {
-    it("デモ用スキップボタンが表示される", () => {
+    it("デモ用スキップボタンが表示される", async () => {
       useCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
 
-      const { getByText } = render(
+      const { getByText } = await render(
         <QRScannerScreen navigation={mockNavigation} />
       );
 
       expect(getByText("[Demo] Skip")).toBeTruthy();
     });
 
-    it("デモ用スキップボタンを押すとレストラン選択モーダルが表示される", () => {
+    it("デモ用スキップボタンを押すとレストラン選択モーダルが表示される", async () => {
       useCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
 
-      const { getByText } = render(
+      const { getByText } = await render(
         <QRScannerScreen navigation={mockNavigation} />
       );
 
-      fireEvent.press(getByText("[Demo] Skip"));
+      await fireEvent.press(getByText("[Demo] Skip"));
 
       // モーダルにレストラン一覧が表示される
       expect(getByText("デモ用レストラン選択")).toBeTruthy();
@@ -259,15 +266,15 @@ describe("QRScannerScreen", () => {
       expect(getByText("カフェ＆ダイニング HANA")).toBeTruthy();
     });
 
-    it("モーダルからレストランを選択すると言語選択画面に遷移する", () => {
+    it("モーダルからレストランを選択すると言語選択画面に遷移する", async () => {
       useCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
 
-      const { getByText } = render(
+      const { getByText } = await render(
         <QRScannerScreen navigation={mockNavigation} />
       );
 
-      fireEvent.press(getByText("[Demo] Skip"));
-      fireEvent.press(getByText("寿司処 鮨一"));
+      await fireEvent.press(getByText("[Demo] Skip"));
+      await fireEvent.press(getByText("寿司処 鮨一"));
 
       expect(mockNavigation.navigate).toHaveBeenCalledWith("LanguageSelect", {
         restaurantId: "rest003",

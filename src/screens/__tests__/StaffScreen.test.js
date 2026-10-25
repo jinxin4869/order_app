@@ -56,16 +56,16 @@ test("login requires credentials and reports failure without exposing provider e
     return jest.fn();
   });
   signInStaff.mockRejectedValue(new Error("Synthetic provider detail"));
-  const screen = render(<StaffScreen />);
-  fireEvent.changeText(
+  const screen = await render(<StaffScreen />);
+  await fireEvent.changeText(
     screen.getByLabelText("メールアドレス"),
     "staff@example.invalid"
   );
-  fireEvent.changeText(
+  await fireEvent.changeText(
     screen.getByLabelText("パスワード"),
     "synthetic-test-password"
   );
-  fireEvent.press(screen.getByRole("button", { name: "ログイン" }));
+  await fireEvent.press(screen.getByRole("button", { name: "ログイン" }));
   await waitFor(() =>
     expect(screen.getByText(/ログインできません/)).toBeTruthy()
   );
@@ -76,7 +76,7 @@ test("login requires credentials and reports failure without exposing provider e
   expect(screen.getByLabelText("パスワード").props.value).toBe("");
   expect(listStaffOrders).not.toHaveBeenCalled();
 });
-test("users without staff claims cannot enter the console", () => {
+test("users without staff claims cannot enter the console", async () => {
   observeStaffSession.mockImplementation((listener) => {
     listener({
       loading: false,
@@ -86,17 +86,19 @@ test("users without staff claims cannot enter the console", () => {
     });
     return jest.fn();
   });
-  const screen = render(<StaffScreen />);
+  const screen = await render(<StaffScreen />);
   expect(screen.getByText("スタッフ権限がありません。")).toBeTruthy();
   expect(listStaffOrders).not.toHaveBeenCalled();
 });
 test("staff review item notes and confirm a state transition with the displayed prior state", async () => {
-  const screen = render(<StaffScreen />);
-  fireEvent.press(
+  const screen = await render(<StaffScreen />);
+  await fireEvent.press(
     await screen.findByRole("button", { name: "注文 20261009-001 未受付" })
   );
   expect(await screen.findByText("要望：ねぎ抜き")).toBeTruthy();
-  fireEvent.press(screen.getByRole("button", { name: "注文を受け付ける" }));
+  await fireEvent.press(
+    screen.getByRole("button", { name: "注文を受け付ける" })
+  );
   expect(updateOrderStatus).not.toHaveBeenCalled();
   const confirm = showAlert.mock.calls[0][2].find(
     (button) => button.text === "変更する"
@@ -110,14 +112,16 @@ test("staff review item notes and confirm a state transition with the displayed 
   expect(screen.getByText("状態を更新しました。")).toBeTruthy();
 });
 test("stale updates reload the order and require a fresh choice instead of auto-retrying", async () => {
-  const screen = render(<StaffScreen />);
-  fireEvent.press(
+  const screen = await render(<StaffScreen />);
+  await fireEvent.press(
     await screen.findByRole("button", { name: "注文 20261009-001 未受付" })
   );
   await screen.findByText("要望：ねぎ抜き");
   updateOrderStatus.mockRejectedValue({ code: "functions/aborted" });
   getStaffOrder.mockResolvedValue({ order: { ...order, status: "preparing" } });
-  fireEvent.press(screen.getByRole("button", { name: "注文を受け付ける" }));
+  await fireEvent.press(
+    screen.getByRole("button", { name: "注文を受け付ける" })
+  );
   await act(async () => showAlert.mock.calls[0][2][1].onPress());
   expect(screen.getByText(/別のスタッフが更新しました/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "提供待ちにする" })).toBeTruthy();
@@ -130,14 +134,14 @@ test("refresh identifies unseen orders and pagination requests the protected cur
     hasMore: true,
     cursor: order.id,
   });
-  const screen = render(<StaffScreen />);
+  const screen = await render(<StaffScreen />);
   await screen.findByRole("button", { name: "注文 20261009-001 未受付" });
   listStaffOrders.mockResolvedValueOnce({
     orders: [{ ...order, id: "older", order_number: "20261009-000" }],
     hasMore: false,
     cursor: "older",
   });
-  fireEvent.press(
+  await fireEvent.press(
     screen.getByRole("button", { name: "さらに前の注文を読み込む" })
   );
   await screen.findByRole("button", { name: "注文 20261009-000 未受付" });
@@ -150,14 +154,14 @@ test("refresh identifies unseen orders and pagination requests the protected cur
     hasMore: false,
     cursor: order.id,
   });
-  fireEvent.press(screen.getByRole("button", { name: "更新" }));
+  await fireEvent.press(screen.getByRole("button", { name: "更新" }));
   expect(
     await screen.findByRole("button", { name: "新着 1件を確認" })
   ).toBeTruthy();
 });
 
 test("changing the order filter clears old rows and ignores an earlier in-flight refresh", async () => {
-  const screen = render(<StaffScreen />);
+  const screen = await render(<StaffScreen />);
   await screen.findByRole("button", { name: "注文 20261009-001 未受付" });
   let resolveOld, resolveNew;
   listStaffOrders.mockImplementationOnce(
@@ -166,20 +170,28 @@ test("changing the order filter clears old rows and ignores an earlier in-flight
         resolveOld = resolve;
       })
   );
-  fireEvent.press(screen.getByRole("button", { name: "更新" }));
+  // RNTL 14's fireEvent resolves with the handler's promise, and both
+  // requests are held open on purpose. Await each one after resolving it.
+  const refresh = fireEvent.press(screen.getByRole("button", { name: "更新" }));
+  // Let fireEvent's own act() finish before starting the next one.
+  await new Promise((resolve) => setTimeout(resolve, 0));
   listStaffOrders.mockImplementationOnce(
     () =>
       new Promise((resolve) => {
         resolveNew = resolve;
       })
   );
-  fireEvent.press(screen.getByRole("button", { name: "すべて" }));
+  const showAll = fireEvent.press(
+    screen.getByRole("button", { name: "すべて" })
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
   expect(
     screen.queryByRole("button", { name: "注文 20261009-001 未受付" })
   ).toBeNull();
   await act(async () =>
     resolveOld({ orders: [order], hasMore: false, cursor: null })
   );
+  await refresh;
   expect(
     screen.queryByRole("button", { name: "注文 20261009-001 未受付" })
   ).toBeNull();
@@ -190,6 +202,7 @@ test("changing the order filter clears old rows and ignores an earlier in-flight
       cursor: null,
     })
   );
+  await showAll;
   expect(
     screen.getByRole("button", { name: "注文 20261009-001 対応完了" })
   ).toBeTruthy();

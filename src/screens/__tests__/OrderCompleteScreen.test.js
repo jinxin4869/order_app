@@ -41,8 +41,8 @@ describe("OrderCompleteScreen", () => {
     jest.useRealTimers();
   });
 
-  it("注文完了画面が正しくレンダリングされる", () => {
-    const { getByText } = render(
+  it("注文完了画面が正しくレンダリングされる", async () => {
+    const { getByText } = await render(
       <OrderCompleteScreen navigation={mockNavigation} route={mockRoute} />
     );
 
@@ -54,8 +54,8 @@ describe("OrderCompleteScreen", () => {
     expect(getByText("テストレストラン")).toBeTruthy();
   });
 
-  it("注文番号が表示される", () => {
-    const { getByText } = render(
+  it("注文番号が表示される", async () => {
+    const { getByText } = await render(
       <OrderCompleteScreen navigation={mockNavigation} route={mockRoute} />
     );
 
@@ -65,7 +65,7 @@ describe("OrderCompleteScreen", () => {
     expect(getByText("A123")).toBeTruthy();
   });
 
-  it("orderNumberがない場合はorderIdの末尾6文字が表示される", () => {
+  it("orderNumberがない場合はorderIdの末尾6文字が表示される", async () => {
     const routeWithoutOrderNumber = {
       params: {
         ...mockRoute.params,
@@ -73,7 +73,7 @@ describe("OrderCompleteScreen", () => {
       },
     };
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <OrderCompleteScreen
         navigation={mockNavigation}
         route={routeWithoutOrderNumber}
@@ -86,15 +86,15 @@ describe("OrderCompleteScreen", () => {
     expect(getByText("123456")).toBeTruthy();
   });
 
-  it("追加注文ボタンを押すと既存のメニュー画面まで戻る", () => {
-    const { getByText } = render(
+  it("追加注文ボタンを押すと既存のメニュー画面まで戻る", async () => {
+    const { getByText } = await render(
       <OrderCompleteScreen navigation={mockNavigation} route={mockRoute} />
     );
 
     jest.advanceTimersByTime(1000);
 
     const addMoreButton = getByText("追加注文する");
-    fireEvent.press(addMoreButton);
+    await fireEvent.press(addMoreButton);
 
     expect(mockNavigation.popTo).toHaveBeenCalledWith("Menu", {
       restaurantId: "restaurant_01",
@@ -104,15 +104,15 @@ describe("OrderCompleteScreen", () => {
     });
   });
 
-  it("終了ボタンを押すとQRスキャン画面にリセットする", () => {
-    const { getByText } = render(
+  it("終了ボタンを押すとQRスキャン画面にリセットする", async () => {
+    const { getByText } = await render(
       <OrderCompleteScreen navigation={mockNavigation} route={mockRoute} />
     );
 
     jest.advanceTimersByTime(1000);
 
     const finishButton = getByText("終了する");
-    fireEvent.press(finishButton);
+    await fireEvent.press(finishButton);
 
     expect(mockNavigation.reset).toHaveBeenCalledWith({
       index: 0,
@@ -121,12 +121,12 @@ describe("OrderCompleteScreen", () => {
   });
 
   describe("言語切り替え", () => {
-    it("英語表示が正しく動作する", () => {
+    it("英語表示が正しく動作する", async () => {
       useLanguage.mockReturnValue({
         currentLanguage: "en",
       });
 
-      const { getByText } = render(
+      const { getByText } = await render(
         <OrderCompleteScreen navigation={mockNavigation} route={mockRoute} />
       );
 
@@ -138,12 +138,12 @@ describe("OrderCompleteScreen", () => {
       expect(getByText("Finish")).toBeTruthy();
     });
 
-    it("中国語表示が正しく動作する", () => {
+    it("中国語表示が正しく動作する", async () => {
       useLanguage.mockReturnValue({
         currentLanguage: "zh",
       });
 
-      const { getByText } = render(
+      const { getByText } = await render(
         <OrderCompleteScreen navigation={mockNavigation} route={mockRoute} />
       );
 
@@ -156,8 +156,8 @@ describe("OrderCompleteScreen", () => {
     });
   });
 
-  it("テーブル情報が表示される", () => {
-    const { getByText } = render(
+  it("テーブル情報が表示される", async () => {
+    const { getByText } = await render(
       <OrderCompleteScreen navigation={mockNavigation} route={mockRoute} />
     );
 
@@ -167,7 +167,7 @@ describe("OrderCompleteScreen", () => {
     expect(getByText("1")).toBeTruthy();
   });
 
-  it("restaurant/tableがない場合はハイフンが表示される", () => {
+  it("restaurant/tableがない場合はハイフンが表示される", async () => {
     const routeWithoutData = {
       params: {
         orderId: "order_123456",
@@ -180,7 +180,7 @@ describe("OrderCompleteScreen", () => {
       },
     };
 
-    const { getAllByText } = render(
+    const { getAllByText } = await render(
       <OrderCompleteScreen
         navigation={mockNavigation}
         route={routeWithoutData}

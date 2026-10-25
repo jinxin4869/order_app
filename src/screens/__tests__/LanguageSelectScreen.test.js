@@ -42,8 +42,8 @@ describe("LanguageSelectScreen", () => {
     });
   });
 
-  it("言語選択画面が正しくレンダリングされる", () => {
-    const { getByText } = render(
+  it("言語選択画面が正しくレンダリングされる", async () => {
+    const { getByText } = await render(
       <LanguageSelectScreen navigation={mockNavigation} route={mockRoute} />
     );
 
@@ -52,8 +52,8 @@ describe("LanguageSelectScreen", () => {
     expect(getByText("请选择语言")).toBeTruthy();
   });
 
-  it("レストラン名とテーブル番号が表示される", () => {
-    const { getByText } = render(
+  it("レストラン名とテーブル番号が表示される", async () => {
+    const { getByText } = await render(
       <LanguageSelectScreen navigation={mockNavigation} route={mockRoute} />
     );
 
@@ -61,8 +61,8 @@ describe("LanguageSelectScreen", () => {
     expect(getByText(/Table\s*1/)).toBeTruthy();
   });
 
-  it("利用可能な言語がすべて表示される", () => {
-    const { getAllByText, getByText } = render(
+  it("利用可能な言語がすべて表示される", async () => {
+    const { getAllByText, getByText } = await render(
       <LanguageSelectScreen navigation={mockNavigation} route={mockRoute} />
     );
 
@@ -76,13 +76,13 @@ describe("LanguageSelectScreen", () => {
     expect(getByText("🇨🇳")).toBeTruthy();
   });
 
-  it("日本語を選択するとchangeLanguageが呼ばれてMenuに遷移する", () => {
-    const { getByText } = render(
+  it("日本語を選択するとchangeLanguageが呼ばれてMenuに遷移する", async () => {
+    const { getByText } = await render(
       <LanguageSelectScreen navigation={mockNavigation} route={mockRoute} />
     );
 
     const japaneseButton = getByText("日本語");
-    fireEvent.press(japaneseButton);
+    await fireEvent.press(japaneseButton);
 
     expect(mockChangeLanguage).toHaveBeenCalledWith("ja");
     expect(mockNavigation.navigate).toHaveBeenCalledWith("Menu", {
@@ -93,14 +93,14 @@ describe("LanguageSelectScreen", () => {
     });
   });
 
-  it("英語を選択するとchangeLanguageが呼ばれてMenuに遷移する", () => {
-    const { getAllByText } = render(
+  it("英語を選択するとchangeLanguageが呼ばれてMenuに遷移する", async () => {
+    const { getAllByText } = await render(
       <LanguageSelectScreen navigation={mockNavigation} route={mockRoute} />
     );
 
     // "English" is used for both the button text and the language name
     const englishButtons = getAllByText("English");
-    fireEvent.press(englishButtons[0]);
+    await fireEvent.press(englishButtons[0]);
 
     expect(mockChangeLanguage).toHaveBeenCalledWith("en");
     expect(mockNavigation.navigate).toHaveBeenCalledWith("Menu", {
@@ -111,13 +111,13 @@ describe("LanguageSelectScreen", () => {
     });
   });
 
-  it("中国語を選択するとchangeLanguageが呼ばれてMenuに遷移する", () => {
-    const { getByText } = render(
+  it("中国語を選択するとchangeLanguageが呼ばれてMenuに遷移する", async () => {
+    const { getByText } = await render(
       <LanguageSelectScreen navigation={mockNavigation} route={mockRoute} />
     );
 
     const chineseButton = getByText("中文");
-    fireEvent.press(chineseButton);
+    await fireEvent.press(chineseButton);
 
     expect(mockChangeLanguage).toHaveBeenCalledWith("zh");
     expect(mockNavigation.navigate).toHaveBeenCalledWith("Menu", {
@@ -128,7 +128,7 @@ describe("LanguageSelectScreen", () => {
     });
   });
 
-  it("restaurantがない場合はデフォルト名が表示される", () => {
+  it("restaurantがない場合はデフォルト名が表示される", async () => {
     const routeWithoutRestaurant = {
       params: {
         ...mockRoute.params,
@@ -136,7 +136,7 @@ describe("LanguageSelectScreen", () => {
       },
     };
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <LanguageSelectScreen
         navigation={mockNavigation}
         route={routeWithoutRestaurant}
@@ -146,7 +146,7 @@ describe("LanguageSelectScreen", () => {
     expect(getByText("レストラン")).toBeTruthy();
   });
 
-  it("tableがない場合はtableIdが表示される", () => {
+  it("tableがない場合はtableIdが表示される", async () => {
     const routeWithoutTable = {
       params: {
         ...mockRoute.params,
@@ -154,7 +154,7 @@ describe("LanguageSelectScreen", () => {
       },
     };
 
-    const { getByText } = render(
+    const { getByText } = await render(
       <LanguageSelectScreen
         navigation={mockNavigation}
         route={routeWithoutTable}
@@ -164,8 +164,8 @@ describe("LanguageSelectScreen", () => {
     expect(getByText(/Table\s*table_01/)).toBeTruthy();
   });
 
-  it("フッターテキストが表示される", () => {
-    const { getByText } = render(
+  it("フッターテキストが表示される", async () => {
+    const { getByText } = await render(
       <LanguageSelectScreen navigation={mockNavigation} route={mockRoute} />
     );
 
