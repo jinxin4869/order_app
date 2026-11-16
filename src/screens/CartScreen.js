@@ -72,7 +72,6 @@ const CartScreen = ({ navigation, route }) => {
 
   // 商品削除
   const handleRemoveItem = (item) => {
-    console.log("handleRemoveItem called for:", item.id, item.notes);
     const displayName = getItemDisplayName(item);
     showAlert(
       t("削除確認", "Confirm Removal", "确认删除"),
@@ -89,10 +88,7 @@ const CartScreen = ({ navigation, route }) => {
         {
           text: t("削除", "Remove", "删除"),
           style: "destructive",
-          onPress: () => {
-            console.log("Removing item:", item.id, item.notes);
-            removeItem(item.id, item.notes);
-          },
+          onPress: () => removeItem(item.id, item.notes),
         },
       ]
     );
@@ -404,10 +400,7 @@ const CartScreen = ({ navigation, route }) => {
             borderRadius: removeButtonSize / 2,
           },
         ]}
-        onPress={() => {
-          console.log("Delete button pressed!");
-          handleRemoveItem(item);
-        }}
+        onPress={() => handleRemoveItem(item)}
         activeOpacity={0.7}
       >
         <Text
