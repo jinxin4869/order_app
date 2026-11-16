@@ -631,13 +631,89 @@ const server = http.createServer((req, res) => {
         calls.filter((c) => c.name === "createOrder").length,
         ordersBefore + lost.length
       );
+      // The response is lost again, and this time the customer adds a drink
+      // before confirming. The device asks about the first order and does
+      // not send the changed cart as a second order.
+      const changedBefore = calls.filter((c) => c.name === "createOrder");
+      const waitForDialog = async (text) => {
+        for (
+          let wait = 0;
+          wait < 150 && !dialogs.some((m) => m.includes(text));
+          wait++
+        )
+          await page.waitForTimeout(100);
+        assert.ok(
+          dialogs.some((m) => m.includes(text)),
+          JSON.stringify(dialogs)
+        );
+      };
+      dialogs.length = 0;
+      page.on("dialog", answer);
+      await page.goto(
+        `http://127.0.0.1:4173/order?restaurant=rest-test&table=table-test&token=${TABLE_TOKEN}`
+      );
+      await page.getByRole("button", { name: "日本語", exact: true }).click();
+      await page.getByText("テスト料理", { exact: true }).click();
+      await page.getByText("カートに追加", { exact: true }).click();
+      await page.getByText("🛒 カートを見る", { exact: true }).click();
+      await page.getByText("注文を確定する", { exact: true }).click();
+      await waitForDialog("注文の結果を確認できませんでした");
+      await page
+        .getByText("←", { exact: true })
+        .filter({ visible: true })
+        .click();
+      await page.getByText("飲み物", { exact: true }).click();
+      await page.getByText("お茶", { exact: true }).click();
+      await page.getByText("カートに追加", { exact: true }).click();
+      await page.getByText("🛒 カートを見る", { exact: true }).click();
+      await page.getByText("注文を確定する", { exact: true }).click();
+      await waitForDialog("前回の注文は受付済みです");
+      page.off("dialog", answer);
+      const changed = calls
+        .filter((c) => c.name === "createOrder")
+        .slice(changedBefore.length);
+      assert.equal(new Set(changed.map((c) => c.data.requestId)).size, 1);
+      assert.deepEqual(
+        changed[0].data.items.map((item) => item.item_id),
+        ["test-item"]
+      );
+      assert.equal(
+        calls.filter((c) => c.name === "getOrderRequest").pop().data.requestId,
+        changed[0].data.requestId
+      );
+      await page
+        .getByText(
+          "前回の注文は受け付けられています（注文番号 20261009-003）。",
+          { exact: true }
+        )
+        .filter({ visible: true })
+        .waitFor();
+      // Only the drink added afterwards is left in the cart.
+      await page
+        .getByText("注文を確定する", { exact: true })
+        .filter({ visible: true })
+        .waitFor();
+      assert.equal(
+        await page
+          .getByText("テスト料理", { exact: true })
+          .filter({ visible: true })
+          .count(),
+        0
+      );
+      assert.equal(
+        await page
+          .getByText("お茶", { exact: true })
+          .filter({ visible: true })
+          .count(),
+        1
+      );
       loseOrderResponses = false;
       assert.equal(errors.length, 0, JSON.stringify(errors));
       assert.deepEqual(cspViolations, []);
       console.log(
         "PASS",
         viewport.width,
-        "lost order response recovered after reload"
+        "lost order response recovered after reload, changed cart not reordered"
       );
       await page.close();
     }

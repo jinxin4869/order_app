@@ -18,7 +18,7 @@
 | スタッフのアカウントとClaims            | Firebase Authentication                                           | 別に扱う       | Firestoreのバックアップに含まれない。`firebase auth:export`で書き出すか、復元後に管理者が発行し直す |
 | ルール・インデックス・Functionsのコード | Gitの`firestore.rules`、`firestore.indexes.json`、`functions/`    | Gitで管理      | 復元先へデプロイし直す                                                                              |
 | Functionsの設定・秘密値                 | `functions/.env`、Secret Managerの`DEEPL_API_KEY`                 | 別に安全に保管 | リポジトリに置かない。復元先で設定し直す                                                            |
-| WebのビルドとHosting                    | Gitのソース                                                       | Gitで管理      | `npx expo export`でビルドし直してデプロイ                                                           |
+| WebのビルドとHosting                    | Gitのソース                                                       | Gitで管理      | `npm run build:web`でビルドし直してデプロイ                                                         |
 
 秘密鍵・環境ファイル・パスワード・Authの書き出し（パスワードのハッシュを含む）は、リポジトリや手順書に含めず、権限を絞った場所に保管してください。
 

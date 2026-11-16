@@ -1,15 +1,5 @@
 {
   "threshold": "high",
-  "exceptions": [
-    {
-      "scope": "root",
-      "package": "zod",
-      "advisory": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5",
-      "versions": ["3.25.76"],
-      "paths": ["node_modules/expo/node_modules/zod"],
-      "expires": "2027-01-31T00:00:00+09:00",
-      "reason": "Expo CLIの開発サーバーがDevToolsプラグイン定義の検証に使用。修正版は4.6.6以降のみで、SDK 58の@expo/cliもzod 3系に依存する。アプリ・Functions・Hostingには含まれない。開発サーバーを信頼できないネットワークに公開せず、上流の修正を追跡する。"
-    }
-  ],
+  "exceptions": [],
   "trackingIssue": "https://github.com/jinxin4869/order_app/issues/40"
 }

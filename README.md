@@ -88,9 +88,12 @@ npx firebase functions:secrets:set DEEPL_API_KEY --project <project-id>
 ```bash
 npx firebase deploy --only firestore:rules,firestore:indexes --project <project-id>
 npx firebase deploy --only functions --project <project-id>
-npx expo export --platform web --output-dir dist
+npm run build:web
+grep -rho 'projectId:"[^"]*"' dist # デプロイ先の<project-id>と一致することを確認
 npx firebase deploy --only hosting --project <project-id>
 ```
+
+`npm run build:web`は変換キャッシュを消してから`dist`へビルドします。Firebaseの設定値はビルド時にバンドルへ埋め込まれるため、`.env`を切り替えたあとは必ずビルドし直し、`grep`の出力がデプロイ先のプロジェクトIDであることを確認してからHostingへデプロイします。
 
 Functionsの強制のスイッチ（App Check・連投制限・QRトークン）は`functions/.env`で設定します（例は`functions/.env.example`。既定はすべてオフ）。それぞれの手順書（[App Check](docs/app_check.md)、[連投制限](docs/order_limits.md)、[QRトークン](docs/table_tokens.md)）の順序で、確認してから有効にしてください。
 

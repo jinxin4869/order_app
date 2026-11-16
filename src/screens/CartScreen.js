@@ -190,6 +190,39 @@ const CartScreen = ({ navigation, route }) => {
       }
 
       const reason = error.details?.reason;
+      // The cart changed after a send with an unknown result: the hook asked
+      // about that order first and did not send this one. The notice above
+      // the cart shows the same result and its actions.
+      if (reason === "previous_order_accepted") {
+        showAlert(
+          t(
+            "前回の注文は受付済みです",
+            "Your last order was received",
+            "上次的订单已受理"
+          ),
+          t(
+            "前回の注文は、変更前の内容で受け付けられていました。新しい注文は送信していません。受付済みの商品はカートから除きました。カートに残った商品は、追加の注文として確定できます。",
+            "Your last order was received as it was before your changes. No new order was sent. The items already ordered were removed from your cart. Anything left in the cart can be placed as an additional order.",
+            "上次的订单已按修改前的内容受理。未提交新订单。已受理的商品已从购物车中移除。购物车中剩余的商品可作为追加订单提交。"
+          )
+        );
+        return;
+      }
+      if (reason === "previous_order_unconfirmed") {
+        showAlert(
+          t(
+            "前回の注文を確認できません",
+            "Could not check your last order",
+            "无法确认上次的订单"
+          ),
+          t(
+            "前回の注文の受付状況を確認できないため、新しい注文は送信していません。通信を確認して、もう一度「注文を確定する」を押してください。確認できない場合はスタッフへお声がけください。カートはそのまま残ります。",
+            "We could not check whether your last order was received, so no new order was sent. Check your connection and tap Place Order again. If this keeps happening, please ask our staff. Your cart is kept.",
+            "无法确认上次的订单是否已受理，因此未提交新订单。请检查网络后再次点击下单。如仍无法确认，请联系店员。购物车将保留。"
+          )
+        );
+        return;
+      }
       if (reason === "item_unavailable" && error.details.itemId) {
         availability.markSoldOut(error.details.itemId);
         showAlert(
