@@ -6,13 +6,12 @@ const assert = require("node:assert/strict");
 const {
   initializeTestEnvironment,
   assertFails,
-  assertSucceeds,
 } = require("@firebase/rules-unit-testing");
 const { createRequire } = require("node:module");
 const rulesRequire = createRequire(
   require.resolve("@firebase/rules-unit-testing")
 );
-const { doc, setDoc, getDoc, updateDoc, deleteDoc } =
+const { doc, collection, setDoc, getDoc, getDocs, updateDoc, deleteDoc } =
   rulesRequire("firebase/firestore");
 
 const projectId = "demo-order-app";
@@ -91,10 +90,24 @@ async function main() {
         setDoc(doc(db, "restaurants/rest-test/menu_items/forged"), { price: 0 })
       );
     }
-    await assertSucceeds(
-      getDoc(doc(anonymous, "restaurants/rest-test/menu_items/item-test"))
-    );
-    // Only published items are readable directly; private ones never are.
+    // Clients never read Firestore directly: store, table and menu data is
+    // served by callables only, whether or not an item is published.
+    await serverDb
+      .doc("restaurants/rest-test/menu_categories/category-test")
+      .set({ name_ja: "料理", is_available: true, order: 1 });
+    for (const path of [
+      "restaurants/rest-test",
+      "restaurants/rest-test/tables/table-test",
+      "restaurants/rest-test/menu_categories/category-test",
+      "restaurants/rest-test/menu_items/item-test",
+    ]) {
+      assert.equal((await serverDb.doc(path).get()).exists, true, path);
+      const list = path.slice(0, path.lastIndexOf("/"));
+      for (const db of [anonymous, staff]) {
+        await assertFails(getDoc(doc(db, path)));
+        await assertFails(getDocs(collection(db, list)));
+      }
+    }
     await serverDb.doc("restaurants/rest-test/menu_items/private-test").set({
       name_ja: "非公開",
       price: 1,
@@ -110,13 +123,10 @@ async function main() {
       is_available: false,
       is_published: true,
     });
-    for (const id of ["private-test", "legacy-off-test"])
+    for (const id of ["private-test", "legacy-off-test", "sold-out-test"])
       await assertFails(
         getDoc(doc(anonymous, `restaurants/rest-test/menu_items/${id}`))
       );
-    await assertSucceeds(
-      getDoc(doc(anonymous, "restaurants/rest-test/menu_items/sold-out-test"))
-    );
     await assertFails(
       getDoc(doc(anonymous, "restaurants/rest-test/menu_events/any"))
     );
@@ -566,7 +576,7 @@ async function main() {
       ).data().staff_email,
       credentials.email
     );
-    await assertSucceeds(
+    await assertFails(
       getDoc(doc(anonymous, "restaurants/rest-test/menu_items/item-test"))
     );
     await serverAuth.setCustomUserClaims(uid, {

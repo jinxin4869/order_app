@@ -2,18 +2,18 @@
 
 Node.js 24（`.nvmrc`）、エミュレーターにはJava 21を使用します。まずルートと`functions`の両方で`npm ci`を実行します。
 
-| コマンド                                     | 対象・接続先                                                                                     |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `npm test -- --runInBand`                    | フロントのJestテスト。Firebase初期化をモックしdotenvを読み込まない                               |
-| `npm test --prefix functions -- --runInBand` | 実FunctionsハンドラをモックFirestore・合成DeepL応答で検証                                        |
-| `npm run test:audit`                         | 依存監査ポリシーの単体テスト。外部接続なし                                                       |
-| `npm run audit:dependencies`                 | 公開npmレジストリで本番・開発別の監査。限定した期限付きhigh例外あり                              |
-| `npm run test:sdk`                           | 実DeepL SDKとローカルHTTPサーバーで合成翻訳の送受信を検証                                        |
-| `npm run check`                              | 両方のlintと単体テスト                                                                           |
-| `npm run test:rules`                         | ローカルFirestore・Authでルール・実注文API・スタッフ権限停止を検証                               |
-| `npm run test:demo`                          | ローカルFirestore・Authの起動、合成データ投入・取得・Claims確認                                  |
-| `npm run test:backup`                        | エミュレーターで合成データを書き出し・読み込み、復元後の採番・再送・来店・記録・QRトークンを確認 |
-| `npm run test:web`                           | 合成設定でExpo WebをビルドしPlaywrightで操作検証                                                 |
+| コマンド                                     | 対象・接続先                                                                                               |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `npm test -- --runInBand`                    | フロントのJestテスト。Firebase初期化をモックしdotenvを読み込まない                                         |
+| `npm test --prefix functions -- --runInBand` | 実FunctionsハンドラをモックFirestore・合成DeepL応答で検証                                                  |
+| `npm run test:audit`                         | 依存監査ポリシーの単体テスト。外部接続なし                                                                 |
+| `npm run audit:dependencies`                 | 公開npmレジストリで本番・開発別の監査。限定した期限付きhigh例外あり                                        |
+| `npm run test:sdk`                           | 実DeepL SDKとローカルHTTPサーバーで合成翻訳の送受信を検証                                                  |
+| `npm run check`                              | 両方のlintと単体テスト                                                                                     |
+| `npm run test:rules`                         | ローカルFirestore・Authでルール・実注文API・スタッフ権限停止を検証                                         |
+| `npm run test:demo`                          | ローカルFirestore・Authの起動、合成データ投入・取得・Claims確認                                            |
+| `npm run test:backup`                        | エミュレーターで合成データを書き出し・読み込み、復元後の採番・再送・来店・記録・QRトークン・公開範囲を確認 |
+| `npm run test:web`                           | 合成設定でExpo WebをビルドしPlaywrightで操作検証                                                           |
 
 ルートの`npm test`だけではFunctions・ルール・ブラウザは検証されません。CIは上表の各検証を実行します。pre-commitはステージ済みファイルのlint-staged、pre-pushは`check`を実行します。Functionsのlintは専用の設定を明示して実ソースを検証します。
 
@@ -23,7 +23,7 @@ Node.js 24（`.nvmrc`）、エミュレーターにはJava 21を使用します�
 
 直接注文create/read/update/deleteの拒否、公開メニューの取得、正規ハンドラによる注文、同一requestIdの重複抑止、並列採番、スタッフ一覧のページ送り・所属店舗制限、同時更新の片方だけの成功を検証します。Authエミュレーターの合成アカウントが実際にログインして発行されたトークンで、無効化・失効・所属変更・権限削除・再有効化・アカウント削除も検証します。
 
-あわせて、実際のFirestore・Authで次も検証します：注文時のテーブル番号、状態の履歴（競合時は1件だけ）、送信結果の確認（`getOrderRequest`）、連投制限の同時実行、QRトークン（発行スクリプトを実行し、強制ありで照合）、来店の一覧と終了、商品の訂正の競合、日次の集計、売り切れによる注文の拒否、`canEditMenu`による編集と公開。ルールでは、非公開の商品・下書き・操作記録・制限のカウンター・トークンのハッシュ・処理済みのリクエストを、クライアントから読めないことを確認します。
+あわせて、実際のFirestore・Authで次も検証します：注文時のテーブル番号、状態の履歴（競合時は1件だけ）、送信結果の確認（`getOrderRequest`）、連投制限の同時実行、QRトークン（発行スクリプトを実行し、強制ありで照合）、来店の一覧と終了、商品の訂正の競合、日次の集計、売り切れによる注文の拒否、`canEditMenu`による編集と公開。ルールでは、店舗・テーブル・カテゴリ・商品（公開中のものを含む）・下書き・操作記録・制限のカウンター・トークンのハッシュ・処理済みのリクエストを、クライアントから読めないことを確認します。
 
 `npm run test:backup`は、エミュレーターを2回起動します。1回目に合成データを作って書き出し、2回目に新しいエミュレーターへ読み込んで、復元後の動作を確認します（[バックアップと復元](backup_restore.md)）。ルール拒否のテストではPERMISSION_DENIEDのログが出ますが、終了コード0なら期待どおりです。
 

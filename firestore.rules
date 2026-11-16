@@ -1,30 +1,24 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // レストラン情報（読み取りのみ）
+    // クライアントは Firestore を直接読み書きしない。店舗・テーブル・メニューは
+    // Callable（Admin SDK）だけが読み、公開する項目を選んで返す。
     match /restaurants/{restaurantId} {
-      allow read: if true;
-      allow write: if false;
+      allow read, write: if false;
 
       // テーブル情報
       match /tables/{tableId} {
-        allow read: if true;
-        allow write: if false;
+        allow read, write: if false;
       }
 
       // メニューカテゴリ
       match /menu_categories/{categoryId} {
-        allow read: if true;
-        allow write: if false;
+        allow read, write: if false;
       }
 
-      // メニュー項目：お客様に公開している商品（販売中・売り切れ）だけ読める。
-      // is_published がない旧データは販売中のものだけを公開として扱う。
+      // メニュー項目
       match /menu_items/{itemId} {
-        allow read: if resource.data.get('is_published', null) == true
-          || (resource.data.get('is_published', null) == null
-            && resource.data.get('is_available', false) == true);
-        allow write: if false;
+        allow read, write: if false;
       }
 
       // 売り切れ・受付停止の操作記録はサーバーだけが読み書きする。
