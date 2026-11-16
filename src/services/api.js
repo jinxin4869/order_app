@@ -264,10 +264,8 @@ export const validateQRCode = async (qrData) => {
     const result = await withRetry(() => validateFunction({ qrData }), 2, 1000);
     return result.data;
   } catch (error) {
-    const userMessage = handleError(error, {
-      function: "validateQRCode",
-      params: { qrData },
-    });
+    // qrData can carry the table's QR token, so it stays out of error reports.
+    const userMessage = handleError(error, { function: "validateQRCode" });
     throw new Error(userMessage, { cause: error });
   }
 };
