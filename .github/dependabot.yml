@@ -6,50 +6,66 @@ updates:
       interval: weekly
       timezone: Asia/Tokyo
     open-pull-requests-limit: 5
-    # Packages whose versions are set by the Expo SDK move together. Major
-    # bumps arrive as one PR to handle during an SDK upgrade
-    # (`npx expo install --fix`), instead of one unmergeable PR per package.
+    # Propose a release only after it has been public for a week. Security
+    # updates are not delayed.
+    cooldown:
+      default-days: 7
+    # Patch and minor updates arrive as one PR per dependency type, because the
+    # auto-merge workflow holds a whole PR for review as soon as it contains a
+    # direct production dependency. Major updates stay one PR per package.
     groups:
-      expo:
-        patterns:
-          - "expo"
-          - "expo-*"
-          - "@expo/*"
-          - "jest-expo"
-          - "babel-preset-expo"
-          - "react"
-          - "react-dom"
-          - "react-test-renderer"
-          - "react-native"
-          - "react-native-*"
-          - "@react-native/*"
-          - "@react-native-community/*"
-          - "@react-native-async-storage/*"
-        update-types: ["patch", "minor"]
-      expo-sdk-major:
-        patterns:
-          - "expo"
-          - "expo-*"
-          - "@expo/*"
-          - "jest-expo"
-          - "babel-preset-expo"
-          - "react"
-          - "react-dom"
-          - "react-test-renderer"
-          - "react-native"
-          - "react-native-*"
-          - "@react-native/*"
-          - "@react-native-community/*"
-          - "@react-native-async-storage/*"
-          # jest-expo depends on a specific Jest major.
-          - "jest"
-        update-types: ["major"]
+      production:
+        dependency-type: production
+        update-types: ["minor", "patch"]
+      development:
+        dependency-type: development
+        update-types: ["minor", "patch"]
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+    ignore:
+      # Versions set by the Expo SDK (node_modules/expo/bundledNativeModules.json
+      # and the Expo tooling). Update them with `npx expo install --fix`, see
+      # docs/dependency_updates.md. Security updates still open for them.
+      - dependency-name: "expo"
+      - dependency-name: "expo-*"
+      - dependency-name: "@expo/*"
+      - dependency-name: "jest-expo"
+      - dependency-name: "babel-preset-expo"
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "react-native"
+      - dependency-name: "react-native-safe-area-context"
+      - dependency-name: "react-native-screens"
+      - dependency-name: "react-native-web"
+      - dependency-name: "@react-native/*"
+      - dependency-name: "@react-native-community/*"
+      - dependency-name: "@react-native-async-storage/*"
+      - dependency-name: "@sentry/react-native"
+      # Expo, Metro and jest-expo all require Babel 7; a root Babel 8 is unused.
+      - dependency-name: "@babel/core"
+        update-types: ["version-update:semver-major"]
+      # jest-expo accepts specific Jest majors only (peer dependency).
+      - dependency-name: "jest"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: npm
     directory: /functions
     schedule:
       interval: weekly
       timezone: Asia/Tokyo
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      production:
+        dependency-type: production
+        update-types: ["minor", "patch"]
+      development:
+        dependency-type: development
+        update-types: ["minor", "patch"]
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
