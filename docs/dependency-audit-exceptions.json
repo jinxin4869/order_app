@@ -3,15 +3,6 @@
   "exceptions": [
     {
       "scope": "root",
-      "package": "node-forge",
-      "advisory": "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
-      "versions": ["1.4.0"],
-      "paths": ["node_modules/node-forge"],
-      "expires": "2027-01-31T00:00:00+09:00",
-      "reason": "Expo CLIのコード署名（expo-updatesの署名、iOSのローカルビルド）でのみ使用。2026-10-25時点で修正版は未公開で、SDK 58の@expo/code-signing-certificatesも1.4.0系に依存する。外部から提供された証明書を扱わず、上流の修正を追跡する。"
-    },
-    {
-      "scope": "root",
       "package": "zod",
       "advisory": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5",
       "versions": ["3.25.76"],
