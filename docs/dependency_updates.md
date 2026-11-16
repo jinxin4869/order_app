@@ -58,13 +58,7 @@ npm run audit:dependencies
 
 ## 残る指摘と期限
 
-**high の例外は 2027-01-31 00:00 JST に失効**します。失効前に上流の修正を確認し、実店舗の公開前にも再評価します。例外は期限だけを自動で延長しません。
-
-high の例外は次の 1 パッケージ・1 アドバイザリです。対象の scope・GHSA・バージョン・lockfile 内のパス・理由・期限を[例外ファイル](dependency-audit-exceptions.json)で限定しています。
-
-| 対象        | 主な依存経路・到達処理                                 | 残した理由・暫定対策                                                                              |
-| ----------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| zod 3.25.76 | Expo CLI → 開発サーバー。DevTools プラグイン定義の検証 | 修正は 4.6.6 以降のみで、Expo CLI は zod 3 系に依存する。開発サーバーを信頼できない網に公開しない |
+high / critical の例外は現在ありません。[例外ファイル](dependency-audit-exceptions.json)の `exceptions` は空です。例外を追加するときは、対象の scope・GHSA・バージョン・lockfile 内のパス・理由・期限を限定します。例外は期限だけを自動で延長しません。
 
 moderate は次の 2 件で、どちらも開発用の Firebase CLI（エミュレーターとデプロイ）からだけ入ります。アプリ、Functions、Hosting には含まれません。Firebase CLI の更新で解消を確認します。
 
@@ -73,7 +67,7 @@ moderate は次の 2 件で、どちらも開発用の Firebase CLI（エミュ�
 
 Functions には high / critical の例外を設けていません。CI は、新しい high、対象バージョンやパスの変化、期限切れ、すべての critical、監査の通信失敗・不正な応答で失敗します。moderate も JSON に記録しますが、CI の失敗の基準は high です。
 
-解消済みの指摘：image-size 1.2.1（2 件）は SDK 55 で依存から外れました。basic-ftp、braces、decode-uri-component、sprintf-js、re2 などは、#20 と #60 以降の更新で解消しています。node-forge 1.4.0 の指摘（例外にしていた GHSA-86w9-cpqp-85rv を含む）は 1.4.3 への更新で対象外になり、例外を削除しました。
+解消済みの指摘：image-size 1.2.1（2 件）は SDK 55 で依存から外れました。basic-ftp、braces、decode-uri-component、sprintf-js、re2 などは、#20 と #60 以降の更新で解消しています。node-forge 1.4.0 の指摘（例外にしていた GHSA-86w9-cpqp-85rv を含む）は 1.4.3 への更新で対象外になり、例外を削除しました。zod 3.25.76 の指摘（例外にしていた GHSA-mrhx-c7xc-m3w5）は、expo 58.0.25 への更新で `@expo/cli` が zod に依存しなくなって対象外になり、例外を削除しました。
 
 ## 動作検証
 
@@ -81,7 +75,7 @@ Functions には high / critical の例外を設けていません。CI は、�
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `npm run check`              | 両方の lint、フロント 20 スイート 183 件、Functions 9 スイート 202 件                                                |
 | `npm run test:audit`         | 例外の期限・scope・バージョン・critical の拒否・監査エラーなど 9 件                                                  |
-| `npm run audit:dependencies` | 上記の限定した high の例外を適用して成功                                                                             |
+| `npm run audit:dependencies` | high / critical の指摘も例外もなしで成功                                                                             |
 | `npm run test:sdk`           | 実際の DeepL SDK の英語・中国語のリクエストと応答の解析を loopback HTTP で確認                                       |
 | `npm run test:rules`         | 実際の注文ハンドラ、冪等性、並列の採番、所属店舗の制限・更新の競合、直接書き込みの拒否をローカルの Firestore で確認  |
 | `npm run test:demo`          | ローカルの Firestore / Auth への合成データの投入・取得・スタッフの Claims の確認                                     |
