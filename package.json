@@ -86,7 +86,11 @@
     ],
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "<rootDir>/functions/"
+      "<rootDir>/functions/",
+      "<rootDir>/.claude/"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/.claude/"
     ],
     "testMatch": [
       "**/__tests__/**/*.[jt]s?(x)",
