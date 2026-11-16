@@ -10,7 +10,10 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const crypto = require("crypto");
 const morphological = require("../morphological");
 const synonyms = require("../morphological/synonyms");
-const { DEEPL_TARGET_LANGUAGES } = require("../utils/translationLanguages");
+const {
+  DEEPL_TARGET_LANGUAGES,
+  DEEPL_CLIENT_OPTIONS,
+} = require("../utils/translationLanguages");
 
 const db = getFirestore();
 
@@ -191,7 +194,7 @@ const translateWithDeepL = async (text, targetLang, options = {}) => {
   const key = requireDeepLKey();
 
   const deepl = require("deepl-node");
-  const translator = new deepl.Translator(key);
+  const translator = new deepl.Translator(key, DEEPL_CLIENT_OPTIONS);
 
   // DeepLの言語コード変換
   const targetLangCode = DEEPL_TARGET_LANGUAGES[targetLang];
