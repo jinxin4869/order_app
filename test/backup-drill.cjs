@@ -231,26 +231,35 @@ const verify = async () => {
     delete process.env.ENFORCE_TABLE_TOKEN;
   }
   // Public scope: with the rules on the restored store, a client without
-  // credentials reads the published menu, but none of the restored records.
-  const clientRead = async (path) =>
-    (
-      await fetch(
-        `http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/${projectId}/databases/(default)/documents/${path}`
-      )
-    ).status;
-  assert.equal(
-    await clientRead("restaurants/rest-test/menu_items/item-test"),
-    200
-  );
+  // credentials reads nothing directly; the menu reaches clients through the
+  // callable checked above. Each record is first read past the rules (the
+  // emulator's owner token), so a 403 means the rules denied a restored
+  // record, not that the record is missing.
+  const read = (path, headers) =>
+    fetch(
+      `http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/${projectId}/databases/(default)/documents/${path}`,
+      { headers }
+    );
   for (const path of [
+    "restaurants/rest-test",
+    "restaurants/rest-test/tables/table-test",
+    "restaurants/rest-test/menu_items/item-test",
     `orders/${expected.confirmed}`,
     `orders/${expected.confirmed}/status_history`,
     `orders/${expected.corrected}/corrections`,
     "order_requests",
     `restaurants/rest-test/order_counters/${day}`,
     "restaurants/rest-test/table_secrets/table-test",
-  ])
-    assert.equal(await clientRead(path), 403, path);
+  ]) {
+    const restored = await (
+      await read(path, { authorization: "Bearer owner" })
+    ).json();
+    assert.ok(
+      restored.name || restored.documents?.length,
+      `${path} was not restored`
+    );
+    assert.equal((await read(path)).status, 403, path);
+  }
   console.log(
     "Backup drill: restored menu, staff sign-in, numbering, retries, visits, history, corrections, table tokens and public scope verified."
   );
