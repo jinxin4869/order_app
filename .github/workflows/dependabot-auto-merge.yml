@@ -54,7 +54,7 @@ jobs:
                 elif (.prevVersion // "" | test("^v?[1-9]") | not) then
                   "minor update of a 0.x or unknown version (\(.dependencyName) \(.prevVersion // ""))"
                 else empty end
-              ) | join("; ")')
+              ) | join("; ")') || reason="updated-dependencies-json is unreadable"
           fi
           expo_pinned='^(expo|expo-.*|@expo/.*|jest-expo|babel-preset-expo|react|react-dom|react-test-renderer|react-native|react-native-.*|@react-native/.*|@react-native-community/.*|@react-native-async-storage/.*)$'
           if [ -z "$reason" ]; then
@@ -64,6 +64,11 @@ jobs:
             fi
           fi
           if [ -n "$reason" ]; then
+            # Dependabot updates an open PR in place, so an earlier run may
+            # have enabled auto-merge for contents that no longer qualify.
+            if [ "$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null')" = "true" ]; then
+              gh pr merge --disable-auto "$PR_URL"
+            fi
             echo "Manual review required: $reason" | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
