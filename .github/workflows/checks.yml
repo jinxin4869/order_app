@@ -3,6 +3,10 @@ on:
   pull_request:
   push:
     branches: [main]
+  # New advisories can fail the audit on main without any commit. Without a
+  # scheduled run that only shows up on the next pull request.
+  schedule:
+    - cron: "17 0 * * 1" # Mondays 09:17 JST
 permissions:
   contents: read
 jobs:
