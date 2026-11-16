@@ -601,10 +601,19 @@ const server = http.createServer((req, res) => {
         .getByRole("button", { name: "注文内容を見る", exact: true })
         .click();
       await page.getByText("20261009-003", { exact: true }).waitFor();
-      // The device's visit lists both orders it sent from this table.
+      // "Finish" keeps the customer at this table: it returns to the menu,
+      // not to the scanner at "/", so the order history stays reachable.
+      await page.getByText("終了する", { exact: true }).click();
       await page
-        .getByRole("button", { name: "注文履歴を見る", exact: true })
-        .click();
+        .getByText("テスト料理", { exact: true })
+        .filter({ visible: true })
+        .waitFor();
+      assert.ok(
+        page.url().includes("/order?restaurant=rest-test&table=table-test"),
+        page.url()
+      );
+      // The device's visit lists both orders it sent from this table.
+      await page.getByRole("button", { name: "注文履歴", exact: true }).click();
       await page
         .getByText(/^この端末から送った注文だけを表示します。/)
         .waitFor();

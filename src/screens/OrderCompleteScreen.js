@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS, FONT_SIZES } from "../constants";
@@ -63,8 +64,11 @@ const OrderCompleteScreen = ({ navigation, route }) => {
       table,
     });
 
-  // 最初から始める
+  // 終了する
+  // Web のお客様は卓のQRのURLから入っており、スキャナー画面（/）へ送ると同じ卓の
+  // 注文履歴・追加注文に戻れなくなる。Web では「追加注文する」と同じメニューへ戻す。
   const handleStartOver = () => {
+    if (Platform.OS === "web") return handleNewOrder();
     navigation.reset({
       index: 0,
       routes: [{ name: "QRScanner" }],
