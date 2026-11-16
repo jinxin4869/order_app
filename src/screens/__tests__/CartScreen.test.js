@@ -6,14 +6,17 @@
 jest.mock("../../hooks/useLanguage");
 jest.mock("../../services/api", () => ({
   createOrder: jest.fn(),
+  getOrderRequest: jest.fn(),
   getMenuAvailability: jest.fn(async () => ({ ordering: "open", soldOut: [] })),
 }));
 
 import React from "react";
-import { render, waitFor, fireEvent } from "@testing-library/react-native";
+import { render, waitFor, fireEvent, act } from "@testing-library/react-native";
 import { Alert, Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import CartScreen from "../CartScreen";
 import { useLanguage } from "../../hooks/useLanguage";
+import { useCart } from "../../hooks/useCart";
 import { CartContext } from "../../context/CartContext";
 import * as api from "../../services/api";
 
@@ -606,4 +609,134 @@ test("the cart shows the quantity limit and disables further increments at 99", 
   expect(view.getByText("上限99個")).toBeTruthy();
   await fireEvent.press(view.getByRole("button", { name: "数量を増やす" }));
   expect(context.updateQuantity).not.toHaveBeenCalled();
+});
+
+// #139: the screen with the real cart hook behind it, as in the app.
+describe("confirming again after an order with an unknown result", () => {
+  const CartWithHook = ({ cart }) => {
+    cart.current = useCart({
+      restaurantId: "restaurant_01",
+      tableId: "table_01",
+    });
+    return (
+      <CartContext.Provider value={cart.current}>
+        <CartScreen navigation={mockNavigation} route={mockRoute} />
+      </CartContext.Provider>
+    );
+  };
+  // Two 枝豆 are sent and the response is lost. With `change`, the customer
+  // then adds a 唐揚げ before confirming again.
+  const afterLostResponse = async ({ change = true } = {}) => {
+    jest.clearAllMocks();
+    await AsyncStorage.clear();
+    useLanguage.mockReturnValue({ currentLanguage: "ja" });
+    jest.spyOn(Alert, "alert").mockImplementation((title, message, buttons) => {
+      buttons?.find((button) => button.text === "注文する")?.onPress();
+    });
+    api.getOrderRequest.mockReset();
+    api.createOrder.mockReset();
+    api.createOrder.mockResolvedValue({
+      orderId: "order_002",
+      orderNumber: "002",
+    });
+    api.createOrder.mockRejectedValueOnce(new Error("ネットワークエラー"));
+    const cart = { current: null };
+    const view = await render(<CartWithHook cart={cart} />);
+    await act(() => cart.current.addItem(mockCartItems[0], 2));
+    await fireEvent.press(view.getByText("注文を確定する"));
+    await waitFor(() =>
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "エラー",
+        expect.stringContaining("同じ内容なら注文は重複しません")
+      )
+    );
+    if (change) await act(() => cart.current.addItem(mockCartItems[1], 1));
+    return { view, first: api.createOrder.mock.calls[0][0] };
+  };
+
+  test("a first order that was accepted is reported and the changed cart is not sent", async () => {
+    const { view, first } = await afterLostResponse();
+    api.getOrderRequest.mockResolvedValue({
+      accepted: true,
+      orderId: "order_001",
+      orderNumber: "20261025-001",
+    });
+    await fireEvent.press(view.getByText("注文を確定する"));
+    await waitFor(() =>
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "前回の注文は受付済みです",
+        expect.stringContaining("新しい注文は送信していません")
+      )
+    );
+    expect(api.getOrderRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ requestId: first.requestId })
+    );
+    expect(api.createOrder).toHaveBeenCalledTimes(1);
+    expect(mockNavigation.navigate).not.toHaveBeenCalled();
+    expect(
+      view.getByText(
+        "前回の注文は受け付けられています（注文番号 20261025-001）。"
+      )
+    ).toBeTruthy();
+    // The accepted 枝豆 leave the cart; the 唐揚げ added afterwards stays.
+    expect(view.queryByText("枝豆")).toBeNull();
+    expect(view.getByText("唐揚げ")).toBeTruthy();
+  });
+
+  test("a first order that cannot be checked blocks the changed cart and says what to do", async () => {
+    const { view } = await afterLostResponse();
+    api.getOrderRequest.mockRejectedValue(new Error("offline"));
+    await fireEvent.press(view.getByText("注文を確定する"));
+    await waitFor(() =>
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "前回の注文を確認できません",
+        expect.stringContaining("新しい注文は送信していません")
+      )
+    );
+    expect(api.createOrder).toHaveBeenCalledTimes(1);
+    expect(mockNavigation.navigate).not.toHaveBeenCalled();
+    expect(
+      view.getByText(
+        "前回の注文の受付状況を確認できません。通信を確認してください。"
+      )
+    ).toBeTruthy();
+    expect(view.getByText("枝豆")).toBeTruthy();
+    expect(view.getByText("唐揚げ")).toBeTruthy();
+  });
+
+  test("a first order that was not accepted lets the changed cart go out under a new ID", async () => {
+    const { view, first } = await afterLostResponse();
+    api.getOrderRequest.mockResolvedValue({ accepted: false });
+    await fireEvent.press(view.getByText("注文を確定する"));
+    await waitFor(() =>
+      expect(mockNavigation.navigate).toHaveBeenCalledWith(
+        "OrderComplete",
+        expect.objectContaining({ orderId: "order_002" })
+      )
+    );
+    expect(api.getOrderRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ requestId: first.requestId })
+    );
+    expect(api.createOrder).toHaveBeenCalledTimes(2);
+    const second = api.createOrder.mock.calls[1][0];
+    expect(second.requestId).not.toBe(first.requestId);
+    expect(second.items.map((item) => item.item_id)).toEqual([
+      "item_01",
+      "item_02",
+    ]);
+  });
+
+  test("an unchanged cart is resent with the same ID, without checking first", async () => {
+    const { view, first } = await afterLostResponse({ change: false });
+    await fireEvent.press(view.getByText("注文を確定する"));
+    await waitFor(() =>
+      expect(mockNavigation.navigate).toHaveBeenCalledWith(
+        "OrderComplete",
+        expect.objectContaining({ orderId: "order_002" })
+      )
+    );
+    expect(api.createOrder).toHaveBeenCalledTimes(2);
+    expect(api.createOrder.mock.calls[1][0]).toEqual(first);
+    expect(api.getOrderRequest).not.toHaveBeenCalled();
+  });
 });

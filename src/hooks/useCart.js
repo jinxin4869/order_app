@@ -26,6 +26,16 @@ const orderContent = (orderData) =>
   });
 const forgetPendingOrder = () =>
   AsyncStorage.removeItem(PENDING_ORDER_KEY).catch(() => {});
+// The cart without the lines of an order the server already has.
+const withoutOrdered = (cartItems, ordered) =>
+  cartItems.flatMap((item) => {
+    const sent = ordered.find(
+      (line) =>
+        line.item_id === item.id && (line.notes || "") === (item.notes || "")
+    );
+    const quantity = item.quantity - (sent?.quantity ?? 0);
+    return quantity > 0 ? [{ ...item, quantity }] : [];
+  });
 
 // The device's visit at one table: a random ID sent with each order so this
 // device, and only it, can list them. It ends when staff clear the table (the
@@ -77,18 +87,30 @@ export const useCart = (initialSession = null) => {
   // null | { state: "checking" | "accepted" | "not_accepted" | "error", payload, result }
   const [recovery, setRecovery] = useState(null);
 
+  // Asks the server about a sent order and returns the state it shows.
   const checkPendingOrder = useCallback(async (key, payload) => {
     setRecovery({ state: "checking", payload });
     try {
       const result = await getOrderRequest(payload);
-      if (sessionRef.current !== key) return;
-      if (result.accepted) {
+      if (sessionRef.current !== key) return "error";
+      if (!result.accepted) {
+        setRecovery({ state: "not_accepted", payload });
+        return "not_accepted";
+      }
+      // Only the first answer acts, so the cart is reduced once.
+      if (pendingRequest.current?.payload.requestId === payload.requestId) {
         pendingRequest.current = null;
         forgetPendingOrder();
+        // As after a normal success the ordered lines leave the cart. What
+        // the customer added since stays, so confirming again cannot repeat
+        // the accepted order.
+        setItems((cartItems) => withoutOrdered(cartItems, payload.items));
         setRecovery({ state: "accepted", payload, result });
-      } else setRecovery({ state: "not_accepted", payload });
+      }
+      return "accepted";
     } catch {
       if (sessionRef.current === key) setRecovery({ state: "error", payload });
+      return "error";
     }
   }, []);
 
@@ -138,32 +160,58 @@ export const useCart = (initialSession = null) => {
   // Returns what to send. A retry of the same content gets the payload (and
   // request ID) that was sent first, including its language, so the server
   // recognises it. The record is saved before sending to survive a reload.
-  const prepareOrder = useCallback(async (orderData) => {
-    if (
-      !sessionRef.current ||
-      cartSessionKey(orderData.restaurantId, orderData.tableId) !==
-        sessionRef.current
-    ) {
-      throw new Error(
-        "カートの店舗・テーブルが一致しません。QRから開き直してください。"
-      );
-    }
-    const signature = orderContent(orderData);
-    if (pendingRequest.current?.signature !== signature) {
-      const { visitId } = await visitRef.current;
-      pendingRequest.current = {
-        signature,
-        sessionKey: sessionRef.current,
-        payload: { ...orderData, visitId, requestId: createRequestId() },
-      };
-    }
-    const pending = pendingRequest.current;
-    await AsyncStorage.setItem(
-      PENDING_ORDER_KEY,
-      JSON.stringify({ ...pending, savedAt: Date.now() })
-    ).catch(() => {});
-    return pending.payload;
-  }, []);
+  // Changed content gets a new ID, but only once the server says the order
+  // sent before was not accepted; otherwise this throws with
+  // details.reason "previous_order_accepted" or "previous_order_unconfirmed".
+  const prepareOrder = useCallback(
+    async (orderData) => {
+      if (
+        !sessionRef.current ||
+        cartSessionKey(orderData.restaurantId, orderData.tableId) !==
+          sessionRef.current
+      ) {
+        throw new Error(
+          "カートの店舗・テーブルが一致しません。QRから開き直してください。"
+        );
+      }
+      const signature = orderContent(orderData);
+      const previous = pendingRequest.current;
+      if (previous && previous.signature !== signature) {
+        const state = await checkPendingOrder(
+          previous.sessionKey,
+          previous.payload
+        );
+        if (state !== "not_accepted")
+          throw Object.assign(
+            new Error("The order sent before is unresolved"),
+            {
+              details: {
+                reason:
+                  state === "accepted"
+                    ? "previous_order_accepted"
+                    : "previous_order_unconfirmed",
+              },
+            }
+          );
+        setRecovery(null);
+      }
+      if (pendingRequest.current?.signature !== signature) {
+        const { visitId } = await visitRef.current;
+        pendingRequest.current = {
+          signature,
+          sessionKey: sessionRef.current,
+          payload: { ...orderData, visitId, requestId: createRequestId() },
+        };
+      }
+      const pending = pendingRequest.current;
+      await AsyncStorage.setItem(
+        PENDING_ORDER_KEY,
+        JSON.stringify({ ...pending, savedAt: Date.now() })
+      ).catch(() => {});
+      return pending.payload;
+    },
+    [checkPendingOrder]
+  );
 
   // A switched (even subsequently reopened) table must not accept an old result.
   const isOrderRequestCurrent = useCallback(
