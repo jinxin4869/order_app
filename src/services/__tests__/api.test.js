@@ -391,13 +391,13 @@ describe("API Service", () => {
       const mockFunction = jest.fn().mockRejectedValue(mockError);
       httpsCallable.mockReturnValue(mockFunction);
 
-      await expect(validateQRCode("test_data")).rejects.toThrow(
-        "Validation failed"
-      );
-      expect(handleError).toHaveBeenCalledWith(
-        mockError,
-        expect.objectContaining({ function: "validateQRCode" })
-      );
+      await expect(
+        validateQRCode("rest-test/table-test/synthetic-table-token-1")
+      ).rejects.toThrow("Validation failed");
+      // The scanned string (with the table token) is not reported.
+      expect(handleError).toHaveBeenCalledWith(mockError, {
+        function: "validateQRCode",
+      });
     });
   });
 

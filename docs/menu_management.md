@@ -73,7 +73,7 @@
 | `discardMenuItemDraft`    | 同上                    | `itemId`                                                          | `{ success }`                                                              |
 | `getMenuAvailability`     | 不要                    | `restaurantId`                                                    | `{ ordering: "open" \| "paused" \| "invalid", soldOut: [商品ID] }`         |
 
-非公開の商品は、`getStaffMenu`・`setMenuItemAvailability`の対象外（`not-found`）です。Firestoreの`menu_items`の直接の読み取りも、公開中の商品だけに限ります。
+非公開の商品は、`getStaffMenu`・`setMenuItemAvailability`の対象外（`not-found`）です。クライアントはFirestoreを直接読まない設計で、`menu_items`の直接の読み取りは公開・非公開にかかわらずルールで拒否します。お客様には`getMenuWithTranslation`が公開中の商品だけを返します。
 
 ## 商品情報の編集（商品名・価格・説明・画像）
 

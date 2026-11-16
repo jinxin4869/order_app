@@ -671,3 +671,28 @@ test("a short blip is not announced as an outage", async () => {
   );
   expect(screen.queryByText(/回復しました/)).toBeNull();
 });
+test.each(["functions/unauthenticated", "functions/permission-denied"])(
+  "a session refused with %s hides the orders and asks for a new login, then recovers",
+  async (code) => {
+    const screen = await render(<StaffScreen />);
+    await screen.findByRole("button", { name: "注文 20261009-001 未受付" });
+    listStaffOrders.mockRejectedValueOnce(
+      Object.assign(new Error("Synthetic refusal"), { code })
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    expect(
+      await screen.findByText(
+        "権限を確認できません。ログアウトして再ログインしてください。"
+      )
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "注文 20261009-001 未受付" })
+    ).toBeNull();
+    // Once the server accepts the session again, the next fetch restores the list.
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    expect(
+      await screen.findByRole("button", { name: "注文 20261009-001 未受付" })
+    ).toBeTruthy();
+    expect(screen.queryByText(/権限を確認できません/)).toBeNull();
+  }
+);

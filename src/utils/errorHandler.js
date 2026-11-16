@@ -11,6 +11,21 @@ import Constants from "expo-constants";
 // Sentry初期化フラグ
 let sentryInitialized = false;
 
+// The table's QR token stays in the page URL (?token=…), and the SDK attaches
+// that URL to events, breadcrumbs and spans. Blank it wherever it appears.
+const TABLE_TOKEN = /([?&]token=)[^&#\s"]+/g;
+const redact = (value, depth) => {
+  if (typeof value === "string")
+    return value.replace(TABLE_TOKEN, "$1[redacted]");
+  if (value && typeof value === "object" && depth < 10)
+    for (const key of Object.keys(value))
+      // SDK-internal objects, removed before the event is sent.
+      if (key !== "sdkProcessingMetadata")
+        value[key] = redact(value[key], depth + 1);
+  return value;
+};
+const redactTableTokens = (event) => redact(event, 0);
+
 /**
  * Sentryを初期化する
  * App.jsのルートで呼び出す
@@ -42,8 +57,9 @@ export const initializeSentry = () => {
           console.log("Sentry event (dev mode):", event);
           return null; // 開発時はSentryに送信しない
         }
-        return event;
+        return redactTableTokens(event);
       },
+      beforeSendTransaction: (event) => redactTableTokens(event),
     });
     sentryInitialized = true;
     console.log("Sentry initialized successfully");
