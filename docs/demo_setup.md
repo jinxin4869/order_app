@@ -19,3 +19,5 @@ FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:909
 自動で起動・投入・API取得・Claimsを確認して終了する方法は`npm run test:demo`です。エミュレーター終了後はデータを保持しません。
 
 この手順はサーバー側のデータと権限の再現用です。通常の`npm run web`は自分のFirebase設定へ接続します。ローカルのブラウザ操作確認には、環境ファイル不要で合成API応答だけを使う`npm run test:web`を使ってください。エミュレーターのアカウントでクラウド環境へログインすることはできません。
+
+QRスキャン画面の「[Demo] Skip」（デモ用の店舗を選んで進む入口）は、開発ビルド（`npm run web`など）だけに表示されます。`expo export`でビルドしたものには含まれません。

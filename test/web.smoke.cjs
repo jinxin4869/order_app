@@ -18,11 +18,15 @@ const csp = hostingHeaders.find(
 // expo-camera fetches the zxing wasm from a versioned CDN path when the
 // browser lacks BarcodeDetector; the CSP must allow exactly that version.
 const jsDir = path.join(root, "_expo/static/js/web");
-for (const file of fs.readdirSync(jsDir))
-  for (const [cdn] of fs
-    .readFileSync(path.join(jsDir, file), "utf8")
-    .matchAll(/https:\/\/fastly\.jsdelivr\.net\/npm\/[^/"'`]+\//g))
+for (const file of fs.readdirSync(jsDir)) {
+  const source = fs.readFileSync(path.join(jsDir, file), "utf8");
+  // The demo entry belongs to development builds only.
+  assert.ok(!source.includes("[Demo] Skip"), `${file} has the demo entry`);
+  for (const [cdn] of source.matchAll(
+    /https:\/\/fastly\.jsdelivr\.net\/npm\/[^/"'`]+\//g
+  ))
     assert.ok(csp.includes(cdn), `CSP connect-src is missing ${cdn}`);
+}
 const TABLE_TOKEN = "synthetic-table-token-1";
 const server = http.createServer((req, res) => {
   for (const { key, value } of hostingHeaders) res.setHeader(key, value);
@@ -597,10 +601,19 @@ const server = http.createServer((req, res) => {
         .getByRole("button", { name: "注文内容を見る", exact: true })
         .click();
       await page.getByText("20261009-003", { exact: true }).waitFor();
-      // The device's visit lists both orders it sent from this table.
+      // "Finish" keeps the customer at this table: it returns to the menu,
+      // not to the scanner at "/", so the order history stays reachable.
+      await page.getByText("終了する", { exact: true }).click();
       await page
-        .getByRole("button", { name: "注文履歴を見る", exact: true })
-        .click();
+        .getByText("テスト料理", { exact: true })
+        .filter({ visible: true })
+        .waitFor();
+      assert.ok(
+        page.url().includes("/order?restaurant=rest-test&table=table-test"),
+        page.url()
+      );
+      // The device's visit lists both orders it sent from this table.
+      await page.getByRole("button", { name: "注文履歴", exact: true }).click();
       await page
         .getByText(/^この端末から送った注文だけを表示します。/)
         .waitFor();

@@ -240,7 +240,23 @@ describe("QRScannerScreen", () => {
   });
 
   describe("デモ用スキップボタン", () => {
-    it("デモ用スキップボタンが表示される", async () => {
+    it("本番ビルド（__DEV__がfalse）ではデモ用スキップボタンが表示されない", async () => {
+      useCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
+      global.__DEV__ = false;
+      try {
+        const { getByText, queryByText } = await render(
+          <QRScannerScreen navigation={mockNavigation} />
+        );
+
+        expect(getByText(/Scan the QR code on your table/)).toBeTruthy();
+        expect(queryByText("[Demo] Skip")).toBeNull();
+        expect(queryByText("デモ用レストラン選択")).toBeNull();
+      } finally {
+        global.__DEV__ = true;
+      }
+    });
+
+    it("開発ビルドではデモ用スキップボタンが表示される", async () => {
       useCameraPermissions.mockReturnValue([{ granted: true }, jest.fn()]);
 
       const { getByText } = await render(
