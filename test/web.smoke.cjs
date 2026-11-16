@@ -18,11 +18,15 @@ const csp = hostingHeaders.find(
 // expo-camera fetches the zxing wasm from a versioned CDN path when the
 // browser lacks BarcodeDetector; the CSP must allow exactly that version.
 const jsDir = path.join(root, "_expo/static/js/web");
-for (const file of fs.readdirSync(jsDir))
-  for (const [cdn] of fs
-    .readFileSync(path.join(jsDir, file), "utf8")
-    .matchAll(/https:\/\/fastly\.jsdelivr\.net\/npm\/[^/"'`]+\//g))
+for (const file of fs.readdirSync(jsDir)) {
+  const source = fs.readFileSync(path.join(jsDir, file), "utf8");
+  // The demo entry belongs to development builds only.
+  assert.ok(!source.includes("[Demo] Skip"), `${file} has the demo entry`);
+  for (const [cdn] of source.matchAll(
+    /https:\/\/fastly\.jsdelivr\.net\/npm\/[^/"'`]+\//g
+  ))
     assert.ok(csp.includes(cdn), `CSP connect-src is missing ${cdn}`);
+}
 const TABLE_TOKEN = "synthetic-table-token-1";
 const server = http.createServer((req, res) => {
   for (const { key, value } of hostingHeaders) res.setHeader(key, value);
