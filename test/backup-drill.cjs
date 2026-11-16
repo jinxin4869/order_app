@@ -230,8 +230,29 @@ const verify = async () => {
   } finally {
     delete process.env.ENFORCE_TABLE_TOKEN;
   }
+  // Public scope: with the rules on the restored store, a client without
+  // credentials reads the published menu, but none of the restored records.
+  const clientRead = async (path) =>
+    (
+      await fetch(
+        `http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/${projectId}/databases/(default)/documents/${path}`
+      )
+    ).status;
+  assert.equal(
+    await clientRead("restaurants/rest-test/menu_items/item-test"),
+    200
+  );
+  for (const path of [
+    `orders/${expected.confirmed}`,
+    `orders/${expected.confirmed}/status_history`,
+    `orders/${expected.corrected}/corrections`,
+    "order_requests",
+    `restaurants/rest-test/order_counters/${day}`,
+    "restaurants/rest-test/table_secrets/table-test",
+  ])
+    assert.equal(await clientRead(path), 403, path);
   console.log(
-    "Backup drill: restored menu, staff sign-in, numbering, retries, visits, history, corrections and table tokens verified."
+    "Backup drill: restored menu, staff sign-in, numbering, retries, visits, history, corrections, table tokens and public scope verified."
   );
 };
 
