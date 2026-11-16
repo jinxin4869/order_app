@@ -251,7 +251,12 @@ export const isNetworkError = (error) => {
     error.message?.includes("Network") ||
     error.code === "auth/network-request-failed" ||
     error.code === "unavailable" ||
-    error.code === "functions/unavailable"
+    error.code === "functions/unavailable" ||
+    // A fetch that got no readable response (offline, connection dropped)
+    // reaches us as internal with HTTP status 0. An INTERNAL the server sent
+    // carries its real status ("… [500]") and is not retried, and neither is
+    // deadline-exceeded: the customer has already waited 70 seconds.
+    (error.code === "functions/internal" && error.message === "internal [0]")
   );
 };
 
