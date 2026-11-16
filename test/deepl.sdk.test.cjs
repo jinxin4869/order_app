@@ -8,7 +8,35 @@ const functionsRequire = createRequire(
 const { Translator } = functionsRequire("deepl-node");
 const {
   DEEPL_TARGET_LANGUAGES,
+  DEEPL_CLIENT_OPTIONS,
 } = require("../functions/src/utils/translationLanguages");
+
+// A callable without timeoutSeconds stops after 60 s. An unresponsive DeepL
+// must fail well before that, or the function is cut off before it can
+// return its own error. Uses the options the function really passes.
+async function outage() {
+  const server = http.createServer(() => {}); // accepts, never answers
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const started = Date.now();
+  try {
+    const translator = new Translator("synthetic-test-key-not-a-real-secret", {
+      ...DEEPL_CLIENT_OPTIONS,
+      serverUrl: `http://127.0.0.1:${server.address().port}`,
+      sendPlatformInfo: false,
+      proxy: false,
+    });
+    await assert.rejects(translator.translateText("テスト料理", "JA", "en-US"));
+    const seconds = (Date.now() - started) / 1000;
+    assert.ok(seconds < 50, `DeepL outage took ${seconds}s to surface`);
+    console.log(
+      `DeepL SDK: an unresponsive server surfaced as an error after ${seconds.toFixed(1)}s.`
+    );
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
 
 async function main() {
   const requests = [];
@@ -68,7 +96,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+Promise.all([main(), outage()]).catch((error) => {
   console.error(error.message);
   console.error(
     "DeepL SDK compatibility check failed against the local fixture."
