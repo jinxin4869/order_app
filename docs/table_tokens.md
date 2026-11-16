@@ -17,7 +17,7 @@
 ## 保存
 
 - サーバーは、トークンのSHA-256ハッシュだけを`restaurants/{restaurantId}/table_secrets/{tableId}`（`token_hash`、`rotated_at`）に保存します。トークンそのものは保存しません。
-- `table_secrets`はクライアントから読み書きできません（Firestoreルールで拒否）。公開で読めるテーブルの文書（`tables/{tableId}`）には、トークンもハッシュも置きません。
+- `table_secrets`はクライアントから読み書きできません（Firestoreルールで拒否）。テーブルの文書（`tables/{tableId}`）もクライアントからは直接読めませんが、トークンもハッシュも置きません。
 - 照合はハッシュの比較（`timingSafeEqual`）で行います。
 
 ## 照合と強制のスイッチ
