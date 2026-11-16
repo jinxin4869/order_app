@@ -17,13 +17,20 @@ jobs:
       # check passes (enforced by the main ruleset). Everything else waits for
       # a human:
       # - major updates
+      # - direct production dependencies (this includes GitHub Actions)
       # - 0.x versions, where a minor bump may break the API
       # - packages pinned by the Expo SDK, which must move together with it
+      #
+      # A grouped PR is held as a whole when any of its dependencies is.
+      # fetch-metadata reports the highest update type and dependency type in
+      # the PR, but previous-version only for the first dependency, so the
+      # version rules read every entry of updated-dependencies-json.
       - name: Enable auto-merge for patch and minor updates
         env:
           UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
-          PREVIOUS_VERSION: ${{ steps.metadata.outputs.previous-version }}
+          DEPENDENCY_TYPE: ${{ steps.metadata.outputs.dependency-type }}
           DEPENDENCY_NAMES: ${{ steps.metadata.outputs.dependency-names }}
+          UPDATED_DEPENDENCIES: ${{ steps.metadata.outputs.updated-dependencies-json }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -32,9 +39,22 @@ jobs:
             version-update:semver-patch | version-update:semver-minor) ;;
             *) reason="update type is '${UPDATE_TYPE:-unknown}'" ;;
           esac
-          if [ -z "$reason" ] && [ "$UPDATE_TYPE" = "version-update:semver-minor" ] &&
-            [ "${PREVIOUS_VERSION%%.*}" = "0" ]; then
-            reason="minor update of a 0.x version ($PREVIOUS_VERSION)"
+          if [ -z "$reason" ] && [ "$DEPENDENCY_TYPE" != "direct:development" ] &&
+            [ "$DEPENDENCY_TYPE" != "indirect" ]; then
+            reason="dependency type is '${DEPENDENCY_TYPE:-unknown}'"
+          fi
+          if [ -z "$reason" ]; then
+            # An entry without an update type is not counted in UPDATE_TYPE,
+            # and one without a previous version cannot be told from 0.x.
+            reason=$(printf '%s' "$UPDATED_DEPENDENCIES" | jq -r '
+              map(
+                if .updateType == "version-update:semver-patch" then empty
+                elif .updateType != "version-update:semver-minor" then
+                  "update type of \(.dependencyName) is unknown"
+                elif (.prevVersion // "" | test("^v?[1-9]") | not) then
+                  "minor update of a 0.x or unknown version (\(.dependencyName) \(.prevVersion // ""))"
+                else empty end
+              ) | join("; ")')
           fi
           expo_pinned='^(expo|expo-.*|@expo/.*|jest-expo|babel-preset-expo|react|react-dom|react-test-renderer|react-native|react-native-.*|@react-native/.*|@react-native-community/.*|@react-native-async-storage/.*)$'
           if [ -z "$reason" ]; then
