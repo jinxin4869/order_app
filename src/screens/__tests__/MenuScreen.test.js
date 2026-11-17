@@ -243,6 +243,34 @@ describe("MenuScreen", () => {
     });
   });
 
+  test.each([
+    ["ja", "¥550（税込）"],
+    ["en", "¥550 (incl. tax)"],
+    ["zh", "¥550（含税）"],
+  ])("%s: 商品に税込の価格を表示する", async (language, price) => {
+    useLanguage.mockReturnValue({
+      currentLanguage: language,
+      translationMode: "dictionary",
+      setTranslationMode: jest.fn(),
+    });
+    const screen = await render(
+      <MenuScreen navigation={mockNavigation} route={mockRoute} />
+    );
+    expect(await screen.findByText(price)).toBeTruthy();
+  });
+
+  test("価格が未設定の商品には金額を出さない", async () => {
+    api.getMenuWithTranslation.mockResolvedValue({
+      categories: mockCategories,
+      items: [{ ...mockMenuItems[0], price: undefined }],
+    });
+    const screen = await render(
+      <MenuScreen navigation={mockNavigation} route={mockRoute} />
+    );
+    await screen.findByText("枝豆");
+    expect(screen.queryByText(/¥/)).toBeNull();
+  });
+
   test("人気バッジを表示する", async () => {
     const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />

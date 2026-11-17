@@ -55,6 +55,29 @@ describe("OrderCompleteScreen", () => {
     expect(getByText("テストレストラン")).toBeTruthy();
   });
 
+  it.each([
+    ["ja", "合計（税込）"],
+    ["en", "Total (incl. tax)"],
+    ["zh", "合计（含税）"],
+  ])("%s: 支払う合計（税込）が表示される", async (language, label) => {
+    useLanguage.mockReturnValue({ currentLanguage: language });
+    const { getByText } = await render(
+      <OrderCompleteScreen navigation={mockNavigation} route={mockRoute} />
+    );
+    expect(getByText(label)).toBeTruthy();
+    expect(getByText("¥1,980")).toBeTruthy();
+  });
+
+  it("合計が渡されない場合は金額の行を出さない", async () => {
+    const { queryByText } = await render(
+      <OrderCompleteScreen
+        navigation={mockNavigation}
+        route={{ params: { ...mockRoute.params, total: undefined } }}
+      />
+    );
+    expect(queryByText("合計（税込）")).toBeNull();
+  });
+
   it("注文番号が表示される", async () => {
     const { getByText } = await render(
       <OrderCompleteScreen navigation={mockNavigation} route={mockRoute} />

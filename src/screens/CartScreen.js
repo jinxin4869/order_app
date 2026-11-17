@@ -16,6 +16,7 @@ import { CartContext } from "../context/CartContext";
 import { translationDisplay } from "../utils/translationDisplay";
 import { createOrder } from "../services/api";
 import { showAlert } from "../utils/dialogs";
+import { taxIncluded, taxLabel, yen } from "../utils/price";
 import PendingOrderNotice from "../components/PendingOrderNotice";
 import OrderingNotice from "../components/OrderingNotice";
 import MenuImage from "../components/MenuImage";
@@ -100,7 +101,11 @@ const CartScreen = ({ navigation, route }) => {
 
     showAlert(
       t("注文確認", "Confirm Order", "确认订单"),
-      t("注文を確定しますか？", "Confirm order?", "确认订购吗？"),
+      t(
+        `合計 ${yen(total)}${taxLabel("ja")}で注文を確定しますか？`,
+        `Place this order for ${yen(total)}${taxLabel("en")}?`,
+        `确认以合计 ${yen(total)}${taxLabel("zh")}下单吗？`
+      ),
       [
         {
           text: t("キャンセル", "Cancel", "取消"),
@@ -328,6 +333,17 @@ const CartScreen = ({ navigation, route }) => {
         >
           {getItemDisplayName(item)}
         </Text>
+        {/* 行の金額（税込）。足すとフッターの合計になる。 */}
+        <Text
+          style={[styles.itemPrice, isSmallScreen && styles.itemPriceSmall]}
+        >
+          {yen(taxIncluded(item.price, item.quantity))}
+          {item.quantity > 1 && (
+            <Text style={styles.itemUnitPrice}>
+              {`  ${yen(taxIncluded(item.price))} × ${item.quantity}`}
+            </Text>
+          )}
+        </Text>
         {item.quantity >= MAX_ORDER_QUANTITY && (
           <Text accessibilityLiveRegion="polite" style={styles.itemNotes}>
             {t(
@@ -534,6 +550,18 @@ const CartScreen = ({ navigation, route }) => {
           isSmallScreen && styles.summaryContainerSmall,
         ]}
       >
+        <View style={styles.totalRow}>
+          <Text
+            style={[styles.totalLabel, isSmallScreen && styles.totalLabelSmall]}
+          >
+            {t("合計（税込）", "Total (incl. tax)", "合计（含税）")}
+          </Text>
+          <Text
+            style={[styles.totalValue, isSmallScreen && styles.totalValueSmall]}
+          >
+            {yen(total)}
+          </Text>
+        </View>
         <TouchableOpacity
           style={[
             styles.submitButton,
@@ -643,6 +671,20 @@ const styles = StyleSheet.create({
   itemNameSmall: {
     fontSize: FONT_SIZES.sm,
   },
+  itemPrice: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: "bold",
+    color: COLORS.primary,
+    marginTop: 2,
+  },
+  itemPriceSmall: {
+    fontSize: FONT_SIZES.sm,
+  },
+  itemUnitPrice: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: "normal",
+    color: COLORS.textSecondary,
+  },
   soldOutNote: { color: "#B71C1C", fontWeight: "700", marginTop: 4 },
   itemNotes: {
     fontSize: FONT_SIZES.xs,
@@ -693,6 +735,28 @@ const styles = StyleSheet.create({
   },
   summaryContainerSmall: {
     padding: 15,
+  },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    marginBottom: 12,
+  },
+  totalLabel: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: "bold",
+    color: COLORS.text,
+  },
+  totalLabelSmall: {
+    fontSize: FONT_SIZES.md,
+  },
+  totalValue: {
+    fontSize: FONT_SIZES.xxl,
+    fontWeight: "bold",
+    color: COLORS.primary,
+  },
+  totalValueSmall: {
+    fontSize: FONT_SIZES.xl,
   },
   submitButton: {
     backgroundColor: COLORS.primary,
