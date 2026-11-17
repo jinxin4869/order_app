@@ -7,6 +7,7 @@ const path = require("path");
   });
   const results = await eslint.lintFiles([
     "src/**/*.js",
+    "scripts/check-deploy-env.js",
     "test-support/**/*.js",
   ]);
   const formatter = await eslint.loadFormatter("stylish");

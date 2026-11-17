@@ -95,7 +95,21 @@ npx firebase deploy --only hosting --project <project-id>
 
 `npm run build:web`は変換キャッシュを消してから`dist`へビルドします。Firebaseの設定値はビルド時にバンドルへ埋め込まれるため、`.env`を切り替えたあとは必ずビルドし直し、`grep`の出力がデプロイ先のプロジェクトIDであることを確認してからHostingへデプロイします。
 
-Functionsの強制のスイッチ（App Check・連投制限・QRトークン）は`functions/.env`で設定します（例は`functions/.env.example`。既定はすべてオフ）。それぞれの手順書（[App Check](docs/app_check.md)、[連投制限](docs/order_limits.md)、[QRトークン](docs/table_tokens.md)）の順序で、確認してから有効にしてください。
+Functionsの強制のスイッチ（App Check・連投制限・QRトークン）は`functions/.env`で設定します。`functions/.env.example`をコピーし、`ENFORCE_APP_CHECK`・`ENFORCE_ORDER_LIMITS`・`ENFORCE_TABLE_TOKEN`の3つすべてに`true`か`false`を書いてください。それぞれの手順書（[App Check](docs/app_check.md)、[連投制限](docs/order_limits.md)、[QRトークン](docs/table_tokens.md)）の順序で、確認してから`true`にします。
+
+`functions/.env`はGitの除外対象なので、別の端末や作り直した作業ディレクトリにはありません。設定を入れ忘れたままデプロイしないよう、Functionsのデプロイでは最初に`functions/scripts/check-deploy-env.js`が実行されます（`firebase.json`の`functions.predeploy`）。
+
+- 3つのどれかが未設定、または`true`・`false`以外の値（空、`TRUE`、引用符付き、行末コメント付きなど）のときは、理由を表示してデプロイを中止します。
+- 強制しない場合も`false`と書いてあれば、そのままデプロイできます。
+- 通過したときは、デプロイされる3つの値を1行で表示します。
+
+デプロイせずに同じ確認だけを実行できます。
+
+```bash
+node functions/scripts/check-deploy-env.js <project-id>
+```
+
+チェックが読むのは、Firebase CLIが必ず読み込む`functions/.env`と`functions/.env.<project-id>`です（同じ設定があれば後者が優先）。シェルの環境変数はFunctionsへ渡らないため、設定済みとして扱いません。エイリアス名のファイル（`functions/.env.default`など）は、そのエイリアスでデプロイしたときだけ読み込まれるため、そこにだけ書いた値も設定済みとして扱いません。このチェックはFunctionsのデプロイでだけ実行されます。エミュレーター・テスト・HostingやFirestoreルールだけのデプロイでは実行されず、ローカルでは未設定のまま（強制なし）で動きます。
 
 Hostingには`/order`と`/staff`を`index.html`へ返すSPAリライトが必要です。セキュリティヘッダとCSPの強制への切り替えは[Hostingのセキュリティヘッダ](docs/hosting_headers.md)を参照してください。既存データがある場合の採番カウンター初期化は[注文API契約](docs/order_api.md)を先に確認してください。検証済みのローカル動作と、本番デプロイ・実APIの品質評価は別です。
 
