@@ -204,7 +204,19 @@ export const useCart = (initialSession = null) => {
           payload: { ...orderData, visitId, requestId: createRequestId() },
         };
       }
-      const pending = pendingRequest.current;
+      // The amounts are not part of what identifies the order. A retry sends
+      // today's amounts, so a payload saved under an older rule is not refused.
+      const { subtotal, tax, totalAmount } = orderData;
+      const pending = {
+        ...pendingRequest.current,
+        payload: {
+          ...pendingRequest.current.payload,
+          subtotal,
+          tax,
+          totalAmount,
+        },
+      };
+      pendingRequest.current = pending;
       await AsyncStorage.setItem(
         PENDING_ORDER_KEY,
         JSON.stringify({ ...pending, savedAt: Date.now() })

@@ -280,6 +280,20 @@ test("a language change after a lost response resends the first payload and ID",
   });
   expect(next.requestId).not.toBe(first.requestId);
 });
+test("a retry of an order saved with other amounts sends the current amounts under the same ID", async () => {
+  // As after an update of the app that changed how the total is calculated.
+  const first = await sentBefore();
+  const stale = JSON.parse(await AsyncStorage.getItem(STORED));
+  stale.payload = { ...stale.payload, tax: 101, totalAmount: 1101 };
+  await AsyncStorage.setItem(STORED, JSON.stringify(stale));
+  getOrderRequest.mockResolvedValue({ accepted: false });
+  const { result } = await reopen();
+  await waitFor(() =>
+    expect(result.current.recovery?.state).toBe("not_accepted")
+  );
+  await act(() => result.current.restoreRecoveredOrder());
+  expect(await result.current.prepareOrder(orderData())).toEqual(first);
+});
 test("the pending order is stored before sending and forgotten with the cart", async () => {
   const { result } = await renderHook(() =>
     useCart({ restaurantId: "rest-test", tableId: "table-test" })
