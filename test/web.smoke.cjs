@@ -643,7 +643,9 @@ const server = http.createServer((req, res) => {
       const lost = calls
         .filter((c) => c.name === "createOrder")
         .slice(ordersBefore);
-      assert.ok(lost.length >= 1);
+      // The browser reports the lost response as a failed fetch, which the
+      // app sends again by itself: three attempts, all with the same ID.
+      assert.equal(lost.length, 3);
       assert.equal(new Set(lost.map((c) => c.data.requestId)).size, 1);
       // The token scanned from the table goes with the order and survives a reload.
       assert.ok(lost.every((c) => c.data.tableToken === TABLE_TOKEN));
