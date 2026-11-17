@@ -152,8 +152,31 @@ describe("useCart", () => {
     });
 
     expect(result.current.subtotal).toBe(999);
-    expect(result.current.tax).toBe(99); // 99.9円 → 99円（切り捨て）
+    expect(result.current.tax).toBe(99); // 税込単価 366円 × 3 = 1098円
     expect(result.current.total).toBe(1098);
+  });
+
+  test("合計は税込単価の合算で、サーバーの規則と同じ結果になる", async () => {
+    const serverTotals =
+      require("../../../functions/src/utils/orderTotals").totalsOf;
+    const { result } = await renderHook(() =>
+      useCart({ restaurantId: "rest-test", tableId: "table-test" })
+    );
+    await act(() => result.current.addItem({ id: "1", price: 95 }, 2));
+    // 税抜95円 → 税込104円。2つで208円（小計190円に10%を掛けた209円ではない）
+    expect(result.current).toMatchObject({
+      subtotal: 190,
+      tax: 18,
+      total: 208,
+    });
+    await act(() => {
+      result.current.addItem({ id: "2", price: 0 }, 1);
+      result.current.addItem({ id: "3", price: 333 }, 99);
+      result.current.addItem({ id: "4", price: 9 }, 7);
+    });
+    const { subtotal, tax, total, items } = result.current;
+    expect({ subtotal, tax, total }).toEqual(serverTotals(items));
+    expect(total).toBe(208 + 0 + 366 * 99 + 9 * 7);
   });
 });
 

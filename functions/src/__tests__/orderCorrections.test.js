@@ -213,3 +213,29 @@ test("customers see the corrected quantities in their visit", async () => {
     original_quantity: 3,
   });
 });
+
+// An order placed under the earlier rule (tax on the subtotal: ¥285 → ¥313)
+// keeps that total until staff correct it; the correction applies today's rule
+// to the whole order and records both totals.
+test("correcting an order saved under the earlier rule recalculates it with the current rule", async () => {
+  mockDb.seed(ORDER, {
+    ...mockDb.read(ORDER),
+    items: [{ item_id: "a", name_ja: "お茶", quantity: 3, price: 95 }],
+    subtotal: 285,
+    tax: 28,
+    total_amount: 313,
+  });
+  expect(await correct({ changes: [{ index: 0, quantity: 2 }] })).toMatchObject(
+    { total_amount: 208 }
+  );
+  expect(mockDb.read(ORDER)).toMatchObject({
+    subtotal: 190,
+    tax: 18,
+    total_amount: 208,
+    original_total_amount: 313,
+  });
+  expect(records()[0][1]).toMatchObject({
+    total_before: 313,
+    total_after: 208,
+  });
+});

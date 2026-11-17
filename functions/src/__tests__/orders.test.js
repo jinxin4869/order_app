@@ -393,6 +393,31 @@ test("tampered client totals are rejected even when unit prices match", async ()
   });
   expect(mockDb.writes).toHaveLength(0);
 });
+// #161: the amounts a cart computes with the shared rule are the only ones
+// accepted. Tax on the ¥190 subtotal (the rule before) would give ¥209.
+test("the order total is the sum of tax-included unit prices", async () => {
+  const { totalsOf } = require("../utils/orderTotals");
+  mockDb.seed("restaurants/rest-test/menu_items/item-test", {
+    name_ja: "テスト料理",
+    price: 95,
+    is_available: true,
+  });
+  const items = [{ ...order().items[0], price: 95 }];
+  await expect(
+    api.createOrder({
+      data: order({ items, subtotal: 190, tax: 19, totalAmount: 209 }),
+    })
+  ).rejects.toMatchObject({ details: { reason: "total_mismatch" } });
+  const { subtotal, tax, total } = totalsOf(items);
+  const { orderId } = await api.createOrder({
+    data: order({ items, subtotal, tax, totalAmount: total }),
+  });
+  expect(mockDb.read(`orders/${orderId}`)).toMatchObject({
+    subtotal: 190,
+    tax: 18,
+    total_amount: 208,
+  });
+});
 
 test("a lost response can be retried with the same request ID without another order", async () => {
   const first = await api.createOrder({ data: order() });

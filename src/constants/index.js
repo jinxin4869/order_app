@@ -71,6 +71,3 @@ export const FONT_SIZES = {
   xxl: 24,
   title: 28,
 };
-
-// 消費税率
-export const TAX_RATE = 0.1;
