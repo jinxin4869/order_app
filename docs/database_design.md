@@ -358,9 +358,9 @@ allow write: if request.auth != null && request.auth.token.admin == true;
 | items[].quantity | number | ○ | × | × | 1 | 1以上の整数 | 数量 |
 | items[].price | number | ○ | × | × | - | 0以上の整数 | 単価（注文時） |
 | items[].notes | string | × | × | ○ | null | 0-200文字 | 個別リクエスト |
-| subtotal | number | ○ | × | × | - | 0以上の整数 | 小計 |
-| tax | number | ○ | × | × | - | 0以上の整数 | 消費税 |
-| total_amount | number | ○ | × | × | - | 0以上の整数 | 合計金額 |
+| subtotal | number | ○ | × | × | - | 0以上の整数 | 小計（税抜の単価 × 数量の合算） |
+| tax | number | ○ | × | × | - | 0以上の整数 | 消費税（合計 − 小計） |
+| total_amount | number | ○ | × | × | - | 0以上の整数 | 合計金額（税込の単価 × 数量の合算） |
 | status | string | ○ | × | × | "pending" | enum | 注文ステータス |
 | customer_notes | string | × | × | ○ | null | 0-500文字 | 全体への備考 |
 | staff_notes | string | × | × | ○ | null | 0-500文字 | スタッフメモ |
@@ -598,11 +598,13 @@ allow write: if request.auth != null && request.auth.token.service == "cloud_fun
 
 #### 価格計算の検証
 ```javascript
-// orders作成時
+// orders作成時（規則は functions/src/utils/orderTotals.js の1か所にある）
 subtotal == sum(items[i].price * items[i].quantity)
-tax == Math.floor(subtotal * 0.1)
-total_amount == subtotal + tax
+total_amount == sum(Math.floor(items[i].price * 110 / 100) * items[i].quantity)
+tax == total_amount - subtotal
 ```
+
+詳細は[注文API契約](order_api.md)の「金額の計算と表示」を参照してください。
 
 #### 文字列長の制限
 - 短いテキスト（名前等）: 1-100文字
