@@ -95,6 +95,14 @@ npx firebase deploy --only hosting --project <project-id>
 
 `npm run build:web`は変換キャッシュを消してから`dist`へビルドします。Firebaseの設定値はビルド時にバンドルへ埋め込まれるため、`.env`を切り替えたあとは必ずビルドし直し、`grep`の出力がデプロイ先のプロジェクトIDであることを確認してからHostingへデプロイします。
 
+デプロイは、コミット済みで変更のない作業ツリー（`git status --short`が空）から行います。3つとも成功したら、そのコミットにタグを打って、デプロイした版を記録します。
+
+```bash
+TAG=deployed-$(date +%Y%m%d-%H%M) && git tag "$TAG" && git push origin "$TAG"
+```
+
+名前の順で最後の`deployed-`タグが、デプロイ済みの版です。この運用を始めるときは、最初のデプロイの前に、その時点でデプロイ済みのコミットにも同じ形式のタグを打っておきます（戻す先になります）。デプロイのあとに問題が起きたときの戻し方と、新しい版が書いたデータの注意は、[デプロイの切り戻し](docs/incident_runbook.md#デプロイの切り戻し)を参照してください。
+
 Functionsの強制のスイッチ（App Check・連投制限・QRトークン）は`functions/.env`で設定します。`functions/.env.example`をコピーし、`ENFORCE_APP_CHECK`・`ENFORCE_ORDER_LIMITS`・`ENFORCE_TABLE_TOKEN`の3つすべてに`true`か`false`を書いてください。それぞれの手順書（[App Check](docs/app_check.md)、[連投制限](docs/order_limits.md)、[QRトークン](docs/table_tokens.md)）の順序で、確認してから`true`にします。
 
 `functions/.env`はGitの除外対象なので、別の端末や作り直した作業ディレクトリにはありません。設定を入れ忘れたままデプロイしないよう、Functionsのデプロイでは最初に`functions/scripts/check-deploy-env.js`が実行されます（`firebase.json`の`functions.predeploy`）。
