@@ -24,6 +24,8 @@
 
 `functions/.env`の`ENFORCE_TABLE_TOKEN=true`のときだけ照合します。
 
+Functionsのデプロイ前のチェックは、`ENFORCE_TABLE_TOKEN`が`true`か`false`で明示されていないとデプロイを中止します。強制しない間も`ENFORCE_TABLE_TOKEN=false`と書いてください。次のデプロイで使われる値は`node functions/scripts/check-deploy-env.js <project-id>`で確認できます（[README「公開する場合」](../README.md#公開する場合)）。
+
 | 強制         | QRの検証（`validateQRCode`）                           | 注文（`createOrder`）                                            |
 | ------------ | ------------------------------------------------------ | ---------------------------------------------------------------- |
 | オフ（既定） | トークンを照合しない。既存のQRが使える                 | トークンを照合しない                                             |
@@ -58,4 +60,4 @@ node scripts/issue-table-tokens.cjs --project <project-id> --restaurant <店舗I
 4. `ENFORCE_TABLE_TOKEN=true`にしてFunctionsを再デプロイします。
 5. 古いQRで「このQRコードは使えません」と表示されることを確認します。
 
-戻すときは`ENFORCE_TABLE_TOKEN`を削除するか`false`にして、Functionsを再デプロイします。
+戻すときは`ENFORCE_TABLE_TOKEN`を`false`にして、Functionsを再デプロイします。
