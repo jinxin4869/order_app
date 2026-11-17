@@ -45,7 +45,9 @@ test("saving a draft sends the edited fields with the version shown", async () =
     screen.getByLabelText("価格（税抜・円）"),
     "７00円"
   );
-  expect(screen.getByText("¥700")).toBeTruthy();
+  // The input stays tax-exclusive; staff see what customers will be shown.
+  expect(screen.getByText("お客様の画面の表示：¥770（税込）")).toBeTruthy();
+  expect(screen.getByText("¥770（税込）")).toBeTruthy();
   expect(
     screen.getByRole("button", { name: "下書きを公開" }).props
       .accessibilityState.disabled
@@ -91,7 +93,7 @@ test("publishing lists the changes and asks to update translations after a renam
   );
   const text = showAlert.mock.calls[0][1];
   expect(text).toContain("商品名：唐揚げ → 特製唐揚げ");
-  expect(text).toContain("価格：¥600 → ¥700");
+  expect(text).toContain("価格（税抜）：¥600 → ¥700");
   expect(text).toContain("翻訳を更新するまで");
   await confirm("公開する");
   expect(publishMenuItemDraft).toHaveBeenCalledWith({

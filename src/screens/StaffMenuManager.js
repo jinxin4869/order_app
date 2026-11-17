@@ -366,7 +366,7 @@ const StaffMenuManager = ({ restaurantId, canEditMenu = false }) => {
           </Text>
           <View style={styles.rowBetween}>
             <Text style={[styles.itemName, styles.grow]}>{item.name_ja}</Text>
-            <Text style={styles.text}>{money(item.price)}</Text>
+            <Text style={styles.text}>{money(item.price)}（税抜）</Text>
           </View>
           <View style={styles.rowBetween}>
             <Text style={item.available ? styles.onSale : styles.soldOut}>

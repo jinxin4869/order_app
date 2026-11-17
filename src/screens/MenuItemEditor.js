@@ -19,6 +19,7 @@ import {
   discardMenuItemDraft,
 } from "../services/api";
 import { showAlert } from "../utils/dialogs";
+import { menuPrice } from "../utils/price";
 import { createRequestId } from "../utils/requestId";
 import MenuImage from "../components/MenuImage";
 
@@ -131,7 +132,7 @@ const MenuItemEditor = ({ itemId, onClose }) => {
       live.name_ja !== draft.name_ja &&
         `商品名：${live.name_ja} → ${draft.name_ja}`,
       live.price !== draft.price &&
-        `価格：${money(live.price)} → ${money(draft.price)}`,
+        `価格（税抜）：${money(live.price)} → ${money(draft.price)}`,
       live.description_ja !== draft.description_ja && "説明を変更",
       live.image_url !== draft.image_url && "画像を変更",
     ].filter(Boolean);
@@ -195,7 +196,7 @@ const MenuItemEditor = ({ itemId, onClose }) => {
       </View>
       <Text style={styles.title}>商品情報の編集：{data.item.name_ja}</Text>
       <Text style={styles.muted}>
-        公開中：{data.item.name_ja} · {money(data.item.price)}（版{" "}
+        公開中：{data.item.name_ja} · {money(data.item.price)}（税抜・版{" "}
         {data.item.version}）
       </Text>
       {data.draft ? (
@@ -240,6 +241,11 @@ const MenuItemEditor = ({ itemId, onClose }) => {
           })
         }
       />
+      {form.price !== "" && (
+        <Text style={styles.muted}>
+          お客様の画面の表示：{menuPrice(Number(form.price), "ja")}
+        </Text>
+      )}
       <Field
         label="画像URL（https）"
         value={form.image_url}
@@ -254,7 +260,7 @@ const MenuItemEditor = ({ itemId, onClose }) => {
         <Text style={styles.label}>プレビュー（保存前の入力）</Text>
         <MenuImage uri={form.image_url} style={styles.image} />
         <Text style={styles.title}>{form.name_ja}</Text>
-        <Text style={styles.text}>{money(form.price)}</Text>
+        <Text style={styles.text}>{menuPrice(Number(form.price), "ja")}</Text>
         <Text style={styles.muted}>{form.description_ja}</Text>
       </View>
       <View style={styles.row}>
