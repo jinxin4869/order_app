@@ -123,3 +123,23 @@ test.each(["ready", "served", "completed", "cancelled"])(
     expect(screen.toJSON()).toBeNull();
   }
 );
+
+test("the estimate uses the rule the server will apply", async () => {
+  const screen = await render(
+    <OrderCorrection
+      order={order({
+        total_amount: 312,
+        items: [{ name_ja: "お茶", quantity: 3, price: 95 }],
+      })}
+      onDone={jest.fn()}
+    />
+  );
+  await fireEvent.press(
+    screen.getByRole("button", { name: "数量を訂正する（減数・取消）" })
+  );
+  await fireEvent.press(
+    screen.getByRole("button", { name: "お茶を1つ減らす" })
+  );
+  // ¥104 with tax each: two are ¥208, not ¥209 (tax on the ¥190 subtotal).
+  expect(screen.getByText("合計（目安）：¥312 → ¥208")).toBeTruthy();
+});

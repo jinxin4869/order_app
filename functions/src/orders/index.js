@@ -38,22 +38,9 @@ const {
   VALID_STATUS_TRANSITIONS,
 } = require("../utils/orderStatus");
 
-/**
- * 金額計算を検証
- * @param {Object} orderData - 注文データ
- * @return {boolean} - 金額が正しければtrue
- */
-// Tax-exclusive unit prices, 10% tax on the subtotal, rounded down to yen.
-// Shared by ordering and staff corrections.
-const totalsOf = (items) => {
-  const TAX_RATE = 0.1;
-  const subtotal = items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
-  const tax = Math.floor(subtotal * TAX_RATE);
-  return { subtotal, tax, total: subtotal + tax };
-};
+const { totalsOf } = require("../utils/orderTotals");
+
+// The amounts sent by the client must equal what the shared rule gives.
 const validatePriceCalculation = (orderData) => {
   const calculated = totalsOf(orderData.items);
   const isValid =

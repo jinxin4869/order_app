@@ -29,6 +29,7 @@ import {
   closeTableVisit,
 } from "../services/api";
 import { showAlert } from "../utils/dialogs";
+import { taxIncluded } from "../utils/price";
 import StaffMenuManager from "./StaffMenuManager";
 import OrderCorrection from "./OrderCorrection";
 import StaffStats from "./StaffStats";
@@ -753,7 +754,7 @@ const OrderConsole = ({ session }) => {
                             </Text>
                           )}
                           <Text style={styles.muted}>
-                            {money(item.price)} / 点
+                            {money(taxIncluded(item.price))} / 点（税込）
                           </Text>
                           {!!item.notes && (
                             <Text style={styles.notes}>要望：{item.notes}</Text>

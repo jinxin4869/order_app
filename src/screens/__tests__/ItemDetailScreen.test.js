@@ -78,6 +78,7 @@ describe("ItemDetailScreen", () => {
     expect(getByText("枝豆")).toBeTruthy();
     expect(getByText("塩茹でした枝豆")).toBeTruthy();
     expect(getByText("人気")).toBeTruthy();
+    expect(getByText("¥550（税込）")).toBeTruthy();
   });
 
   test("調理時間を表示する", async () => {
@@ -248,6 +249,7 @@ describe("ItemDetailScreen", () => {
     expect(getByText("Edamame")).toBeTruthy();
     expect(getByText("Salted boiled soybeans")).toBeTruthy();
     expect(getByText("Add to Cart")).toBeTruthy();
+    expect(getByText("¥550 (incl. tax)")).toBeTruthy();
   });
 
   test("中国語表示時に正しく翻訳される", async () => {
@@ -268,6 +270,7 @@ describe("ItemDetailScreen", () => {
     expect(getByText("毛豆")).toBeTruthy();
     expect(getByText("盐水煮毛豆")).toBeTruthy();
     expect(getByText("加入购物车")).toBeTruthy();
+    expect(getByText("¥550（含税）")).toBeTruthy();
   });
 
   test("画像がない場合プレースホルダーを表示", async () => {

@@ -1,7 +1,8 @@
 // カート管理用カスタムフック
 import { useState, useCallback, useMemo, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { TAX_RATE, MIN_ORDER_QUANTITY, MAX_ORDER_QUANTITY } from "../constants";
+import { MIN_ORDER_QUANTITY, MAX_ORDER_QUANTITY } from "../constants";
+import { totalsOf } from "../utils/price";
 import { createRequestId } from "../utils/requestId";
 import { cartSessionKey } from "../utils/cartSession";
 import { getOrderRequest } from "../services/api";
@@ -203,7 +204,19 @@ export const useCart = (initialSession = null) => {
           payload: { ...orderData, visitId, requestId: createRequestId() },
         };
       }
-      const pending = pendingRequest.current;
+      // The amounts are not part of what identifies the order. A retry sends
+      // today's amounts, so a payload saved under an older rule is not refused.
+      const { subtotal, tax, totalAmount } = orderData;
+      const pending = {
+        ...pendingRequest.current,
+        payload: {
+          ...pendingRequest.current.payload,
+          subtotal,
+          tax,
+          totalAmount,
+        },
+      };
+      pendingRequest.current = pending;
       await AsyncStorage.setItem(
         PENDING_ORDER_KEY,
         JSON.stringify({ ...pending, savedAt: Date.now() })
@@ -350,20 +363,8 @@ export const useCart = (initialSession = null) => {
     setItems([]);
   }, []);
 
-  // 小計を計算
-  const subtotal = useMemo(() => {
-    return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  }, [items]);
-
-  // 税額を計算
-  const tax = useMemo(() => {
-    return Math.floor(subtotal * TAX_RATE);
-  }, [subtotal]);
-
-  // 合計を計算
-  const total = useMemo(() => {
-    return subtotal + tax;
-  }, [subtotal, tax]);
+  // 小計・税・合計（サーバーと同じ規則で計算する）
+  const { subtotal, tax, total } = useMemo(() => totalsOf(items), [items]);
 
   // カート内の商品数
   const itemCount = useMemo(() => {
