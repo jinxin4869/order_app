@@ -37,6 +37,7 @@
   "functions": {
     "source": "functions",
     "codebase": "default",
+    "predeploy": ["node functions/scripts/check-deploy-env.js"],
     "ignore": [
       "node_modules",
       ".git",
