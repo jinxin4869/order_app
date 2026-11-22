@@ -1,6 +1,10 @@
 const { HttpsError } = require("firebase-functions/v2/https");
 const { isDocumentId } = require("./staffAuth");
-const { MIN_ORDER_QUANTITY, MAX_ORDER_QUANTITY } = require("./orderLimits");
+const {
+  MIN_ORDER_QUANTITY,
+  MAX_ORDER_QUANTITY,
+  MAX_ORDER_TOTAL_QUANTITY,
+} = require("./orderLimits");
 const { validToken } = require("./qr");
 const record = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
@@ -13,8 +17,8 @@ const sanitizeNotes = (value) =>
 
 // Validate before iterating or touching Firestore; never mutate caller input.
 const normalizeOrderInput = (data) => {
-  const fail = (message) => {
-    throw new HttpsError("invalid-argument", message);
+  const fail = (message, details) => {
+    throw new HttpsError("invalid-argument", message, details);
   };
   if (!record(data)) fail("注文データはオブジェクトで指定してください。");
   if (!isDocumentId(data.restaurantId) || !isDocumentId(data.tableId))
@@ -60,6 +64,26 @@ const normalizeOrderInput = (data) => {
       notes: sanitizeNotes(item.notes),
     };
   });
+  // The cart keeps one line per item and notes, so a repeat is never a real
+  // cart; it would only split a line to get past the per-line limit.
+  const lines = new Set();
+  for (const item of items) {
+    const line = JSON.stringify([item.item_id, item.notes]);
+    if (lines.has(line))
+      fail("同じ商品・備考の行が重複しています。", {
+        reason: "duplicate_line",
+        itemId: item.item_id,
+      });
+    lines.add(line);
+  }
+  if (
+    items.reduce((sum, item) => sum + item.quantity, 0) >
+    MAX_ORDER_TOTAL_QUANTITY
+  )
+    fail(`1回の注文の数量は合計${MAX_ORDER_TOTAL_QUANTITY}個までです。`, {
+      reason: "too_many_items",
+      max: MAX_ORDER_TOTAL_QUANTITY,
+    });
   return {
     ...data,
     items,

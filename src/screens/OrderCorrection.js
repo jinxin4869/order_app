@@ -1,6 +1,6 @@
 // スタッフが注文の商品を減数・取消する。増数や別商品への変更は追加注文で行う。
 // 金額は表示用に試算するだけで、確定値はサーバーが計算する。
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { COLORS } from "../constants";
 import { correctOrderItems } from "../services/api";
@@ -24,11 +24,16 @@ const Button = ({ label, onPress, disabled, name }) => (
   </Pressable>
 );
 
-const OrderCorrection = ({ order, disabled, onDone }) => {
+const OrderCorrection = ({ order, disabled, onDone, onEditing }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({});
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+  // Lets the console keep this draft when another staff member changes the order.
+  useEffect(() => {
+    onEditing?.(editing);
+    return () => onEditing?.(false);
+  }, [editing, onEditing]);
   if (!CORRECTABLE.includes(order.status)) return null;
   if (!editing)
     return (

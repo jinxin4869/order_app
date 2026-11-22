@@ -1,5 +1,11 @@
 // メニュー画面
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useContext,
+} from "react";
 import {
   StyleSheet,
   View,
@@ -23,6 +29,7 @@ import PendingOrderNotice from "../components/PendingOrderNotice";
 import OrderingNotice from "../components/OrderingNotice";
 import MenuImage from "../components/MenuImage";
 import { useMenuAvailability, isSoldOut } from "../hooks/useMenuAvailability";
+import { CartContext } from "../context/CartContext";
 
 const RestaurantMenu = ({ navigation, route }) => {
   const { restaurantId, tableId, restaurant, table } = route.params;
@@ -31,6 +38,22 @@ const RestaurantMenu = ({ navigation, route }) => {
   const { isOnline } = useNetworkStatus();
   const availability = useMenuAvailability(restaurantId, navigation);
   const { isSmallScreen, isVerySmallScreen, scaleSize } = useResponsive();
+  const t = (ja, en, zh) =>
+    currentLanguage === "zh" ? zh : currentLanguage === "en" ? en : ja;
+  const { itemCount = 0 } = useContext(CartContext) || {};
+  // The item detail returns here after an add: say that it worked for a
+  // moment, since the menu itself does not change.
+  const [countedItems, setCountedItems] = useState(itemCount);
+  const [addNotice, setAddNotice] = useState(0);
+  if (itemCount !== countedItems) {
+    setCountedItems(itemCount);
+    setAddNotice(itemCount > countedItems ? addNotice + 1 : 0);
+  }
+  useEffect(() => {
+    if (!addNotice) return;
+    const timer = setTimeout(() => setAddNotice(0), 4000);
+    return () => clearTimeout(timer);
+  }, [addNotice]);
 
   const [categories, setCategories] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
@@ -43,32 +66,31 @@ const RestaurantMenu = ({ navigation, route }) => {
   // The API returns every language; category and language switches are local.
   const loadMenu = useCallback(() => {
     const request = ++requestVersion.current;
-    return getMenuWithTranslation(restaurantId)
-      .then((result) => {
-        if (request !== requestVersion.current) return;
-        setError(null);
-        const nextCategories = result.categories || [];
-        setCategories(nextCategories);
-        setMenuItems(result.items || []);
-        setSelectedCategory((previous) =>
-          nextCategories.some((category) => category.id === previous)
-            ? previous
-            : nextCategories[0]?.id || null
-        );
-      })
-      .catch((failure) => {
-        if (request === requestVersion.current)
-          setError(
-            failure.message ||
-              "メニューの読み込みに失敗しました / Failed to load menu / 菜单加载失败"
+    return (
+      getMenuWithTranslation(restaurantId)
+        .then((result) => {
+          if (request !== requestVersion.current) return;
+          setError(null);
+          const nextCategories = result.categories || [];
+          setCategories(nextCategories);
+          setMenuItems(result.items || []);
+          setSelectedCategory((previous) =>
+            nextCategories.some((category) => category.id === previous)
+              ? previous
+              : nextCategories[0]?.id || null
           );
-      })
-      .finally(() => {
-        if (request === requestVersion.current) {
-          setIsLoading(false);
-          setIsRefreshing(false);
-        }
-      });
+        })
+        // The error's own text is Japanese; the screen words it per language.
+        .catch(() => {
+          if (request === requestVersion.current) setError(true);
+        })
+        .finally(() => {
+          if (request === requestVersion.current) {
+            setIsLoading(false);
+            setIsRefreshing(false);
+          }
+        })
+    );
   }, [restaurantId]);
   const reloadMenu = (showRefresh = false) => {
     if (showRefresh) setIsRefreshing(true);
@@ -130,6 +152,10 @@ const RestaurantMenu = ({ navigation, route }) => {
   // カテゴリタブをレンダリング
   const renderCategoryTab = ({ item }) => (
     <TouchableOpacity
+      accessibilityRole="tab"
+      // aria-selected reaches both native and web; react-native-web ignores
+      // accessibilityState.
+      aria-selected={selectedCategory === item.id}
       style={[
         styles.categoryTab,
         selectedCategory === item.id && styles.categoryTabActive,
@@ -295,7 +321,13 @@ const RestaurantMenu = ({ navigation, route }) => {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorIcon}>😔</Text>
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.errorText}>
+          {currentLanguage === "zh"
+            ? "无法加载菜单。请点击“重新加载”。如果仍无法加载，请联系店员。"
+            : currentLanguage === "en"
+              ? "The menu could not be loaded. Tap Retry. If it still does not load, please ask a staff member."
+              : "メニューを読み込めませんでした。「再読み込み」を押してください。直らない場合は、スタッフにお声がけください。"}
+        </Text>
         <TouchableOpacity
           style={styles.retryButton}
           onPress={() => reloadMenu()}
@@ -318,6 +350,14 @@ const RestaurantMenu = ({ navigation, route }) => {
       <View style={[styles.header, isSmallScreen && styles.headerSmall]}>
         <View style={styles.headerTop}>
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={
+              currentLanguage === "zh"
+                ? "返回"
+                : currentLanguage === "en"
+                  ? "Back"
+                  : "戻る"
+            }
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
@@ -482,6 +522,7 @@ const RestaurantMenu = ({ navigation, route }) => {
 
       {/* カテゴリタブ */}
       <FlatList
+        accessibilityRole="tablist"
         data={categories}
         renderItem={renderCategoryTab}
         keyExtractor={(item) => item.id}
@@ -528,22 +569,43 @@ const RestaurantMenu = ({ navigation, route }) => {
         }
       />
 
+      {/* The region stays mounted so screen readers announce the change. */}
+      <View
+        accessibilityLiveRegion="polite"
+        pointerEvents="none"
+        style={[styles.addedNotice, isSmallScreen && styles.addedNoticeSmall]}
+      >
+        {addNotice > 0 && (
+          <Text style={styles.addedNoticeText}>
+            {t("✓ カートに追加しました", "✓ Added to cart", "✓ 已加入购物车")}
+          </Text>
+        )}
+      </View>
+
       {/* カートボタン */}
       <TouchableOpacity
-        style={[styles.cartButton, isSmallScreen && styles.cartButtonSmall]}
+        accessibilityRole="button"
+        style={[
+          styles.cartButton,
+          isSmallScreen && styles.cartButtonSmall,
+          !itemCount && styles.cartButtonEmpty,
+        ]}
         onPress={handleCartPress}
       >
         <Text
           style={[
             styles.cartButtonText,
             isSmallScreen && styles.cartButtonTextSmall,
+            !itemCount && styles.cartButtonTextEmpty,
           ]}
         >
-          {currentLanguage === "zh"
-            ? "🛒 查看购物车"
-            : currentLanguage === "en"
-              ? "🛒 View Cart"
-              : "🛒 カートを見る"}
+          {itemCount
+            ? t(
+                `🛒 カートを見る（${itemCount}）`,
+                `🛒 View Cart (${itemCount})`,
+                `🛒 查看购物车（${itemCount}）`
+              )
+            : t("🛒 カートは空です", "🛒 Cart is empty", "🛒 购物车是空的")}
         </Text>
       </TouchableOpacity>
     </View>
@@ -585,8 +647,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 10,
@@ -849,6 +911,37 @@ const styles = StyleSheet.create({
   },
   cartButtonTextSmall: {
     fontSize: FONT_SIZES.md,
+  },
+  // An empty cart looks different from one with items.
+  cartButtonEmpty: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 2,
+    borderColor: "#B71C1C",
+  },
+  cartButtonTextEmpty: {
+    color: "#B71C1C",
+  },
+  addedNotice: {
+    position: "absolute",
+    bottom: 84,
+    left: 20,
+    right: 20,
+    alignItems: "center",
+  },
+  addedNoticeSmall: {
+    bottom: 72,
+    left: 15,
+    right: 15,
+  },
+  addedNoticeText: {
+    backgroundColor: "#1B5E20",
+    color: COLORS.surface,
+    fontSize: FONT_SIZES.md,
+    fontWeight: "bold",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    overflow: "hidden",
   },
   loadingText: {
     marginTop: 15,

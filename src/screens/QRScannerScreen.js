@@ -12,7 +12,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { COLORS, FONT_SIZES } from "../constants";
 import { validateQRCode } from "../services/api";
 import { showAlert } from "../utils/dialogs";
-import { parseOrderLink } from "../utils/orderLinks";
+import { parseOrderLink, qrRefusal } from "../utils/orderLinks";
 import { useResponsive } from "../hooks/useResponsive";
 
 // デモ用の入口は開発ビルドだけで読み込む。本番ビルドでは __DEV__ が false に
@@ -74,8 +74,7 @@ const QRScannerScreen = ({ navigation }) => {
       } else {
         showAlert(
           "エラー / Error / 错误",
-          result.error ||
-            "テーブルが見つかりません。\nTable not found.\n未找到餐桌。",
+          qrRefusal(result.reason).join("\n"),
           [{ text: "OK", onPress: () => setScanned(false) }]
         );
       }

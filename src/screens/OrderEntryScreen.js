@@ -9,7 +9,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../constants";
 import { validateQRCode } from "../services/api";
-import { parseOrderLink } from "../utils/orderLinks";
+import { parseOrderLink, qrRefusal } from "../utils/orderLinks";
 
 export default function OrderEntryScreen({ navigation, route }) {
   const restaurantId = route.params?.restaurant;
@@ -35,12 +35,7 @@ export default function OrderEntryScreen({ navigation, route }) {
         const result = await validateQRCode(link);
         if (!active) return;
         if (!result.valid) {
-          setFailure({
-            key,
-            message:
-              result.error ||
-              "このテーブルは利用できません。 / Table unavailable. / 餐桌不可用。",
-          });
+          setFailure({ key, message: qrRefusal(result.reason).join(" / ") });
           return;
         }
         navigation.reset({
