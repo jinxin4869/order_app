@@ -383,6 +383,20 @@ const server = http.createServer((req, res) => {
       await page.getByText("メニューに戻る", { exact: true }).click();
       await page.getByText("テスト料理", { exact: true }).click();
       await page.getByText("カートに追加", { exact: true }).click();
+      // Category tabs carry their selected state; icon buttons have a name and
+      // a 44px target (here and in the cart below).
+      await page.getByRole("tab", { name: /料理/, selected: true }).waitFor();
+      const targets = async (...names) => {
+        for (const name of names) {
+          const box = await page
+            .getByRole("button", { name, exact: true })
+            .filter({ visible: true })
+            .first()
+            .boundingBox();
+          assert.ok(box.width >= 44 && box.height >= 44, `${name} ${box}`);
+        }
+      };
+      await targets("戻る");
       // Two teas at ¥104 with tax are ¥208; tax on their ¥190 would make ¥209.
       await page.getByText("飲み物", { exact: true }).click();
       await page.getByText("お茶", { exact: true }).click();
@@ -403,6 +417,7 @@ const server = http.createServer((req, res) => {
         path: path.join(artifacts, `order-app-cart-${viewport.width}.png`),
         fullPage: true,
       });
+      await targets("戻る", "数量を減らす", "数量を増やす", "お茶を削除");
       const confirmations = [];
       page.once("dialog", (dialog) => {
         confirmations.push(dialog.message());

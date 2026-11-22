@@ -233,6 +233,38 @@ describe("MenuScreen", () => {
     });
   });
 
+  test.each([
+    ["ja", "戻る"],
+    ["en", "Back"],
+    ["zh", "返回"],
+  ])(
+    "icon buttons and category tabs have a role, a label and a 44px target (%s)",
+    async (language, back) => {
+      useLanguage.mockReturnValue({
+        ...useLanguage(),
+        currentLanguage: language,
+      });
+      const screen = await render(
+        <MenuScreen navigation={mockNavigation} route={mockRoute} />
+      );
+      const main = await screen.findByRole("tab", {
+        name: /メイン|Main/,
+        selected: false,
+      });
+      expect(
+        screen.getByRole("tab", { name: /前菜|Appetizer/, selected: true })
+      ).toBeTruthy();
+      await fireEvent.press(main);
+      expect(
+        screen.getByRole("tab", { name: /メイン|Main/, selected: true })
+      ).toBeTruthy();
+      const backButton = screen.getByRole("button", { name: back });
+      expect(backButton).toHaveStyle({ width: 44, height: 44 });
+      await fireEvent.press(backButton);
+      expect(mockNavigation.goBack).toHaveBeenCalled();
+    }
+  );
+
   test("メニューアイテムを表示する", async () => {
     const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
