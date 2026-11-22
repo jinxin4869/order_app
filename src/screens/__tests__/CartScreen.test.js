@@ -636,6 +636,56 @@ test("the cart shows the quantity limit and disables further increments at 99", 
   expect(context.updateQuantity).not.toHaveBeenCalled();
 });
 
+describe("the total quantity of one order", () => {
+  const renderCart = async (quantities) => {
+    jest.clearAllMocks();
+    useLanguage.mockReturnValue({ currentLanguage: "ja" });
+    const context = createMockCartContext(
+      quantities.map((quantity, index) => ({
+        ...mockCartItems[index],
+        quantity,
+      }))
+    );
+    const view = await render(
+      <CartContext.Provider value={context}>
+        <CartScreen navigation={mockNavigation} route={mockRoute} />
+      </CartContext.Provider>
+    );
+    return { context, view };
+  };
+  test("at the limit, the cart says so and no line can be increased", async () => {
+    const { context, view } = await renderCart([60, 40]);
+    expect(
+      view.getByText("1回の注文は合計100個までです（カート内100個）")
+    ).toBeTruthy();
+    for (const button of view.getAllByRole("button", {
+      name: "数量を増やす",
+    })) {
+      expect(button.props.accessibilityState.disabled).toBe(true);
+      await fireEvent.press(button);
+    }
+    expect(context.updateQuantity).not.toHaveBeenCalled();
+    const submit = view.getByRole("button", { name: "注文を確定する" });
+    expect(submit.props.accessibilityState.disabled).toBe(false);
+  });
+  test("over the limit, ordering is blocked until the customer reduces it", async () => {
+    const { view } = await renderCart([99, 2]);
+    expect(
+      view.getByText(
+        "1回の注文は合計100個までです（カート内101個）。数量を減らしてください。"
+      )
+    ).toBeTruthy();
+    const submit = view.getByRole("button", { name: "注文を確定する" });
+    expect(submit.props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(submit);
+    expect(api.createOrder).not.toHaveBeenCalled();
+  });
+  test("below the limit, nothing is shown", async () => {
+    const { view } = await renderCart([2, 1]);
+    expect(view.queryByText(/1回の注文は合計/)).toBeNull();
+  });
+});
+
 // #139: the screen with the real cart hook behind it, as in the app.
 describe("confirming again after an order with an unknown result", () => {
   const CartWithHook = ({ cart }) => {

@@ -506,6 +506,44 @@ test.each([0, 999, 1100])(
     expect(mockDb.writes).toHaveLength(0);
   }
 );
+describe("the total quantity of one order", () => {
+  const { MAX_ORDER_TOTAL_QUANTITY } = require("../utils/orderLimits");
+  const { totalsOf } = require("../utils/orderTotals");
+  const withLines = (...lines) => {
+    const items = lines.map(([quantity, notes]) => ({
+      item_id: "item-test",
+      quantity,
+      price: 1000,
+      notes,
+    }));
+    const { subtotal, tax, total } = totalsOf(items);
+    return order({ items, subtotal, tax, totalAmount: total });
+  };
+  test("is accepted up to the limit, across lines with different notes", async () => {
+    expect(MAX_ORDER_TOTAL_QUANTITY).toBe(100);
+    await expect(
+      api.createOrder({ data: withLines([99, "大盛り"], [1, null]) })
+    ).resolves.toMatchObject({ success: true });
+  });
+  test("over the limit is refused with the reason and the limit", async () => {
+    await expect(
+      api.createOrder({ data: withLines([99, "大盛り"], [2, null]) })
+    ).rejects.toMatchObject({
+      code: "invalid-argument",
+      details: { reason: "too_many_items", max: MAX_ORDER_TOTAL_QUANTITY },
+    });
+    expect(mockDb.writes).toHaveLength(0);
+  });
+  test("the same item with the same notes on two lines is refused", async () => {
+    await expect(
+      api.createOrder({ data: withLines([1, " 大盛り "], [1, "大盛り"]) })
+    ).rejects.toMatchObject({
+      code: "invalid-argument",
+      details: { reason: "duplicate_line", itemId: "item-test" },
+    });
+    expect(mockDb.writes).toHaveLength(0);
+  });
+});
 test("tampered client totals are rejected even when unit prices match", async () => {
   await expect(
     api.createOrder({ data: order({ subtotal: 0, tax: 0, totalAmount: 0 }) })
