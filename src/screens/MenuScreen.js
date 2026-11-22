@@ -130,6 +130,10 @@ const RestaurantMenu = ({ navigation, route }) => {
   // カテゴリタブをレンダリング
   const renderCategoryTab = ({ item }) => (
     <TouchableOpacity
+      accessibilityRole="tab"
+      // aria-selected reaches both native and web; react-native-web ignores
+      // accessibilityState.
+      aria-selected={selectedCategory === item.id}
       style={[
         styles.categoryTab,
         selectedCategory === item.id && styles.categoryTabActive,
@@ -318,6 +322,14 @@ const RestaurantMenu = ({ navigation, route }) => {
       <View style={[styles.header, isSmallScreen && styles.headerSmall]}>
         <View style={styles.headerTop}>
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={
+              currentLanguage === "zh"
+                ? "返回"
+                : currentLanguage === "en"
+                  ? "Back"
+                  : "戻る"
+            }
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
@@ -482,6 +494,7 @@ const RestaurantMenu = ({ navigation, route }) => {
 
       {/* カテゴリタブ */}
       <FlatList
+        accessibilityRole="tablist"
         data={categories}
         renderItem={renderCategoryTab}
         keyExtractor={(item) => item.id}
@@ -585,8 +598,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 10,

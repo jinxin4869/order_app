@@ -312,8 +312,9 @@ const CartScreen = ({ navigation, route }) => {
 
   // レスポンシブなサイズ計算
   const imageSize = scaleSize(60, 48, 70);
-  const quantityButtonSize = scaleSize(28, 24, 32);
-  const removeButtonSize = scaleSize(36, 30, 40);
+  // 44px on every screen size, the minimum touch target.
+  const quantityButtonSize = 44;
+  const removeButtonSize = 44;
 
   // カートアイテムをレンダリング
   const renderCartItem = ({ item }) => (
@@ -381,6 +382,12 @@ const CartScreen = ({ navigation, route }) => {
             },
           ]}
           onPress={() => handleQuantityChange(item, -1)}
+          accessibilityRole="button"
+          accessibilityLabel={t(
+            "数量を減らす",
+            "Decrease quantity",
+            "减少数量"
+          )}
         >
           <Text
             style={[
@@ -451,6 +458,12 @@ const CartScreen = ({ navigation, route }) => {
         ]}
         onPress={() => handleRemoveItem(item)}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={t(
+          `${getItemDisplayName(item)}を削除`,
+          `Remove ${getItemDisplayName(item)}`,
+          `删除${getItemDisplayName(item)}`
+        )}
       >
         <Text
           style={[styles.removeButtonText, { fontSize: scaleSize(22, 18, 24) }]}
@@ -508,6 +521,8 @@ const CartScreen = ({ navigation, route }) => {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t("戻る", "Back", "返回")}
             style={styles.headerBackButton}
             onPress={() => navigation.goBack()}
           >
@@ -605,8 +620,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   headerBackButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 10,
@@ -640,6 +655,9 @@ const styles = StyleSheet.create({
   },
   cartItem: {
     flexDirection: "row",
+    // On the narrowest phones the 44px buttons wrap below the name.
+    flexWrap: "wrap",
+    rowGap: 8,
     alignItems: "center",
     backgroundColor: COLORS.surface,
     borderRadius: 12,
@@ -660,6 +678,7 @@ const styles = StyleSheet.create({
   },
   itemInfo: {
     flex: 1,
+    minWidth: 96,
     marginLeft: 10,
     marginRight: 5,
   },
@@ -720,10 +739,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFE5E5",
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 6,
+    marginLeft: 12,
   },
   removeButtonText: {
-    color: "#FF6B6B",
+    color: "#B71C1C",
     fontWeight: "bold",
     lineHeight: 24,
   },

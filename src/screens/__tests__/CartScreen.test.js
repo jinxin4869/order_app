@@ -205,6 +205,38 @@ describe("CartScreen", () => {
     );
   });
 
+  test.each([
+    ["ja", "戻る", "数量を減らす", "数量を増やす", "枝豆を削除"],
+    ["en", "Back", "Decrease quantity", "Increase quantity", "Remove Edamame"],
+    ["zh", "返回", "减少数量", "增加数量", "删除毛豆"],
+  ])(
+    "icon buttons have a role, a label and a 44px target (%s)",
+    async (language, back, decrease, increase, remove) => {
+      useLanguage.mockReturnValue({
+        ...useLanguage(),
+        currentLanguage: language,
+      });
+      const mockContext = createMockCartContext(mockCartItems);
+      const screen = await render(
+        <CartContext.Provider value={mockContext}>
+          <CartScreen navigation={mockNavigation} route={mockRoute} />
+        </CartContext.Provider>
+      );
+      const buttons = [
+        screen.getByRole("button", { name: back }),
+        screen.getAllByRole("button", { name: decrease })[0],
+        screen.getAllByRole("button", { name: increase })[0],
+        screen.getByRole("button", { name: remove }),
+      ];
+      for (const button of buttons)
+        expect(button).toHaveStyle({ width: 44, height: 44 });
+      await fireEvent.press(buttons[1]);
+      expect(mockContext.updateQuantity).toHaveBeenCalledWith("item_01", 1, "");
+      await fireEvent.press(buttons[3]);
+      expect(Alert.alert).toHaveBeenCalled();
+    }
+  );
+
   test("言語切り替え時に正しい言語でアイテム名を表示", async () => {
     useLanguage.mockReturnValue({
       currentLanguage: "en",
