@@ -39,6 +39,7 @@ import {
   disableAlertSound,
   playNewOrderAlert,
   showTitleBadge,
+  alertSoundAvailable,
 } from "../utils/newOrderAlert";
 
 const Action = ({ children, onPress, disabled, secondary = false }) => (
@@ -81,6 +82,8 @@ const LONG_WAIT_MINUTES = 10;
 // Orders unreachable this long (4 missed polls) means switching to the
 // manual fallback should be considered (docs/incident_runbook.md).
 const STALE_MS = 60 * 1000;
+// A single short beep is easy to miss, so repeat it until the staff check.
+const REMIND_MS = 60 * 1000;
 // Whether a row is listed after `last` (by created_at, then ID, as the server sorts).
 const comesAfter = (row, last, sort) => {
   const later = sort === "oldest";
@@ -92,6 +95,7 @@ const waitedMinutes = (order, now) =>
   ACTIVE.includes(order.status) && order.created_at
     ? Math.max(0, Math.floor((now - order.created_at) / 60000))
     : null;
+const changed = (a, b) => a.revision !== b.revision || a.status !== b.status;
 const actionLabels = {
   confirmed: "注文を受け付ける",
   preparing: "調理を開始する",
@@ -139,6 +143,51 @@ const OrderConsole = ({ session }) => {
   const [cancelReason, setCancelReason] = useState("");
   const detailRequest = useRef(0);
   const updateLock = useRef(false);
+  const detailRef = useRef(null);
+  const correcting = useRef(false);
+  useEffect(() => {
+    detailRef.current = selected;
+  }, [selected]);
+  const trackCorrecting = useCallback((value) => {
+    correcting.current = value;
+  }, []);
+  // Another staff member may have corrected or moved the open order. Re-read
+  // it when its row changed, or when it is not on the first page (it may have
+  // left the "対応中" view). Finished orders cannot change, so skip those.
+  const syncDetail = useCallback(async (rows) => {
+    const open = detailRef.current;
+    if (!open || updateLock.current) return;
+    const row = rows.find((order) => order.id === open.id);
+    if (
+      row ? !changed(row, open) : !VALID_STATUS_TRANSITIONS[open.status]?.length
+    )
+      return;
+    const request = detailRequest.current;
+    try {
+      const { order: latest } = await getStaffOrder(open.id);
+      // Compare with what is shown now: this staff member's own update may
+      // have replaced the detail while the request was in flight.
+      const shown = detailRef.current;
+      if (
+        request !== detailRequest.current ||
+        updateLock.current ||
+        shown?.id !== latest.id ||
+        !changed(latest, shown)
+      )
+        return;
+      // Replacing the order would discard the quantities being corrected.
+      if (correcting.current)
+        return setNotice(
+          "他のスタッフがこの注文を更新しました。訂正をやめて「詳細を再取得」を押し、最新の内容を確認してください。"
+        );
+      setSelected(latest);
+      setNotice(
+        "他のスタッフがこの注文を更新しました。最新の内容を表示しています。"
+      );
+    } catch {
+      // The list reports outages; keep the detail that is shown.
+    }
+  }, []);
 
   const refresh = useCallback(
     async ({ more = false, quiet = false } = {}) => {
@@ -202,6 +251,7 @@ const OrderConsole = ({ session }) => {
               }
             : result;
         });
+        if (!more) syncDetail(result.orders);
         setError("");
         setLastRefresh(Date.now());
         if (failingRef.current !== null) {
@@ -239,7 +289,7 @@ const OrderConsole = ({ session }) => {
         }
       }
     },
-    [view, sort, listing.cursor]
+    [view, sort, listing.cursor, syncDetail]
   );
   const refreshRef = useRef(refresh);
   useEffect(() => {
@@ -276,6 +326,11 @@ const OrderConsole = ({ session }) => {
   useEffect(() => {
     showTitleBadge(newCount);
   }, [newCount]);
+  useEffect(() => {
+    if (!soundOn || !newCount) return;
+    const timer = setInterval(playNewOrderAlert, REMIND_MS);
+    return () => clearInterval(timer);
+  }, [soundOn, newCount]);
   useEffect(
     () => () => {
       showTitleBadge(0);
@@ -586,6 +641,11 @@ const OrderConsole = ({ session }) => {
               {lastRefresh ? ` · 最終取得 ${dateLabel(lastRefresh)}` : ""}
             </Text>
             {!!soundMessage && <Text style={styles.muted}>{soundMessage}</Text>}
+            {!soundOn && !soundMessage && alertSoundAvailable() && (
+              <Text style={styles.soundOff}>
+                通知音がオフです。新しい注文が届いても音は鳴りません。「通知音をオンにする」を押してください。
+              </Text>
+            )}
             {listing.limitAlert && (
               <Text accessibilityRole="alert" style={styles.error}>
                 直近1時間に、短時間の連続注文の制限が{listing.limitAlert.count}
@@ -842,6 +902,7 @@ const OrderConsole = ({ session }) => {
                         key={`${selected.id}-${selected.revision || 0}`}
                         order={selected}
                         disabled={updating || busy}
+                        onEditing={trackCorrecting}
                         onDone={async (message) => {
                           await openOrder(selected.id);
                           setNotice(message);
@@ -1103,6 +1164,16 @@ const styles = StyleSheet.create({
   outage: {
     color: "#FFFFFF",
     backgroundColor: "#B71C1C",
+    fontSize: 16,
+    fontWeight: "700",
+    padding: 12,
+    borderRadius: 8,
+  },
+  soundOff: {
+    color: "#8A3B00",
+    backgroundColor: "#FFF3E0",
+    borderWidth: 1,
+    borderColor: COLORS.warning,
     fontSize: 16,
     fontWeight: "700",
     padding: 12,

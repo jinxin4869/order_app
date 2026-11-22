@@ -311,7 +311,25 @@ test.each([
     expect(mockDb.writes).toHaveLength(0);
   }
 );
+// Provenance written by batchTranslateMenu for the dictionary-mode fields.
+const translated = (nameJa, sourceText = nameJa, status = "ready") => ({
+  name_ja: nameJa,
+  name_en: "Test dish",
+  name_zh: "测试菜",
+  ...Object.fromEntries(
+    ["en", "zh"].map((lang) => [
+      `name_${lang}_translation`,
+      { schemaVersion: 1, sourceText, mode: "dictionary", status },
+    ])
+  ),
+  price: 1000,
+  is_available: true,
+});
 test("notes are validated and sanitized without changing the caller, and names come from the master", async () => {
+  mockDb.seed(
+    "restaurants/rest-test/menu_items/item-test",
+    translated("テスト料理")
+  );
   const data = order();
   data.items[0].notes = " <b>No onions</b> ";
   data.items[0].name_en = "Forged name";
@@ -325,6 +343,43 @@ test("notes are validated and sanitized without changing the caller, and names c
   });
   expect(data.items[0].notes).toBe(" <b>No onions</b> ");
 });
+test.each([
+  ["made from the previous Japanese name", translated("油淋鶏", "唐揚げ")],
+  [
+    "without provenance (legacy data)",
+    {
+      ...fixtures()["restaurants/rest-test/menu_items/item-test"],
+      name_ja: "油淋鶏",
+    },
+  ],
+  ["that failed", translated("油淋鶏", "油淋鶏", "failed")],
+])(
+  "a translation %s is not saved with the order or shown in its history",
+  async (_, item) => {
+    mockDb.seed("restaurants/rest-test/menu_items/item-test", item);
+    const { orderId } = await api.createOrder({
+      data: order({ visitId: "visit-a" }),
+    });
+    expect(mockDb.read("orders/" + orderId).items[0]).toMatchObject({
+      name: "油淋鶏",
+      name_ja: "油淋鶏",
+      name_en: null,
+      name_zh: null,
+    });
+    const history = await api.listVisitOrders({
+      data: {
+        restaurantId: "rest-test",
+        tableId: "table-test",
+        visitId: "visit-a",
+      },
+    });
+    expect(history.orders[0].items[0]).toMatchObject({
+      name_ja: "油淋鶏",
+      name_en: null,
+      name_zh: null,
+    });
+  }
+);
 
 test.each([
   [
@@ -357,6 +412,73 @@ test.each([
     expect(mockDb.writes).toHaveLength(0);
   }
 );
+describe("createOrder logs", () => {
+  let logger;
+  beforeEach(() => {
+    logger = require("firebase-functions/logger");
+    for (const method of ["info", "warn", "error"])
+      jest.spyOn(logger, method).mockImplementation(() => {});
+  });
+  const logged = () =>
+    JSON.stringify(
+      ["info", "warn", "error"].map((method) => logger[method].mock.calls)
+    );
+  test.each([
+    [
+      "restaurants/rest-test/menu_items/item-test",
+      { name_ja: "テスト料理", price: 1000, is_available: false },
+      "failed-precondition",
+      "item_unavailable",
+    ],
+    [
+      "restaurants/rest-test/tables/table-test",
+      null,
+      "not-found",
+      "table_not_found",
+    ],
+  ])(
+    "an expected refusal is a warning with its kind only",
+    async (path, value, code, reason) => {
+      if (value) mockDb.seed(path, value);
+      else await mockDb.doc(path).delete();
+      await expect(api.createOrder({ data: order() })).rejects.toMatchObject({
+        code,
+      });
+      expect(logger.error).not.toHaveBeenCalled();
+      expect(console.error).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalledTimes(1);
+      expect(logger.warn).toHaveBeenCalledWith("createOrder refused", {
+        restaurantId: "rest-test",
+        code,
+        reason,
+      });
+    }
+  );
+  test("an accepted order is one line without the order contents", async () => {
+    const { orderId, orderNumber } = await api.createOrder({
+      data: order({ customerNotes: "Allergy note" }),
+    });
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    expect(logger.info).toHaveBeenCalledWith("createOrder accepted", {
+      restaurantId: "rest-test",
+      tableId: "table-test",
+      orderId,
+      orderNumber,
+    });
+    // A retry of the same request is not logged as a second order.
+    await api.createOrder({ data: order({ customerNotes: "Allergy note" }) });
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    expect(logged()).not.toMatch(/No onions|Allergy note|テスト料理|Test dish/);
+  });
+  test("an unexpected failure is an error", async () => {
+    jest.spyOn(mockDb, "runTransaction").mockRejectedValue(new Error("down"));
+    await expect(api.createOrder({ data: order() })).rejects.toMatchObject({
+      code: "internal",
+    });
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+});
 test("another restaurant's product is rejected", async () => {
   mockDb.seed("restaurants/other-store/menu_items/foreign-item", {
     name_ja: "他店舗商品",
@@ -384,6 +506,44 @@ test.each([0, 999, 1100])(
     expect(mockDb.writes).toHaveLength(0);
   }
 );
+describe("the total quantity of one order", () => {
+  const { MAX_ORDER_TOTAL_QUANTITY } = require("../utils/orderLimits");
+  const { totalsOf } = require("../utils/orderTotals");
+  const withLines = (...lines) => {
+    const items = lines.map(([quantity, notes]) => ({
+      item_id: "item-test",
+      quantity,
+      price: 1000,
+      notes,
+    }));
+    const { subtotal, tax, total } = totalsOf(items);
+    return order({ items, subtotal, tax, totalAmount: total });
+  };
+  test("is accepted up to the limit, across lines with different notes", async () => {
+    expect(MAX_ORDER_TOTAL_QUANTITY).toBe(100);
+    await expect(
+      api.createOrder({ data: withLines([99, "大盛り"], [1, null]) })
+    ).resolves.toMatchObject({ success: true });
+  });
+  test("over the limit is refused with the reason and the limit", async () => {
+    await expect(
+      api.createOrder({ data: withLines([99, "大盛り"], [2, null]) })
+    ).rejects.toMatchObject({
+      code: "invalid-argument",
+      details: { reason: "too_many_items", max: MAX_ORDER_TOTAL_QUANTITY },
+    });
+    expect(mockDb.writes).toHaveLength(0);
+  });
+  test("the same item with the same notes on two lines is refused", async () => {
+    await expect(
+      api.createOrder({ data: withLines([1, " 大盛り "], [1, "大盛り"]) })
+    ).rejects.toMatchObject({
+      code: "invalid-argument",
+      details: { reason: "duplicate_line", itemId: "item-test" },
+    });
+    expect(mockDb.writes).toHaveLength(0);
+  });
+});
 test("tampered client totals are rejected even when unit prices match", async () => {
   await expect(
     api.createOrder({ data: order({ subtotal: 0, tax: 0, totalAmount: 0 }) })

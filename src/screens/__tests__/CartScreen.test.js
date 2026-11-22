@@ -205,6 +205,38 @@ describe("CartScreen", () => {
     );
   });
 
+  test.each([
+    ["ja", "戻る", "数量を減らす", "数量を増やす", "枝豆を削除"],
+    ["en", "Back", "Decrease quantity", "Increase quantity", "Remove Edamame"],
+    ["zh", "返回", "减少数量", "增加数量", "删除毛豆"],
+  ])(
+    "icon buttons have a role, a label and a 44px target (%s)",
+    async (language, back, decrease, increase, remove) => {
+      useLanguage.mockReturnValue({
+        ...useLanguage(),
+        currentLanguage: language,
+      });
+      const mockContext = createMockCartContext(mockCartItems);
+      const screen = await render(
+        <CartContext.Provider value={mockContext}>
+          <CartScreen navigation={mockNavigation} route={mockRoute} />
+        </CartContext.Provider>
+      );
+      const buttons = [
+        screen.getByRole("button", { name: back }),
+        screen.getAllByRole("button", { name: decrease })[0],
+        screen.getAllByRole("button", { name: increase })[0],
+        screen.getByRole("button", { name: remove }),
+      ];
+      for (const button of buttons)
+        expect(button).toHaveStyle({ width: 44, height: 44 });
+      await fireEvent.press(buttons[1]);
+      expect(mockContext.updateQuantity).toHaveBeenCalledWith("item_01", 1, "");
+      await fireEvent.press(buttons[3]);
+      expect(Alert.alert).toHaveBeenCalled();
+    }
+  );
+
   test("言語切り替え時に正しい言語でアイテム名を表示", async () => {
     useLanguage.mockReturnValue({
       currentLanguage: "en",
@@ -602,6 +634,56 @@ test("the cart shows the quantity limit and disables further increments at 99", 
   expect(view.getByText("上限99個")).toBeTruthy();
   await fireEvent.press(view.getByRole("button", { name: "数量を増やす" }));
   expect(context.updateQuantity).not.toHaveBeenCalled();
+});
+
+describe("the total quantity of one order", () => {
+  const renderCart = async (quantities) => {
+    jest.clearAllMocks();
+    useLanguage.mockReturnValue({ currentLanguage: "ja" });
+    const context = createMockCartContext(
+      quantities.map((quantity, index) => ({
+        ...mockCartItems[index],
+        quantity,
+      }))
+    );
+    const view = await render(
+      <CartContext.Provider value={context}>
+        <CartScreen navigation={mockNavigation} route={mockRoute} />
+      </CartContext.Provider>
+    );
+    return { context, view };
+  };
+  test("at the limit, the cart says so and no line can be increased", async () => {
+    const { context, view } = await renderCart([60, 40]);
+    expect(
+      view.getByText("1回の注文は合計100個までです（カート内100個）")
+    ).toBeTruthy();
+    for (const button of view.getAllByRole("button", {
+      name: "数量を増やす",
+    })) {
+      expect(button.props.accessibilityState.disabled).toBe(true);
+      await fireEvent.press(button);
+    }
+    expect(context.updateQuantity).not.toHaveBeenCalled();
+    const submit = view.getByRole("button", { name: "注文を確定する" });
+    expect(submit.props.accessibilityState.disabled).toBe(false);
+  });
+  test("over the limit, ordering is blocked until the customer reduces it", async () => {
+    const { view } = await renderCart([99, 2]);
+    expect(
+      view.getByText(
+        "1回の注文は合計100個までです（カート内101個）。数量を減らしてください。"
+      )
+    ).toBeTruthy();
+    const submit = view.getByRole("button", { name: "注文を確定する" });
+    expect(submit.props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(submit);
+    expect(api.createOrder).not.toHaveBeenCalled();
+  });
+  test("below the limit, nothing is shown", async () => {
+    const { view } = await renderCart([2, 1]);
+    expect(view.queryByText(/1回の注文は合計/)).toBeNull();
+  });
 });
 
 // #139: the screen with the real cart hook behind it, as in the app.

@@ -174,6 +174,7 @@ const server = http.createServer((req, res) => {
           result = {
             valid: tableId !== "closed",
             error: tableId === "closed" ? "停止中のテーブルです。" : undefined,
+            reason: tableId === "closed" ? "table_unavailable" : undefined,
             restaurant: {
               id: restaurantId,
               name: "テスト店舗",
@@ -354,6 +355,7 @@ const server = http.createServer((req, res) => {
         path: path.join(artifacts, `order-app-menu-${viewport.width}.png`),
         fullPage: true,
       });
+      await page.getByText("🛒 カートは空です", { exact: true }).waitFor();
       await page.getByText("テスト料理", { exact: true }).click();
       await page
         .getByText("¥1,100（税込）", { exact: true })
@@ -364,7 +366,16 @@ const server = http.createServer((req, res) => {
         fullPage: true,
       });
       await page.getByText("カートに追加", { exact: true }).click();
-      await page.getByText("🛒 カートを見る", { exact: true }).click();
+      // Back on the menu, the add is confirmed and the button shows the count.
+      await page.getByText("✓ カートに追加しました", { exact: true }).waitFor();
+      await page.screenshot({
+        path: path.join(
+          artifacts,
+          `order-app-menu-added-${viewport.width}.png`
+        ),
+        fullPage: true,
+      });
+      await page.getByText("🛒 カートを見る（1）", { exact: true }).click();
       page.once("dialog", (dialog) => dialog.dismiss());
       await page.getByText("×", { exact: true }).click();
       page.once("dialog", (dialog) => dialog.accept());
@@ -373,6 +384,20 @@ const server = http.createServer((req, res) => {
       await page.getByText("メニューに戻る", { exact: true }).click();
       await page.getByText("テスト料理", { exact: true }).click();
       await page.getByText("カートに追加", { exact: true }).click();
+      // Category tabs carry their selected state; icon buttons have a name and
+      // a 44px target (here and in the cart below).
+      await page.getByRole("tab", { name: /料理/, selected: true }).waitFor();
+      const targets = async (...names) => {
+        for (const name of names) {
+          const box = await page
+            .getByRole("button", { name, exact: true })
+            .filter({ visible: true })
+            .first()
+            .boundingBox();
+          assert.ok(box.width >= 44 && box.height >= 44, `${name} ${box}`);
+        }
+      };
+      await targets("戻る");
       // Two teas at ¥104 with tax are ¥208; tax on their ¥190 would make ¥209.
       await page.getByText("飲み物", { exact: true }).click();
       await page.getByText("お茶", { exact: true }).click();
@@ -382,7 +407,7 @@ const server = http.createServer((req, res) => {
         .click();
       await page.getByText("カートに追加", { exact: true }).click();
       await page.getByText("料理", { exact: true }).click();
-      await page.getByText("🛒 カートを見る", { exact: true }).click();
+      await page.getByText(/^🛒 カートを見る（\d+）$/).click();
       // The lines add up to the total, and the total is what gets sent.
       for (const text of ["¥1,100", "¥208  ¥104 × 2", "合計（税込）", "¥1,308"])
         await page
@@ -393,6 +418,7 @@ const server = http.createServer((req, res) => {
         path: path.join(artifacts, `order-app-cart-${viewport.width}.png`),
         fullPage: true,
       });
+      await targets("戻る", "数量を減らす", "数量を増やす", "お茶を削除");
       const confirmations = [];
       page.once("dialog", (dialog) => {
         confirmations.push(dialog.message());
@@ -401,7 +427,7 @@ const server = http.createServer((req, res) => {
       await page.getByText("注文を確定する", { exact: true }).click();
       assert.equal(calls.filter((c) => c.name === "createOrder").length, 0);
       assert.deepEqual(confirmations, [
-        "注文確認\n\n合計 ¥1,308（税込）で注文を確定しますか？",
+        "注文確認\n\n合計 ¥1,308（税込）で注文を確定しますか？\n\nOK → 注文する",
       ]);
       page.once("dialog", (dialog) => dialog.accept());
       await page.getByText("注文を確定する", { exact: true }).click();
@@ -453,7 +479,7 @@ const server = http.createServer((req, res) => {
       await page.getByText("¥1,100 (incl. tax)", { exact: true }).waitFor();
       await page.getByText("Test dish (dictionary)", { exact: true }).click();
       await page.getByText("Add to Cart", { exact: true }).click();
-      await page.getByText("🛒 View Cart", { exact: true }).click();
+      await page.getByText(/^🛒 View Cart \(\d+\)$/).click();
       await page
         .getByText("Test dish (dictionary)", { exact: true })
         .filter({ visible: true })
@@ -520,7 +546,13 @@ const server = http.createServer((req, res) => {
       await page.goto(
         "http://127.0.0.1:4173/order?restaurant=rest-test&table=closed"
       );
-      await page.getByText("停止中のテーブルです。", { exact: true }).waitFor();
+      // The server's Japanese text is replaced by the reason in three languages.
+      await page
+        .getByText(
+          "このテーブルは現在利用できません。スタッフにお声がけください。 / This table is not available now. Please ask a staff member. / 该餐桌目前无法使用。请联系店员。",
+          { exact: true }
+        )
+        .waitFor();
       await page.goto("http://127.0.0.1:4173/staff");
       await page.getByText("スタッフログイン", { exact: true }).waitFor();
       await page
@@ -530,15 +562,26 @@ const server = http.createServer((req, res) => {
         .getByLabel("パスワード", { exact: true })
         .fill("synthetic-password");
       await page.getByRole("button", { name: "ログイン", exact: true }).click();
+      // Sound is off until a staff member turns it on; the screen says so.
+      await page.getByText(/^通知音がオフです。/).waitFor();
       await page
         .getByRole("button", { name: "注文 20261009-002 未受付", exact: true })
         .click();
       await page.getByText("要望：ねぎ抜き", { exact: true }).waitFor();
-      page.once("dialog", (dialog) => dialog.accept());
+      let statusQuestion = "";
+      page.once("dialog", (dialog) => {
+        statusQuestion = dialog.message();
+        dialog.accept();
+      });
       await page
         .getByRole("button", { name: "注文を受け付ける", exact: true })
         .click();
       await page.getByText("状態を更新しました。", { exact: true }).waitFor();
+      // The browser shows its own OK / キャンセル; the text names the one that acts.
+      assert.equal(
+        statusQuestion,
+        "注文の状態を変更\n\n20261009-002を「受付済み」に変更しますか？\n\nOK → 変更する"
+      );
       page.once("dialog", (dialog) => dialog.accept());
       await page
         .getByRole("button", { name: "調理を開始する", exact: true })
@@ -626,7 +669,7 @@ const server = http.createServer((req, res) => {
       await page.getByRole("button", { name: "日本語", exact: true }).click();
       await page.getByText("テスト料理", { exact: true }).click();
       await page.getByText("カートに追加", { exact: true }).click();
-      await page.getByText("🛒 カートを見る", { exact: true }).click();
+      await page.getByText(/^🛒 カートを見る（\d+）$/).click();
       await page.getByText("注文を確定する", { exact: true }).click();
       for (
         let wait = 0;
@@ -722,7 +765,7 @@ const server = http.createServer((req, res) => {
       await page.getByRole("button", { name: "日本語", exact: true }).click();
       await page.getByText("テスト料理", { exact: true }).click();
       await page.getByText("カートに追加", { exact: true }).click();
-      await page.getByText("🛒 カートを見る", { exact: true }).click();
+      await page.getByText(/^🛒 カートを見る（\d+）$/).click();
       await page.getByText("注文を確定する", { exact: true }).click();
       await waitForDialog("注文の結果を確認できませんでした");
       await page
@@ -732,7 +775,7 @@ const server = http.createServer((req, res) => {
       await page.getByText("飲み物", { exact: true }).click();
       await page.getByText("お茶", { exact: true }).click();
       await page.getByText("カートに追加", { exact: true }).click();
-      await page.getByText("🛒 カートを見る", { exact: true }).click();
+      await page.getByText(/^🛒 カートを見る（\d+）$/).click();
       await page.getByText("注文を確定する", { exact: true }).click();
       await waitForDialog("前回の注文は受付済みです");
       page.off("dialog", answer);

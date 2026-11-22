@@ -93,6 +93,37 @@ describe("ItemDetailScreen", () => {
     expect(getByText("調理時間: 約5分")).toBeTruthy();
   });
 
+  test.each([
+    ["ja", "戻る", "数量を減らす", "数量を増やす"],
+    ["en", "Back", "Decrease quantity", "Increase quantity"],
+    ["zh", "返回", "减少数量", "增加数量"],
+  ])(
+    "icon buttons have a role, a label and a 44px target (%s)",
+    async (language, back, decrease, increase) => {
+      useLanguage.mockReturnValue({
+        ...useLanguage(),
+        currentLanguage: language,
+      });
+      const screen = await render(
+        <CartContext.Provider value={createMockCartContext()}>
+          <ItemDetailScreen navigation={mockNavigation} route={mockRoute} />
+        </CartContext.Provider>
+      );
+      const minus = screen.getByRole("button", { name: decrease });
+      const plus = screen.getByRole("button", { name: increase });
+      for (const button of [
+        screen.getByRole("button", { name: back }),
+        minus,
+        plus,
+      ])
+        expect(button).toHaveStyle({ width: 44, height: 44 });
+      expect(minus).toBeDisabled();
+      await fireEvent.press(plus);
+      expect(screen.getByText("2")).toBeTruthy();
+      expect(minus).toBeEnabled();
+    }
+  );
+
   test("数量を増やすボタンが機能する", async () => {
     const mockContext = createMockCartContext();
 

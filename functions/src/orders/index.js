@@ -6,6 +6,9 @@
 
 const { onAppCall } = require("../utils/callable");
 const { HttpsError } = require("firebase-functions/v2/https");
+// Structured entries carry their severity; console.warn and console.error
+// both go to stderr and cannot be told apart in Cloud Logging.
+const logger = require("firebase-functions/logger");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { createHash } = require("node:crypto");
 const {
@@ -59,6 +62,20 @@ const tableNumberOf = (value) =>
       ? String(value)
       : null;
 
+// Keep a translated name only when it was made from the current Japanese name,
+// the same test the menu uses (src/utils/translationDisplay.js). Otherwise the
+// order and its history fall back to the Japanese original.
+const verifiedName = (item, language) => {
+  const metadata = item[`name_${language}_translation`];
+  return item[`name_${language}`] &&
+    metadata?.schemaVersion === 1 &&
+    metadata.mode === "dictionary" &&
+    metadata.sourceText === item.name_ja &&
+    ["ready", "partial"].includes(metadata.status)
+    ? item[`name_${language}`]
+    : null;
+};
+
 // Processed requests are keyed by store, table and the client's random ID.
 const orderRequestRef = ({ restaurantId, tableId, requestId }) =>
   db.collection("order_requests").doc(
@@ -90,9 +107,9 @@ const recordLimitHit = async (restaurantRef, tableId, hit) => {
       });
     });
   } catch (error) {
-    console.error("Could not record an order limit hit:", error);
+    logger.error("Could not record an order limit hit:", error);
   }
-  console.warn(
+  logger.warn(
     `Order limit ${limitsEnforced() ? "enforced" : "exceeded (record only)"}: ${hit.scope} ${hit.count}/${hit.max}`
   );
 };
@@ -125,9 +142,12 @@ exports.createOrder = onAppCall({}, async (request) => {
   const tableRef = restaurantRef.collection("tables").doc(data.tableId);
   // Set when a window was full, so the hit is recorded after the transaction.
   let limitHit = null;
+  // Whether this call wrote a new order (a retry returns the saved result).
+  let accepted = false;
   try {
     const outcome = await db.runTransaction(async (transaction) => {
       limitHit = null;
+      accepted = false;
       const existing = await transaction.get(requestRef);
       if (existing.exists) {
         const saved = existing.data();
@@ -142,12 +162,10 @@ exports.createOrder = onAppCall({}, async (request) => {
       const restaurantDoc = await transaction.get(restaurantRef);
 
       if (!restaurantDoc.exists) {
-        console.warn(
-          `CreateOrder failed: Restaurant ${data.restaurantId} not found`
-        );
         throw new HttpsError(
           "not-found",
-          "指定されたレストランが見つかりません。"
+          "指定されたレストランが見つかりません。",
+          { reason: "restaurant_not_found" }
         );
       }
 
@@ -177,12 +195,10 @@ exports.createOrder = onAppCall({}, async (request) => {
       const tableDoc = await transaction.get(tableRef);
 
       if (!tableDoc.exists) {
-        console.warn(
-          `CreateOrder failed: Table ${data.tableId} not found in restaurant ${data.restaurantId}`
-        );
         throw new HttpsError(
           "not-found",
-          "指定されたテーブルが見つかりません。"
+          "指定されたテーブルが見つかりません。",
+          { reason: "table_not_found" }
         );
       }
 
@@ -274,8 +290,8 @@ exports.createOrder = onAppCall({}, async (request) => {
           ...data.items[index],
           price: item.price,
           name_ja: item.name_ja || "",
-          name_en: item.name_en || null,
-          name_zh: item.name_zh || null,
+          name_en: verifiedName(item, "en"),
+          name_zh: verifiedName(item, "zh"),
         };
       });
 
@@ -388,21 +404,38 @@ exports.createOrder = onAppCall({}, async (request) => {
         status: "occupied",
         updated_at: FieldValue.serverTimestamp(),
       });
+      accepted = true;
       return result;
     });
     if (limitHit) await recordLimitHit(restaurantRef, data.tableId, limitHit);
+    // One line per new order, to reconcile orders lost by a restore
+    // (docs/backup_restore.md). Never the items or notes.
+    if (accepted)
+      logger.info("createOrder accepted", {
+        restaurantId: data.restaurantId,
+        tableId: data.tableId,
+        orderId: outcome.orderId,
+        orderNumber: outcome.orderNumber,
+      });
     return outcome;
   } catch (error) {
     if (limitHit) await recordLimitHit(restaurantRef, data.tableId, limitHit);
-    console.error(
-      `Create order error for restaurant ${data.restaurantId}:`,
+    // Refusals (sold out, paused, changed prices, limits) are part of normal
+    // service: a warning with their kind only, so alerts count real faults.
+    if (error instanceof HttpsError) {
+      logger.warn("createOrder refused", {
+        restaurantId: data.restaurantId,
+        code: error.code,
+        reason: error.details?.reason ?? null,
+      });
+      throw error;
+    }
+    logger.error(
+      `createOrder failed for restaurant ${data.restaurantId}:`,
       error
     );
 
-    if (
-      error instanceof HttpsError ||
-      (error.code && typeof error.code === "string" && error.message)
-    ) {
+    if (error.code && typeof error.code === "string" && error.message) {
       throw error;
     }
 
