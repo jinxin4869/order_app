@@ -311,7 +311,25 @@ test.each([
     expect(mockDb.writes).toHaveLength(0);
   }
 );
+// Provenance written by batchTranslateMenu for the dictionary-mode fields.
+const translated = (nameJa, sourceText = nameJa, status = "ready") => ({
+  name_ja: nameJa,
+  name_en: "Test dish",
+  name_zh: "测试菜",
+  ...Object.fromEntries(
+    ["en", "zh"].map((lang) => [
+      `name_${lang}_translation`,
+      { schemaVersion: 1, sourceText, mode: "dictionary", status },
+    ])
+  ),
+  price: 1000,
+  is_available: true,
+});
 test("notes are validated and sanitized without changing the caller, and names come from the master", async () => {
+  mockDb.seed(
+    "restaurants/rest-test/menu_items/item-test",
+    translated("テスト料理")
+  );
   const data = order();
   data.items[0].notes = " <b>No onions</b> ";
   data.items[0].name_en = "Forged name";
@@ -325,6 +343,43 @@ test("notes are validated and sanitized without changing the caller, and names c
   });
   expect(data.items[0].notes).toBe(" <b>No onions</b> ");
 });
+test.each([
+  ["made from the previous Japanese name", translated("油淋鶏", "唐揚げ")],
+  [
+    "without provenance (legacy data)",
+    {
+      ...fixtures()["restaurants/rest-test/menu_items/item-test"],
+      name_ja: "油淋鶏",
+    },
+  ],
+  ["that failed", translated("油淋鶏", "油淋鶏", "failed")],
+])(
+  "a translation %s is not saved with the order or shown in its history",
+  async (_, item) => {
+    mockDb.seed("restaurants/rest-test/menu_items/item-test", item);
+    const { orderId } = await api.createOrder({
+      data: order({ visitId: "visit-a" }),
+    });
+    expect(mockDb.read("orders/" + orderId).items[0]).toMatchObject({
+      name: "油淋鶏",
+      name_ja: "油淋鶏",
+      name_en: null,
+      name_zh: null,
+    });
+    const history = await api.listVisitOrders({
+      data: {
+        restaurantId: "rest-test",
+        tableId: "table-test",
+        visitId: "visit-a",
+      },
+    });
+    expect(history.orders[0].items[0]).toMatchObject({
+      name_ja: "油淋鶏",
+      name_en: null,
+      name_zh: null,
+    });
+  }
+);
 
 test.each([
   [

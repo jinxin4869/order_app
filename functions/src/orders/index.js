@@ -59,6 +59,20 @@ const tableNumberOf = (value) =>
       ? String(value)
       : null;
 
+// Keep a translated name only when it was made from the current Japanese name,
+// the same test the menu uses (src/utils/translationDisplay.js). Otherwise the
+// order and its history fall back to the Japanese original.
+const verifiedName = (item, language) => {
+  const metadata = item[`name_${language}_translation`];
+  return item[`name_${language}`] &&
+    metadata?.schemaVersion === 1 &&
+    metadata.mode === "dictionary" &&
+    metadata.sourceText === item.name_ja &&
+    ["ready", "partial"].includes(metadata.status)
+    ? item[`name_${language}`]
+    : null;
+};
+
 // Processed requests are keyed by store, table and the client's random ID.
 const orderRequestRef = ({ restaurantId, tableId, requestId }) =>
   db.collection("order_requests").doc(
@@ -274,8 +288,8 @@ exports.createOrder = onAppCall({}, async (request) => {
           ...data.items[index],
           price: item.price,
           name_ja: item.name_ja || "",
-          name_en: item.name_en || null,
-          name_zh: item.name_zh || null,
+          name_en: verifiedName(item, "en"),
+          name_zh: verifiedName(item, "zh"),
         };
       });
 
