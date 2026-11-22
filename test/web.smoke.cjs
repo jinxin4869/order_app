@@ -354,6 +354,7 @@ const server = http.createServer((req, res) => {
         path: path.join(artifacts, `order-app-menu-${viewport.width}.png`),
         fullPage: true,
       });
+      await page.getByText("🛒 カートは空です", { exact: true }).waitFor();
       await page.getByText("テスト料理", { exact: true }).click();
       await page
         .getByText("¥1,100（税込）", { exact: true })
@@ -364,7 +365,16 @@ const server = http.createServer((req, res) => {
         fullPage: true,
       });
       await page.getByText("カートに追加", { exact: true }).click();
-      await page.getByText("🛒 カートを見る", { exact: true }).click();
+      // Back on the menu, the add is confirmed and the button shows the count.
+      await page.getByText("✓ カートに追加しました", { exact: true }).waitFor();
+      await page.screenshot({
+        path: path.join(
+          artifacts,
+          `order-app-menu-added-${viewport.width}.png`
+        ),
+        fullPage: true,
+      });
+      await page.getByText("🛒 カートを見る（1）", { exact: true }).click();
       page.once("dialog", (dialog) => dialog.dismiss());
       await page.getByText("×", { exact: true }).click();
       page.once("dialog", (dialog) => dialog.accept());
@@ -382,7 +392,7 @@ const server = http.createServer((req, res) => {
         .click();
       await page.getByText("カートに追加", { exact: true }).click();
       await page.getByText("料理", { exact: true }).click();
-      await page.getByText("🛒 カートを見る", { exact: true }).click();
+      await page.getByText(/^🛒 カートを見る（\d+）$/).click();
       // The lines add up to the total, and the total is what gets sent.
       for (const text of ["¥1,100", "¥208  ¥104 × 2", "合計（税込）", "¥1,308"])
         await page
@@ -453,7 +463,7 @@ const server = http.createServer((req, res) => {
       await page.getByText("¥1,100 (incl. tax)", { exact: true }).waitFor();
       await page.getByText("Test dish (dictionary)", { exact: true }).click();
       await page.getByText("Add to Cart", { exact: true }).click();
-      await page.getByText("🛒 View Cart", { exact: true }).click();
+      await page.getByText(/^🛒 View Cart \(\d+\)$/).click();
       await page
         .getByText("Test dish (dictionary)", { exact: true })
         .filter({ visible: true })
@@ -626,7 +636,7 @@ const server = http.createServer((req, res) => {
       await page.getByRole("button", { name: "日本語", exact: true }).click();
       await page.getByText("テスト料理", { exact: true }).click();
       await page.getByText("カートに追加", { exact: true }).click();
-      await page.getByText("🛒 カートを見る", { exact: true }).click();
+      await page.getByText(/^🛒 カートを見る（\d+）$/).click();
       await page.getByText("注文を確定する", { exact: true }).click();
       for (
         let wait = 0;
@@ -722,7 +732,7 @@ const server = http.createServer((req, res) => {
       await page.getByRole("button", { name: "日本語", exact: true }).click();
       await page.getByText("テスト料理", { exact: true }).click();
       await page.getByText("カートに追加", { exact: true }).click();
-      await page.getByText("🛒 カートを見る", { exact: true }).click();
+      await page.getByText(/^🛒 カートを見る（\d+）$/).click();
       await page.getByText("注文を確定する", { exact: true }).click();
       await waitForDialog("注文の結果を確認できませんでした");
       await page
@@ -732,7 +742,7 @@ const server = http.createServer((req, res) => {
       await page.getByText("飲み物", { exact: true }).click();
       await page.getByText("お茶", { exact: true }).click();
       await page.getByText("カートに追加", { exact: true }).click();
-      await page.getByText("🛒 カートを見る", { exact: true }).click();
+      await page.getByText(/^🛒 カートを見る（\d+）$/).click();
       await page.getByText("注文を確定する", { exact: true }).click();
       await waitForDialog("前回の注文は受付済みです");
       page.off("dialog", answer);

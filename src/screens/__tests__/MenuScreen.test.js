@@ -16,6 +16,7 @@ import MenuScreen from "../MenuScreen";
 import { useLanguage } from "../../hooks/useLanguage";
 import { useNetworkStatus } from "../../hooks/useNetworkStatus";
 import * as api from "../../services/api";
+import { CartContext } from "../../context/CartContext";
 
 const mockNavigation = {
   navigate: jest.fn(),
@@ -304,7 +305,7 @@ describe("MenuScreen", () => {
     );
 
     await waitFor(async () => {
-      const cartButton = getByText("🛒 カートを見る");
+      const cartButton = getByText("🛒 カートは空です");
       await fireEvent.press(cartButton);
     });
 
@@ -315,6 +316,49 @@ describe("MenuScreen", () => {
       table: mockRoute.params.table,
     });
   });
+
+  test.each([
+    [
+      "ja",
+      "🛒 カートは空です",
+      "🛒 カートを見る（3）",
+      "✓ カートに追加しました",
+    ],
+    ["en", "🛒 Cart is empty", "🛒 View Cart (3)", "✓ Added to cart"],
+    ["zh", "🛒 购物车是空的", "🛒 查看购物车（3）", "✓ 已加入购物车"],
+  ])(
+    "the cart button shows the item count and an add is confirmed (%s)",
+    async (language, empty, three, added) => {
+      jest.useFakeTimers();
+      try {
+        useLanguage.mockReturnValue({
+          ...useLanguage(),
+          currentLanguage: language,
+        });
+        const menu = (itemCount) => (
+          <CartContext.Provider value={{ itemCount }}>
+            <MenuScreen navigation={mockNavigation} route={mockRoute} />
+          </CartContext.Provider>
+        );
+        const screen = await render(menu(0));
+        expect(await screen.findByText(empty)).toBeTruthy();
+        expect(screen.queryByText(added)).toBeNull();
+        // Coming back from the item detail after adding three.
+        await screen.rerender(menu(3));
+        expect(screen.getByText(three)).toBeTruthy();
+        expect(screen.getByText(added)).toBeTruthy();
+        await act(async () => jest.advanceTimersByTime(4000));
+        expect(screen.queryByText(added)).toBeNull();
+        expect(screen.getByText(three)).toBeTruthy();
+        // Ordering empties the cart; that is not an add.
+        await screen.rerender(menu(0));
+        expect(screen.getByText(empty)).toBeTruthy();
+        expect(screen.queryByText(added)).toBeNull();
+      } finally {
+        jest.useRealTimers();
+      }
+    }
+  );
 
   test("戻るボタンをタップすると前の画面に戻る", async () => {
     const { getByText } = await render(
