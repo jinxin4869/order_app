@@ -84,6 +84,13 @@ const LONG_WAIT_MINUTES = 10;
 const STALE_MS = 60 * 1000;
 // A single short beep is easy to miss, so repeat it until the staff check.
 const REMIND_MS = 60 * 1000;
+// Whether a row is listed after `last` (by created_at, then ID, as the server sorts).
+const comesAfter = (row, last, sort) => {
+  const later = sort === "oldest";
+  return row.created_at === last.created_at
+    ? row.id > last.id === later
+    : row.created_at > last.created_at === later;
+};
 const waitedMinutes = (order, now) =>
   ACTIVE.includes(order.status) && order.created_at
     ? Math.max(0, Math.floor((now - order.created_at) / 60000))
@@ -211,17 +218,39 @@ const OrderConsole = ({ session }) => {
             ...result.orders.map((order) => order.id),
           ]);
         }
-        setListing((previous) => ({
-          ...result,
-          orders: more
-            ? [
+        setListing((previous) => {
+          if (more)
+            return {
+              ...result,
+              extended: true,
+              orders: [
                 ...previous.orders,
                 ...result.orders.filter(
                   (order) => !previous.orders.some((old) => old.id === order.id)
                 ),
-              ]
-            : result.orders,
-        }));
+              ],
+            };
+          // The first page replaces only its own range; rows loaded after it
+          // stay, with the position to continue from.
+          const last = result.orders.at(-1);
+          const kept =
+            previous.extended && result.hasMore && last
+              ? previous.orders.filter(
+                  (row) =>
+                    !result.orders.some((order) => order.id === row.id) &&
+                    comesAfter(row, last, sort)
+                )
+              : [];
+          return kept.length
+            ? {
+                ...result,
+                extended: true,
+                orders: [...result.orders, ...kept],
+                hasMore: previous.hasMore,
+                cursor: previous.cursor,
+              }
+            : result;
+        });
         if (!more) syncDetail(result.orders);
         setError("");
         setLastRefresh(Date.now());
@@ -345,6 +374,14 @@ const OrderConsole = ({ session }) => {
       if (request !== detailRequest.current) return;
       setSelected(result.order);
       setNotice("");
+      // The refresh does not re-read rows after the first page: show what was
+      // just read there, and drop an order that has left "対応中".
+      setListing((previous) => ({
+        ...previous,
+        orders: previous.orders
+          .map((row) => (row.id === id ? { ...row, ...result.order } : row))
+          .filter((row) => view !== "active" || ACTIVE.includes(row.status)),
+      }));
     } catch {
       if (request === detailRequest.current)
         setNotice("詳細を取得できません。注文を選び直してください。");
@@ -599,6 +636,8 @@ const OrderConsole = ({ session }) => {
             <Text style={styles.muted}>
               15秒ごとに{sort === "oldest" ? "待ち時間の長い順に" : "最新の"}
               50件を取得
+              {listing.extended &&
+                "（読み込んだ前の注文は残します。その行の状態は、読み込んだときか詳細を開いたときのものです）"}
               {lastRefresh ? ` · 最終取得 ${dateLabel(lastRefresh)}` : ""}
             </Text>
             {!!soundMessage && <Text style={styles.muted}>{soundMessage}</Text>}

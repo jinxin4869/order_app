@@ -201,6 +201,126 @@ test("refresh identifies unseen orders and pagination requests the protected cur
     await screen.findByRole("button", { name: "新着 1件を確認" })
   ).toBeTruthy();
 });
+describe("rows loaded with さらに前の注文を読み込む", () => {
+  // Pages of two rows, newest first: o3 arrives after o2 and o1 were loaded.
+  const at = (n, status = "pending") => ({
+    ...order,
+    id: `o${n}`,
+    order_number: `20261009-00${n}`,
+    table_number: String(n),
+    status,
+    created_at: order.created_at + n * 60000,
+  });
+  const loadOlder = async (older) => {
+    listStaffOrders.mockResolvedValueOnce({
+      orders: [at(2)],
+      hasMore: true,
+      cursor: "o2",
+    });
+    const screen = await render(<StaffScreen />);
+    await screen.findByRole("button", { name: "注文 20261009-002 未受付" });
+    listStaffOrders.mockResolvedValueOnce({
+      orders: [older],
+      hasMore: false,
+      cursor: "o1",
+    });
+    await fireEvent.press(
+      screen.getByRole("button", { name: "さらに前の注文を読み込む" })
+    );
+    await screen.findByRole("button", {
+      name: new RegExp(`^注文 20261009-001`),
+    });
+    return screen;
+  };
+  test("stay after the periodic refresh, while new orders are still counted", async () => {
+    jest.useFakeTimers();
+    try {
+      const screen = await loadOlder(at(1));
+      listStaffOrders.mockResolvedValue({
+        orders: [at(3), at(2)],
+        hasMore: true,
+        cursor: "o2",
+      });
+      await act(async () => jest.advanceTimersByTime(15000));
+      expect(
+        await screen.findByRole("button", { name: "新着 1件を確認" })
+      ).toBeTruthy();
+      expect(
+        screen.getByRole("button", { name: "注文 20261009-001 未受付" })
+      ).toBeTruthy();
+      expect(
+        screen.queryByRole("button", { name: "さらに前の注文を読み込む" })
+      ).toBeNull();
+      await fireEvent.changeText(
+        screen.getByLabelText("テーブル番号で絞り込み"),
+        "1"
+      );
+      expect(screen.getByText(/読み込み済みの3件のうち1件を表示/)).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+  test("an older order this staff member finishes leaves the active list", async () => {
+    const screen = await loadOlder(at(1, "served"));
+    getStaffOrder.mockResolvedValueOnce({ order: at(1, "served") });
+    await fireEvent.press(
+      screen.getByRole("button", { name: "注文 20261009-001 提供済み" })
+    );
+    await fireEvent.press(
+      await screen.findByRole("button", { name: "対応を完了する" })
+    );
+    getStaffOrder.mockResolvedValueOnce({ order: at(1, "completed") });
+    listStaffOrders.mockResolvedValueOnce({
+      orders: [at(2)],
+      hasMore: true,
+      cursor: "o2",
+    });
+    await act(async () => showAlert.mock.calls[0][2][1].onPress());
+    expect(await screen.findByText("状態を更新しました。")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "一覧に戻る" }));
+    expect(
+      screen.queryByRole("button", { name: /^注文 20261009-001/ })
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "注文 20261009-002 未受付" })
+    ).toBeTruthy();
+  });
+  test("stay in the waiting-time order too, where later rows come after", async () => {
+    const screen = await render(<StaffScreen />);
+    await screen.findByRole("button", { name: "注文 20261009-001 未受付" });
+    listStaffOrders.mockResolvedValueOnce({
+      orders: [at(1)],
+      hasMore: true,
+      cursor: "o1",
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "待ち時間順" }));
+    await screen.findByRole("button", { name: "さらに前の注文を読み込む" });
+    listStaffOrders.mockResolvedValueOnce({
+      orders: [at(2)],
+      hasMore: false,
+      cursor: "o2",
+    });
+    await fireEvent.press(
+      screen.getByRole("button", { name: "さらに前の注文を読み込む" })
+    );
+    await screen.findByRole("button", { name: "注文 20261009-002 未受付" });
+    listStaffOrders.mockResolvedValueOnce({
+      orders: [at(1)],
+      hasMore: true,
+      cursor: "o1",
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    await waitFor(() =>
+      expect(listStaffOrders).toHaveBeenLastCalledWith({
+        view: "active",
+        sort: "oldest",
+      })
+    );
+    expect(
+      screen.getByRole("button", { name: "注文 20261009-002 未受付" })
+    ).toBeTruthy();
+  });
+});
 
 test("changing the order filter clears old rows and ignores an earlier in-flight refresh", async () => {
   const screen = await render(<StaffScreen />);
