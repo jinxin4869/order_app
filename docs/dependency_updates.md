@@ -21,7 +21,17 @@
 | Functions            | firebase-admin 14.5.0、firebase-functions 7.4.0、deepl-node 1.28.1 |
 | ESLint               | 10.13（ルートと Functions）                                        |
 
-Expo 管理下のパッケージ（react、react-native、expo-\*、jest-expo、babel-preset-expo など）は、`npx expo install --fix` が決めるバージョンに揃えます。Dependabot ではグループにまとめ、自動マージの対象から外しています。
+Expo 管理下のパッケージ（react、react-native、expo-\*、jest-expo、babel-preset-expo など）は、`npx expo install --fix` が決めるバージョンに揃えます。Dependabot のバージョン更新の対象からは外しています（下の「Dependabot の方針」）。
+
+## Dependabot の方針
+
+設定は `.github/dependabot.yml` と `.github/workflows/dependabot-auto-merge.yml` です。
+
+- **待機期間：** npm のバージョン更新は、公開から 7 日たった版だけを提案します。セキュリティ更新は待ちません。
+- **まとめ方：** patch・minor は、ルートと `/functions` のそれぞれで、本番依存（`production`）と開発依存（`development`）の 2 本にまとめます。メジャー更新は 1 パッケージ 1 本のままです。セキュリティ更新は、それぞれ `security` の 1 本にまとめます。
+- **自動マージ：** 対象は、開発依存と間接依存の patch・minor だけです。次のどれかを 1 つでも含む PR は、まとめた PR 全体を人が確認します：直接の本番依存（GitHub Actions を含む）、メジャー更新、0.x の minor 更新、Expo 管理下のパッケージ、更新の種類や更新前の版を読み取れない依存。
+- **Expo 管理下のパッケージ：** Dependabot のバージョン更新では提案しません（`ignore`）。Dependabot は npm の最新版を選ぶため、Expo の期待する版とずれることがあるためです。本番依存の PR を確認するときに `npx expo install --check` を実行し、差があれば `npx expo install --fix` で揃えます。セキュリティ更新は届きます。
+- **見送るメジャー更新：** ルートの `@babel/core`（Expo・Metro・jest 系が Babel 7 を要求）と `jest`（jest-expo の peer が対応するメジャーのみ）は、メジャー更新を提案しません。Expo SDK を上げるときに見直します。
 
 ## Expo SDK の更新手順と注意点
 
