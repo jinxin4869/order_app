@@ -218,6 +218,8 @@ exports.getMenuAvailability = onAppCall({}, async (request) => {
  * @param {Object} data - {qrData: string}
  * @returns {Object} - {valid: boolean, restaurant, table, error}
  */
+// A refusal carries "reason" for the customer's screen to word in three
+// languages; "error" is the older Japanese text, kept for older clients.
 exports.validateQRCode = onAppCall({}, async (request) => {
   const { qrData } = request.data || {};
 
@@ -226,6 +228,7 @@ exports.validateQRCode = onAppCall({}, async (request) => {
     return {
       valid: false,
       error: "Invalid QR code format",
+      reason: "invalid_format",
     };
   }
 
@@ -235,6 +238,7 @@ exports.validateQRCode = onAppCall({}, async (request) => {
       valid: false,
       error:
         "Invalid QR code format: Expected restaurantId/tableId or an order URL",
+      reason: "invalid_format",
     };
   const { restaurantId, tableId } = session;
 
@@ -252,6 +256,7 @@ exports.validateQRCode = onAppCall({}, async (request) => {
       return {
         valid: false,
         error: "指定されたレストランが見つかりません。",
+        reason: "restaurant_not_found",
       };
     }
 
@@ -262,6 +267,7 @@ exports.validateQRCode = onAppCall({}, async (request) => {
       return {
         valid: false,
         error: "現在、このレストランは営業しておりません。",
+        reason: "restaurant_inactive",
       };
     }
 
@@ -280,13 +286,18 @@ exports.validateQRCode = onAppCall({}, async (request) => {
       return {
         valid: false,
         error: "指定されたテーブルが見つかりません。",
+        reason: "table_not_found",
       };
     }
 
     const table = tableDoc.data();
 
     if (table.is_active === false || table.status === "unavailable") {
-      return { valid: false, error: "このテーブルは現在利用できません。" };
+      return {
+        valid: false,
+        error: "このテーブルは現在利用できません。",
+        reason: "table_unavailable",
+      };
     }
 
     if (
@@ -300,6 +311,7 @@ exports.validateQRCode = onAppCall({}, async (request) => {
         valid: false,
         error:
           "このQRコードは使えません。テーブルのQRコードを読み取り直すか、スタッフへお声がけください。",
+        reason: "token_mismatch",
       };
 
     const storedSession = table.qr_code ? parseQRCode(table.qr_code) : null;
@@ -312,6 +324,7 @@ exports.validateQRCode = onAppCall({}, async (request) => {
       return {
         valid: false,
         error: "無効なQRコードです（データの不一致）。",
+        reason: "qr_mismatch",
       };
     }
 
@@ -341,6 +354,7 @@ exports.validateQRCode = onAppCall({}, async (request) => {
       valid: false,
       error:
         "QRコードの検証中に通信エラーが発生しました。時間を置いて再度お試しください。",
+      reason: "check_failed",
     };
   }
 });

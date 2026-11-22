@@ -151,7 +151,8 @@ describe("QRScannerScreen", () => {
     it("APIが無効な応答を返した場合はエラーアラートが表示される", async () => {
       api.validateQRCode.mockResolvedValue({
         valid: false,
-        error: "テーブルが見つかりません",
+        error: "指定されたテーブルが見つかりません。",
+        reason: "table_not_found",
       });
 
       const { container } = await render(
@@ -171,7 +172,7 @@ describe("QRScannerScreen", () => {
       await waitFor(() => {
         expect(Alert.alert).toHaveBeenCalledWith(
           "エラー / Error / 错误",
-          "テーブルが見つかりません",
+          "このテーブルが見つかりません。スタッフにお声がけください。\nThis table could not be found. Please ask a staff member.\n找不到该餐桌。请联系店员。",
           expect.any(Array)
         );
       });
