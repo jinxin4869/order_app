@@ -9,7 +9,12 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { COLORS, FONT_SIZES, MAX_ORDER_QUANTITY } from "../constants";
+import {
+  COLORS,
+  FONT_SIZES,
+  MAX_ORDER_QUANTITY,
+  MAX_ORDER_TOTAL_QUANTITY,
+} from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
 import { useResponsive } from "../hooks/useResponsive";
 import { CartContext } from "../context/CartContext";
@@ -37,6 +42,7 @@ const CartScreen = ({ navigation, route }) => {
     prepareOrder,
     isOrderRequestCurrent,
     isEmpty,
+    itemCount,
   } = useContext(CartContext);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,7 +53,11 @@ const CartScreen = ({ navigation, route }) => {
     isSoldOut({ id: item.id, is_available: true }, availability);
   const hasSoldOut = items.some(soldOut);
   const orderingClosed = ["paused", "invalid"].includes(availability.ordering);
-  const cannotOrder = hasSoldOut || orderingClosed;
+  // One order holds at most MAX_ORDER_TOTAL_QUANTITY items across its lines;
+  // the server refuses more (docs/order_api.md).
+  const totalFull = itemCount >= MAX_ORDER_TOTAL_QUANTITY;
+  const tooMany = itemCount > MAX_ORDER_TOTAL_QUANTITY;
+  const cannotOrder = hasSoldOut || orderingClosed || tooMany;
 
   // テキスト取得用ヘルパー
   const t = (ja, en, zh) => {
@@ -63,7 +73,7 @@ const CartScreen = ({ navigation, route }) => {
   // 数量変更
   const handleQuantityChange = (item, delta) => {
     const newQuantity = item.quantity + delta;
-    if (newQuantity > MAX_ORDER_QUANTITY) return;
+    if (newQuantity > MAX_ORDER_QUANTITY || (delta > 0 && totalFull)) return;
     if (newQuantity <= 0) {
       handleRemoveItem(item);
     } else {
@@ -412,7 +422,10 @@ const CartScreen = ({ navigation, route }) => {
           ]}
           onPress={() => handleQuantityChange(item, 1)}
           disabled={
-            item.quantity >= MAX_ORDER_QUANTITY || isSubmitting || soldOut(item)
+            item.quantity >= MAX_ORDER_QUANTITY ||
+            totalFull ||
+            isSubmitting ||
+            soldOut(item)
           }
           accessibilityRole="button"
           accessibilityLabel={t(
@@ -423,6 +436,7 @@ const CartScreen = ({ navigation, route }) => {
           accessibilityState={{
             disabled:
               item.quantity >= MAX_ORDER_QUANTITY ||
+              totalFull ||
               isSubmitting ||
               soldOut(item),
           }}
@@ -430,7 +444,9 @@ const CartScreen = ({ navigation, route }) => {
           <Text
             style={[
               styles.quantityButtonText,
-              item.quantity >= MAX_ORDER_QUANTITY && { color: COLORS.disabled },
+              (item.quantity >= MAX_ORDER_QUANTITY || totalFull) && {
+                color: COLORS.disabled,
+              },
               { fontSize: scaleSize(18, 14, 20) },
             ]}
           >
@@ -550,6 +566,24 @@ const CartScreen = ({ navigation, route }) => {
           isSmallScreen && styles.summaryContainerSmall,
         ]}
       >
+        {totalFull && (
+          <Text
+            accessibilityLiveRegion="polite"
+            style={tooMany ? styles.soldOutNote : styles.itemNotes}
+          >
+            {t(
+              `1回の注文は合計${MAX_ORDER_TOTAL_QUANTITY}個までです（カート内${itemCount}個）`,
+              `One order can have up to ${MAX_ORDER_TOTAL_QUANTITY} items (${itemCount} in cart)`,
+              `每次订单最多${MAX_ORDER_TOTAL_QUANTITY}份（购物车内${itemCount}份）`
+            )}
+            {tooMany &&
+              t(
+                "。数量を減らしてください。",
+                ". Please reduce the quantities.",
+                "。请减少数量。"
+              )}
+          </Text>
+        )}
         <View style={styles.totalRow}>
           <Text
             style={[styles.totalLabel, isSmallScreen && styles.totalLabelSmall]}
