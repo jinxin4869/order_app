@@ -29,7 +29,7 @@
 | [README](../README.md)                            | 初期構築、検証、デプロイ、利用の流れ                   |
 | [テストガイド](TESTING.md)                        | 各テストの対象と接続先                                 |
 | [ローカルの合成デモデータ](demo_setup.md)         | エミュレーターへの合成データの投入                     |
-| [依存ライブラリ更新と監査](dependency_updates.md) | 現在のバージョン、Expo SDKの更新手順、監査の例外と期限 |
+| [依存ライブラリ更新と監査](dependency_updates.md) | バージョンの記録、Expo SDKの更新手順、監査の例外と期限 |
 | [監査の例外](dependency-audit-exceptions.json)    | 期限付きの例外（CIが読む）                             |
 | [開発環境構築手順書](development_environment.md)  | 実機設定などの補足（初期の資料を含む）                 |
 | [WSLでのAndroid開発環境](ANDROID_WSL_SETUP.md)    | WSLでのエミュレーター                                  |
