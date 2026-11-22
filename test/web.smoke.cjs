@@ -401,7 +401,7 @@ const server = http.createServer((req, res) => {
       await page.getByText("注文を確定する", { exact: true }).click();
       assert.equal(calls.filter((c) => c.name === "createOrder").length, 0);
       assert.deepEqual(confirmations, [
-        "注文確認\n\n合計 ¥1,308（税込）で注文を確定しますか？",
+        "注文確認\n\n合計 ¥1,308（税込）で注文を確定しますか？\n\nOK → 注文する",
       ]);
       page.once("dialog", (dialog) => dialog.accept());
       await page.getByText("注文を確定する", { exact: true }).click();
@@ -534,11 +534,20 @@ const server = http.createServer((req, res) => {
         .getByRole("button", { name: "注文 20261009-002 未受付", exact: true })
         .click();
       await page.getByText("要望：ねぎ抜き", { exact: true }).waitFor();
-      page.once("dialog", (dialog) => dialog.accept());
+      let statusQuestion = "";
+      page.once("dialog", (dialog) => {
+        statusQuestion = dialog.message();
+        dialog.accept();
+      });
       await page
         .getByRole("button", { name: "注文を受け付ける", exact: true })
         .click();
       await page.getByText("状態を更新しました。", { exact: true }).waitFor();
+      // The browser shows its own OK / キャンセル; the text names the one that acts.
+      assert.equal(
+        statusQuestion,
+        "注文の状態を変更\n\n20261009-002を「受付済み」に変更しますか？\n\nOK → 変更する"
+      );
       page.once("dialog", (dialog) => dialog.accept());
       await page
         .getByRole("button", { name: "調理を開始する", exact: true })
