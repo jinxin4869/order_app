@@ -16,8 +16,10 @@ App Checkを強制すると、トークンを持たないクライアントか�
 
 `ENFORCE_APP_CHECK`は値が`true`のときだけ有効です。未設定・`false`・その他の値では強制しません。無効なトークンはFirebaseのCallable基盤が常に拒否するため、この設定が制御するのは「トークンなし」の呼び出しだけです。
 
+Functionsのデプロイ前のチェックは、`ENFORCE_APP_CHECK`が`true`か`false`で明示されていないとデプロイを中止します。強制しない間も`ENFORCE_APP_CHECK=false`と書いてください。次のデプロイで使われる値は`node functions/scripts/check-deploy-env.js <project-id>`で確認できます（[README「公開する場合」](../README.md#公開する場合)）。
+
 ネイティブアプリ（Android/iOS）はこの設定ではApp Checkトークンを送りません。ネイティブ版を本番で使う場合は、強制を有効にする前にネイティブ用のプロバイダーを導入してください。
 
 ## 戻し方
 
-拒否が多発した場合は、`functions/.env`の`ENFORCE_APP_CHECK`を削除するか`false`にして、Functionsを再デプロイします。フロントの再ビルドは不要です。
+拒否が多発した場合は、`functions/.env`の`ENFORCE_APP_CHECK`を`false`にして、Functionsを再デプロイします。フロントの再ビルドは不要です。

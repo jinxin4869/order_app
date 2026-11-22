@@ -18,11 +18,15 @@ const csp = hostingHeaders.find(
 // expo-camera fetches the zxing wasm from a versioned CDN path when the
 // browser lacks BarcodeDetector; the CSP must allow exactly that version.
 const jsDir = path.join(root, "_expo/static/js/web");
-for (const file of fs.readdirSync(jsDir))
-  for (const [cdn] of fs
-    .readFileSync(path.join(jsDir, file), "utf8")
-    .matchAll(/https:\/\/fastly\.jsdelivr\.net\/npm\/[^/"'`]+\//g))
+for (const file of fs.readdirSync(jsDir)) {
+  const source = fs.readFileSync(path.join(jsDir, file), "utf8");
+  // The demo entry belongs to development builds only.
+  assert.ok(!source.includes("[Demo] Skip"), `${file} has the demo entry`);
+  for (const [cdn] of source.matchAll(
+    /https:\/\/fastly\.jsdelivr\.net\/npm\/[^/"'`]+\//g
+  ))
     assert.ok(csp.includes(cdn), `CSP connect-src is missing ${cdn}`);
+}
 const TABLE_TOKEN = "synthetic-table-token-1";
 const server = http.createServer((req, res) => {
   for (const { key, value } of hostingHeaders) res.setHeader(key, value);
@@ -574,7 +578,9 @@ const server = http.createServer((req, res) => {
       const lost = calls
         .filter((c) => c.name === "createOrder")
         .slice(ordersBefore);
-      assert.ok(lost.length >= 1);
+      // The browser reports the lost response as a failed fetch, which the
+      // app sends again by itself: three attempts, all with the same ID.
+      assert.equal(lost.length, 3);
       assert.equal(new Set(lost.map((c) => c.data.requestId)).size, 1);
       // The token scanned from the table goes with the order and survives a reload.
       assert.ok(lost.every((c) => c.data.tableToken === TABLE_TOKEN));
@@ -597,10 +603,19 @@ const server = http.createServer((req, res) => {
         .getByRole("button", { name: "注文内容を見る", exact: true })
         .click();
       await page.getByText("20261009-003", { exact: true }).waitFor();
-      // The device's visit lists both orders it sent from this table.
+      // "Finish" keeps the customer at this table: it returns to the menu,
+      // not to the scanner at "/", so the order history stays reachable.
+      await page.getByText("終了する", { exact: true }).click();
       await page
-        .getByRole("button", { name: "注文履歴を見る", exact: true })
-        .click();
+        .getByText("テスト料理", { exact: true })
+        .filter({ visible: true })
+        .waitFor();
+      assert.ok(
+        page.url().includes("/order?restaurant=rest-test&table=table-test"),
+        page.url()
+      );
+      // The device's visit lists both orders it sent from this table.
+      await page.getByRole("button", { name: "注文履歴", exact: true }).click();
       await page
         .getByText(/^この端末から送った注文だけを表示します。/)
         .waitFor();
@@ -618,13 +633,89 @@ const server = http.createServer((req, res) => {
         calls.filter((c) => c.name === "createOrder").length,
         ordersBefore + lost.length
       );
+      // The response is lost again, and this time the customer adds a drink
+      // before confirming. The device asks about the first order and does
+      // not send the changed cart as a second order.
+      const changedBefore = calls.filter((c) => c.name === "createOrder");
+      const waitForDialog = async (text) => {
+        for (
+          let wait = 0;
+          wait < 150 && !dialogs.some((m) => m.includes(text));
+          wait++
+        )
+          await page.waitForTimeout(100);
+        assert.ok(
+          dialogs.some((m) => m.includes(text)),
+          JSON.stringify(dialogs)
+        );
+      };
+      dialogs.length = 0;
+      page.on("dialog", answer);
+      await page.goto(
+        `http://127.0.0.1:4173/order?restaurant=rest-test&table=table-test&token=${TABLE_TOKEN}`
+      );
+      await page.getByRole("button", { name: "日本語", exact: true }).click();
+      await page.getByText("テスト料理", { exact: true }).click();
+      await page.getByText("カートに追加", { exact: true }).click();
+      await page.getByText("🛒 カートを見る", { exact: true }).click();
+      await page.getByText("注文を確定する", { exact: true }).click();
+      await waitForDialog("注文の結果を確認できませんでした");
+      await page
+        .getByText("←", { exact: true })
+        .filter({ visible: true })
+        .click();
+      await page.getByText("飲み物", { exact: true }).click();
+      await page.getByText("お茶", { exact: true }).click();
+      await page.getByText("カートに追加", { exact: true }).click();
+      await page.getByText("🛒 カートを見る", { exact: true }).click();
+      await page.getByText("注文を確定する", { exact: true }).click();
+      await waitForDialog("前回の注文は受付済みです");
+      page.off("dialog", answer);
+      const changed = calls
+        .filter((c) => c.name === "createOrder")
+        .slice(changedBefore.length);
+      assert.equal(new Set(changed.map((c) => c.data.requestId)).size, 1);
+      assert.deepEqual(
+        changed[0].data.items.map((item) => item.item_id),
+        ["test-item"]
+      );
+      assert.equal(
+        calls.filter((c) => c.name === "getOrderRequest").pop().data.requestId,
+        changed[0].data.requestId
+      );
+      await page
+        .getByText(
+          "前回の注文は受け付けられています（注文番号 20261009-003）。",
+          { exact: true }
+        )
+        .filter({ visible: true })
+        .waitFor();
+      // Only the drink added afterwards is left in the cart.
+      await page
+        .getByText("注文を確定する", { exact: true })
+        .filter({ visible: true })
+        .waitFor();
+      assert.equal(
+        await page
+          .getByText("テスト料理", { exact: true })
+          .filter({ visible: true })
+          .count(),
+        0
+      );
+      assert.equal(
+        await page
+          .getByText("お茶", { exact: true })
+          .filter({ visible: true })
+          .count(),
+        1
+      );
       loseOrderResponses = false;
       assert.equal(errors.length, 0, JSON.stringify(errors));
       assert.deepEqual(cspViolations, []);
       console.log(
         "PASS",
         viewport.width,
-        "lost order response recovered after reload"
+        "lost order response recovered after reload, changed cart not reordered"
       );
       await page.close();
     }

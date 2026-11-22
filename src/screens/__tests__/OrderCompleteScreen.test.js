@@ -6,6 +6,7 @@ jest.mock("../../hooks/useLanguage");
 
 import React from "react";
 import { render, fireEvent, waitFor } from "@testing-library/react-native";
+import { Platform } from "react-native";
 import OrderCompleteScreen from "../OrderCompleteScreen";
 import { useLanguage } from "../../hooks/useLanguage";
 
@@ -104,7 +105,30 @@ describe("OrderCompleteScreen", () => {
     });
   });
 
-  it("終了ボタンを押すとQRスキャン画面にリセットする", async () => {
+  it("Webでは終了ボタンを押すと同じテーブルのメニュー画面まで戻る", async () => {
+    const platform = jest.replaceProperty(Platform, "OS", "web");
+    try {
+      const { getByText } = await render(
+        <OrderCompleteScreen navigation={mockNavigation} route={mockRoute} />
+      );
+
+      jest.advanceTimersByTime(1000);
+
+      await fireEvent.press(getByText("終了する"));
+
+      expect(mockNavigation.popTo).toHaveBeenCalledWith("Menu", {
+        restaurantId: "restaurant_01",
+        tableId: "table_01",
+        restaurant: { name: "テストレストラン" },
+        table: { table_number: "1" },
+      });
+      expect(mockNavigation.reset).not.toHaveBeenCalled();
+    } finally {
+      platform.restore();
+    }
+  });
+
+  it("ネイティブでは終了ボタンを押すとQRスキャン画面にリセットする", async () => {
     const { getByText } = await render(
       <OrderCompleteScreen navigation={mockNavigation} route={mockRoute} />
     );
@@ -118,6 +142,7 @@ describe("OrderCompleteScreen", () => {
       index: 0,
       routes: [{ name: "QRScanner" }],
     });
+    expect(mockNavigation.popTo).not.toHaveBeenCalled();
   });
 
   describe("言語切り替え", () => {

@@ -162,6 +162,14 @@ async function main() {
     await serverDb
       .doc("restaurants/rest-test/tables/table-limit")
       .set({ status: "available", table_number: "9" });
+    // The table limit counts in fixed 10-minute windows that reset on the
+    // clock (docs/order_limits.md), so requests on both sides of a reset are
+    // accepted up to twice the limit. The six requests below take a few
+    // seconds; start them only with 30 seconds of the window left. The wait
+    // is at most 30 seconds and happens in about one run in twenty.
+    const windowLeft = 10 * 60 * 1000 - (Date.now() % (10 * 60 * 1000));
+    if (windowLeft < 30 * 1000)
+      await new Promise((resolve) => setTimeout(resolve, windowLeft + 20));
     process.env.ENFORCE_ORDER_LIMITS = "true";
     process.env.ORDER_LIMIT_PER_TABLE = "3";
     try {

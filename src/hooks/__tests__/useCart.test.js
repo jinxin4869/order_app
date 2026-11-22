@@ -249,9 +249,13 @@ test("a language change after a lost response resends the first payload and ID",
   const changed = orderData({
     items: [{ ...orderData().items[0], quantity: 2 }],
   });
-  expect((await result.current.prepareOrder(changed)).requestId).not.toBe(
-    first.requestId
-  );
+  // The first send is still unresolved, so a changed cart asks about it first.
+  getOrderRequest.mockResolvedValue({ accepted: false });
+  let next;
+  await act(async () => {
+    next = await result.current.prepareOrder(changed);
+  });
+  expect(next.requestId).not.toBe(first.requestId);
 });
 test("the pending order is stored before sending and forgotten with the cart", async () => {
   const { result } = await renderHook(() =>
@@ -346,6 +350,109 @@ test("a check that answers after switching tables does not touch the new table",
     answer({ accepted: true, orderId: "order-1", orderNumber: "001" })
   );
   expect(result.current.recovery).toBeNull();
+});
+
+// #139: the response to the first send was lost, then the customer adds a drink.
+const noodles = { id: "item-test", name_ja: "料理", price: 1000 };
+const drink = { id: "item-drink", name_ja: "ビール", price: 500 };
+const changedAfterLostResponse = async () => {
+  const view = await renderHook(() =>
+    useCart({ restaurantId: "rest-test", tableId: "table-test" })
+  );
+  const line = { ...orderData().items[0], quantity: 2 };
+  const firstData = orderData({ items: [line] });
+  await act(() => view.result.current.addItem(noodles, 2));
+  const first = await view.result.current.prepareOrder(firstData);
+  await act(() => view.result.current.addItem(drink, 1));
+  const changed = orderData({
+    items: [line, { ...line, item_id: "item-drink", quantity: 1, price: 500 }],
+  });
+  // Resolves to the payload to send, or to the error that stopped the send.
+  const prepare = async (data) => {
+    let outcome;
+    await act(async () => {
+      outcome = await view.result.current
+        .prepareOrder(data)
+        .catch((error) => error);
+    });
+    return outcome;
+  };
+  return { ...view, first, firstData, changed, prepare };
+};
+const storedPayload = async () =>
+  JSON.parse(await AsyncStorage.getItem(STORED))?.payload;
+
+test("a changed cart is not sent when the first order turns out to be accepted", async () => {
+  const { result, first, changed, prepare } = await changedAfterLostResponse();
+  getOrderRequest.mockResolvedValue({
+    accepted: true,
+    orderId: "order-1",
+    orderNumber: "20261025-001",
+  });
+  const outcome = await prepare(changed);
+  expect(outcome.details).toEqual({ reason: "previous_order_accepted" });
+  expect(getOrderRequest).toHaveBeenCalledTimes(1);
+  expect(getOrderRequest).toHaveBeenCalledWith(first);
+  expect(result.current.recovery).toMatchObject({
+    state: "accepted",
+    result: { orderNumber: "20261025-001" },
+  });
+  expect(await AsyncStorage.getItem(STORED)).toBeNull();
+  // The accepted lines leave the cart; only what was added since stays.
+  expect(result.current.items).toEqual([
+    expect.objectContaining({ id: "item-drink", quantity: 1 }),
+  ]);
+  // What is left is a further order with its own ID, sent without asking again.
+  const rest = orderData({ items: [changed.items[1]] });
+  const further = await prepare(rest);
+  expect(further.requestId).not.toBe(first.requestId);
+  expect(getOrderRequest).toHaveBeenCalledTimes(1);
+});
+test("a changed cart is sent with a new ID once the first order is known not to be accepted", async () => {
+  const { result, first, changed, prepare } = await changedAfterLostResponse();
+  getOrderRequest.mockResolvedValue({ accepted: false });
+  const payload = await prepare(changed);
+  expect(getOrderRequest).toHaveBeenCalledWith(first);
+  expect(payload.requestId).toEqual(expect.any(String));
+  expect(payload.requestId).not.toBe(first.requestId);
+  expect(payload.items).toHaveLength(2);
+  expect(result.current.recovery).toBeNull();
+  expect(await storedPayload()).toEqual(payload);
+  expect(result.current.items).toHaveLength(2);
+});
+test("a changed cart is not sent while the first order cannot be checked", async () => {
+  const { result, first, firstData, changed, prepare } =
+    await changedAfterLostResponse();
+  getOrderRequest.mockRejectedValueOnce(new Error("offline"));
+  const outcome = await prepare(changed);
+  expect(outcome.details).toEqual({ reason: "previous_order_unconfirmed" });
+  expect(getOrderRequest).toHaveBeenCalledWith(first);
+  expect(result.current.recovery?.state).toBe("error");
+  // The first order stays on record and the cart is untouched.
+  expect(await storedPayload()).toEqual(first);
+  expect(result.current.items).toHaveLength(2);
+  // The unchanged first cart is still resent with its ID, without a check.
+  expect(await prepare(firstData)).toEqual(first);
+  expect(getOrderRequest).toHaveBeenCalledTimes(1);
+  // Confirming the changed cart again checks again.
+  getOrderRequest.mockResolvedValueOnce({ accepted: false });
+  expect((await prepare(changed)).requestId).not.toBe(first.requestId);
+  expect(getOrderRequest).toHaveBeenCalledTimes(2);
+});
+test("checking again from the notice also takes an accepted order out of the cart", async () => {
+  const { result, changed, prepare } = await changedAfterLostResponse();
+  getOrderRequest.mockRejectedValueOnce(new Error("offline"));
+  await prepare(changed);
+  getOrderRequest.mockResolvedValueOnce({
+    accepted: true,
+    orderId: "order-1",
+    orderNumber: "20261025-001",
+  });
+  await act(() => result.current.retryRecovery());
+  await waitFor(() => expect(result.current.recovery?.state).toBe("accepted"));
+  expect(result.current.items).toEqual([
+    expect.objectContaining({ id: "item-drink", quantity: 1 }),
+  ]);
 });
 
 const VISIT = "@qr_order_visit";
