@@ -530,6 +530,8 @@ const server = http.createServer((req, res) => {
         .getByLabel("パスワード", { exact: true })
         .fill("synthetic-password");
       await page.getByRole("button", { name: "ログイン", exact: true }).click();
+      // Sound is off until a staff member turns it on; the screen says so.
+      await page.getByText(/^通知音がオフです。/).waitFor();
       await page
         .getByRole("button", { name: "注文 20261009-002 未受付", exact: true })
         .click();

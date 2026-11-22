@@ -39,6 +39,7 @@ import {
   disableAlertSound,
   playNewOrderAlert,
   showTitleBadge,
+  alertSoundAvailable,
 } from "../utils/newOrderAlert";
 
 const Action = ({ children, onPress, disabled, secondary = false }) => (
@@ -81,6 +82,8 @@ const LONG_WAIT_MINUTES = 10;
 // Orders unreachable this long (4 missed polls) means switching to the
 // manual fallback should be considered (docs/incident_runbook.md).
 const STALE_MS = 60 * 1000;
+// A single short beep is easy to miss, so repeat it until the staff check.
+const REMIND_MS = 60 * 1000;
 const waitedMinutes = (order, now) =>
   ACTIVE.includes(order.status) && order.created_at
     ? Math.max(0, Math.floor((now - order.created_at) / 60000))
@@ -247,6 +250,11 @@ const OrderConsole = ({ session }) => {
   useEffect(() => {
     showTitleBadge(newCount);
   }, [newCount]);
+  useEffect(() => {
+    if (!soundOn || !newCount) return;
+    const timer = setInterval(playNewOrderAlert, REMIND_MS);
+    return () => clearInterval(timer);
+  }, [soundOn, newCount]);
   useEffect(
     () => () => {
       showTitleBadge(0);
@@ -547,6 +555,11 @@ const OrderConsole = ({ session }) => {
               {lastRefresh ? ` · 最終取得 ${dateLabel(lastRefresh)}` : ""}
             </Text>
             {!!soundMessage && <Text style={styles.muted}>{soundMessage}</Text>}
+            {!soundOn && !soundMessage && alertSoundAvailable() && (
+              <Text style={styles.soundOff}>
+                通知音がオフです。新しい注文が届いても音は鳴りません。「通知音をオンにする」を押してください。
+              </Text>
+            )}
             {listing.limitAlert && (
               <Text accessibilityRole="alert" style={styles.error}>
                 直近1時間に、短時間の連続注文の制限が{listing.limitAlert.count}
@@ -1064,6 +1077,16 @@ const styles = StyleSheet.create({
   outage: {
     color: "#FFFFFF",
     backgroundColor: "#B71C1C",
+    fontSize: 16,
+    fontWeight: "700",
+    padding: 12,
+    borderRadius: 8,
+  },
+  soundOff: {
+    color: "#8A3B00",
+    backgroundColor: "#FFF3E0",
+    borderWidth: 1,
+    borderColor: COLORS.warning,
     fontSize: 16,
     fontWeight: "700",
     padding: 12,
