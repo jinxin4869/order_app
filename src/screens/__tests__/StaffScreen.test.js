@@ -630,6 +630,118 @@ test("corrected orders are flagged in the list and show what changed", async () 
     screen.getByRole("button", { name: "数量を訂正する（減数・取消）" })
   ).toBeTruthy();
 });
+describe("the open detail follows changes made by other staff", () => {
+  const three = {
+    ...order,
+    revision: 0,
+    items: [{ name_ja: "テスト料理", quantity: 3, price: 1000 }],
+  };
+  const reduced = {
+    ...three,
+    revision: 1,
+    corrected: true,
+    items: [
+      { name_ja: "テスト料理", quantity: 1, original_quantity: 3, price: 1000 },
+    ],
+  };
+  const openThree = async () => {
+    listStaffOrders.mockResolvedValue({ orders: [three], hasMore: false });
+    getStaffOrder.mockResolvedValue({ order: three });
+    const screen = await render(<StaffScreen />);
+    await fireEvent.press(
+      await screen.findByRole("button", { name: "注文 20261009-001 未受付" })
+    );
+    await screen.findByText("× 3");
+    return screen;
+  };
+  test("a correction shows on the next refresh, and an unchanged order is not re-read", async () => {
+    const screen = await openThree();
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    expect(getStaffOrder).toHaveBeenCalledTimes(1);
+    listStaffOrders.mockResolvedValue({ orders: [reduced], hasMore: false });
+    getStaffOrder.mockResolvedValue({ order: reduced });
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    expect(await screen.findByText("訂正：3 → 1")).toBeTruthy();
+    expect(screen.queryByText("× 3")).toBeNull();
+    expect(
+      screen.getByText(/他のスタッフがこの注文を更新しました/)
+    ).toBeTruthy();
+  });
+  test("a status change keeps the cancellation reason being typed", async () => {
+    const screen = await openThree();
+    await fireEvent.changeText(
+      screen.getByLabelText("キャンセル理由（任意）"),
+      "お客様の都合"
+    );
+    const confirmed = { ...three, status: "confirmed" };
+    listStaffOrders.mockResolvedValue({ orders: [confirmed], hasMore: false });
+    getStaffOrder.mockResolvedValue({ order: confirmed });
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    expect(
+      await screen.findByRole("button", { name: "調理を開始する" })
+    ).toBeTruthy();
+    expect(screen.getByLabelText("キャンセル理由（任意）").props.value).toBe(
+      "お客様の都合"
+    );
+  });
+  test("a cancellation that drops the order from the active list still shows", async () => {
+    const screen = await openThree();
+    listStaffOrders.mockResolvedValue({ orders: [], hasMore: false });
+    getStaffOrder.mockResolvedValue({
+      order: { ...three, status: "cancelled" },
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    expect(await screen.findByText("テーブル 1 · キャンセル")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "注文を受け付ける" })
+    ).toBeNull();
+  });
+  test("a correction in progress is kept, and the staff are told to reload", async () => {
+    const screen = await openThree();
+    await fireEvent.press(
+      screen.getByRole("button", { name: "数量を訂正する（減数・取消）" })
+    );
+    await fireEvent.press(
+      screen.getByRole("button", { name: "テスト料理を1つ減らす" })
+    );
+    listStaffOrders.mockResolvedValue({ orders: [reduced], hasMore: false });
+    getStaffOrder.mockResolvedValue({ order: reduced });
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    expect(
+      await screen.findByText(/訂正をやめて「詳細を再取得」/)
+    ).toBeTruthy();
+    expect(screen.getByText("テスト料理：3 → 2")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "やめる" }));
+    await fireEvent.press(screen.getByRole("button", { name: "詳細を再取得" }));
+    expect(await screen.findByText("訂正：3 → 1")).toBeTruthy();
+  });
+  test("this staff member's own correction is not reported as someone else's", async () => {
+    const { correctOrderItems } = require("../../services/api");
+    correctOrderItems.mockResolvedValue({
+      status: "pending",
+      total_amount: 1100,
+    });
+    const screen = await openThree();
+    await fireEvent.press(
+      screen.getByRole("button", { name: "数量を訂正する（減数・取消）" })
+    );
+    await fireEvent.press(
+      screen.getByRole("button", { name: "テスト料理を1つ減らす" })
+    );
+    await fireEvent.changeText(
+      screen.getByLabelText("訂正の理由（必須）"),
+      "品切れ"
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "訂正を保存" }));
+    listStaffOrders.mockResolvedValue({ orders: [reduced], hasMore: false });
+    getStaffOrder.mockResolvedValue({ order: reduced });
+    await act(async () => showAlert.mock.calls.at(-1)[2][1].onPress());
+    expect(await screen.findByText("訂正：3 → 1")).toBeTruthy();
+    await waitFor(() => expect(listStaffOrders).toHaveBeenCalledTimes(2));
+    expect(screen.getByText(/訂正しました/)).toBeTruthy();
+    expect(screen.queryByText(/他のスタッフ/)).toBeNull();
+  });
+});
 test("an order-fetch outage over a minute is announced once, then its recovery", async () => {
   jest.useFakeTimers();
   try {
