@@ -40,25 +40,62 @@ test("invalid URLs do not call the server", async () => {
   await waitFor(() => expect(getByRole("alert")).toBeTruthy());
   expect(validateQRCode).not.toHaveBeenCalled();
 });
-test("stopped tables are shown without starting a session", async () => {
-  validateQRCode.mockResolvedValue({ valid: false, error: "Stopped table" });
-  const navigation = { reset: jest.fn() };
-  const { getByText } = await render(
-    <OrderEntryScreen navigation={navigation} route={{ params }} />
-  );
-  await waitFor(() => expect(getByText("Stopped table")).toBeTruthy());
-  expect(navigation.reset).not.toHaveBeenCalled();
-});
+// The language is chosen after this screen, so refusals show all three.
+test.each([
+  [
+    "table_unavailable",
+    "このテーブルは現在利用できません。スタッフにお声がけください。 / This table is not available now. Please ask a staff member. / 该餐桌目前无法使用。请联系店员。",
+  ],
+  [
+    "restaurant_inactive",
+    "この店舗は現在、営業していません。スタッフにお声がけください。 / This restaurant is not open now. Please ask a staff member. / 该店铺目前未营业。请联系店员。",
+  ],
+  [
+    "restaurant_not_found",
+    "この店舗が見つかりません。スタッフにお声がけください。 / This restaurant could not be found. Please ask a staff member. / 找不到该店铺。请联系店员。",
+  ],
+  [
+    "table_not_found",
+    "このテーブルが見つかりません。スタッフにお声がけください。 / This table could not be found. Please ask a staff member. / 找不到该餐桌。请联系店员。",
+  ],
+  [
+    "invalid_format",
+    "QRコードを読み取れませんでした。テーブルのQRコードを読み取り直してください。 / This QR code could not be read. Please scan the QR code on your table again. / 无法识别此二维码。请重新扫描桌上的二维码。",
+  ],
+  // An older server sends only its Japanese text.
+  [
+    undefined,
+    "このテーブルは利用できません。スタッフにお声がけください。 / This table cannot be used. Please ask a staff member. / 该餐桌无法使用。请联系店员。",
+  ],
+])(
+  "a refused table (%s) is explained in three languages without starting a session",
+  async (reason, message) => {
+    validateQRCode.mockResolvedValue({
+      valid: false,
+      error: "このテーブルは現在利用できません。",
+      reason,
+    });
+    const navigation = { reset: jest.fn() };
+    const { getByText, queryByText } = await render(
+      <OrderEntryScreen navigation={navigation} route={{ params }} />
+    );
+    await waitFor(() => expect(getByText(message)).toBeTruthy());
+    expect(queryByText("このテーブルは現在利用できません。")).toBeNull();
+    expect(navigation.reset).not.toHaveBeenCalled();
+  }
+);
 test("connection failures can be retried", async () => {
   validateQRCode
     .mockRejectedValueOnce(new Error("network"))
-    .mockResolvedValueOnce({ valid: false, error: "Retry reached server" });
+    .mockResolvedValueOnce({ valid: false, reason: "check_failed" });
   const { getByText } = await render(
     <OrderEntryScreen navigation={{ reset: jest.fn() }} route={{ params }} />
   );
   await waitFor(() => expect(getByText(/Connection failed/)).toBeTruthy());
   await fireEvent.press(getByText("再試行 / Retry / 重试"));
-  await waitFor(() => expect(getByText("Retry reached server")).toBeTruthy());
+  await waitFor(() =>
+    expect(getByText(/Your table could not be checked/)).toBeTruthy()
+  );
   expect(validateQRCode).toHaveBeenCalledTimes(2);
 });
 test("a QR token is validated and carried with the table", async () => {

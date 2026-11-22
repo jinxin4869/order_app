@@ -174,6 +174,7 @@ const server = http.createServer((req, res) => {
           result = {
             valid: tableId !== "closed",
             error: tableId === "closed" ? "停止中のテーブルです。" : undefined,
+            reason: tableId === "closed" ? "table_unavailable" : undefined,
             restaurant: {
               id: restaurantId,
               name: "テスト店舗",
@@ -545,7 +546,13 @@ const server = http.createServer((req, res) => {
       await page.goto(
         "http://127.0.0.1:4173/order?restaurant=rest-test&table=closed"
       );
-      await page.getByText("停止中のテーブルです。", { exact: true }).waitFor();
+      // The server's Japanese text is replaced by the reason in three languages.
+      await page
+        .getByText(
+          "このテーブルは現在利用できません。スタッフにお声がけください。 / This table is not available now. Please ask a staff member. / 该餐桌目前无法使用。请联系店员。",
+          { exact: true }
+        )
+        .waitFor();
       await page.goto("http://127.0.0.1:4173/staff");
       await page.getByText("スタッフログイン", { exact: true }).waitFor();
       await page

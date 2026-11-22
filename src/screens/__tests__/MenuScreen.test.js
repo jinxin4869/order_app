@@ -420,20 +420,45 @@ describe("MenuScreen", () => {
     });
   });
 
-  test("エラー時にエラーメッセージと再読み込みボタンを表示", async () => {
-    api.getMenuWithTranslation.mockRejectedValue(
-      new Error("ネットワークエラー")
-    );
+  // The fetch error's own text is Japanese; the screen words it per language.
+  test.each([
+    [
+      "ja",
+      "メニューを読み込めませんでした。「再読み込み」を押してください。直らない場合は、スタッフにお声がけください。",
+      "再読み込み",
+    ],
+    [
+      "en",
+      "The menu could not be loaded. Tap Retry. If it still does not load, please ask a staff member.",
+      "Retry",
+    ],
+    [
+      "zh",
+      "无法加载菜单。请点击“重新加载”。如果仍无法加载，请联系店员。",
+      "重新加载",
+    ],
+  ])(
+    "エラー時にエラーメッセージと再読み込みボタンを表示 (%s)",
+    async (language, message, retry) => {
+      useLanguage.mockReturnValue({
+        ...useLanguage(),
+        currentLanguage: language,
+      });
+      api.getMenuWithTranslation.mockRejectedValue(
+        new Error("内部エラーが発生しました")
+      );
 
-    const { getByText } = await render(
-      <MenuScreen navigation={mockNavigation} route={mockRoute} />
-    );
+      const { getByText, queryByText } = await render(
+        <MenuScreen navigation={mockNavigation} route={mockRoute} />
+      );
 
-    await waitFor(() => {
-      expect(getByText("ネットワークエラー")).toBeTruthy();
-      expect(getByText("再読み込み")).toBeTruthy();
-    });
-  });
+      await waitFor(() => {
+        expect(getByText(message)).toBeTruthy();
+        expect(getByText(retry)).toBeTruthy();
+      });
+      expect(queryByText("内部エラーが発生しました")).toBeNull();
+    }
+  );
 
   test("再読み込みボタンをタップするとメニューを再取得", async () => {
     api.getMenuWithTranslation.mockRejectedValueOnce(

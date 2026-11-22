@@ -22,21 +22,49 @@ test.each([
     table: { id: "table-test" },
   });
 });
+// The screen words each reason in three languages; the server's own
+// Japanese "error" stays for older clients.
 test.each([
-  ["restaurants/rest-test", { is_active: false }],
-  ["restaurants/rest-test/tables/table-test", { status: "unavailable" }],
-  ["restaurants/rest-test/tables/table-test", { is_active: false }],
-  ["restaurants/rest-test/tables/table-test", { qr_code: "other/table-test" }],
-])("server rejects inactive or mismatching records", async (path, value) => {
-  mockDb.seed(path, value);
-  expect(
-    await validate({ data: { qrData: "rest-test/table-test" } })
-  ).toMatchObject({ valid: false });
+  ["restaurants/rest-test", { is_active: false }, "restaurant_inactive"],
+  [
+    "restaurants/rest-test/tables/table-test",
+    { status: "unavailable" },
+    "table_unavailable",
+  ],
+  [
+    "restaurants/rest-test/tables/table-test",
+    { is_active: false },
+    "table_unavailable",
+  ],
+  [
+    "restaurants/rest-test/tables/table-test",
+    { qr_code: "other/table-test" },
+    "qr_mismatch",
+  ],
+])(
+  "server rejects inactive or mismatching records",
+  async (path, value, reason) => {
+    mockDb.seed(path, value);
+    expect(
+      await validate({ data: { qrData: "rest-test/table-test" } })
+    ).toMatchObject({ valid: false, reason });
+  }
+);
+test.each([
+  ["rest-none/table-test", "restaurant_not_found"],
+  ["rest-test/table-none", "table_not_found"],
+  ["", "invalid_format"],
+])("a refused QR payload %p says why", async (qrData, reason) => {
+  expect(await validate({ data: { qrData } })).toMatchObject({
+    valid: false,
+    reason,
+  });
 });
 test("invalid IDs do not reach Firestore", async () => {
   const query = jest.spyOn(mockDb, "collection");
   expect(await validate({ data: { qrData: "../table-test" } })).toMatchObject({
     valid: false,
+    reason: "invalid_format",
   });
   expect(query).not.toHaveBeenCalled();
 });

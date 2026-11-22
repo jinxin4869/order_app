@@ -66,32 +66,31 @@ const RestaurantMenu = ({ navigation, route }) => {
   // The API returns every language; category and language switches are local.
   const loadMenu = useCallback(() => {
     const request = ++requestVersion.current;
-    return getMenuWithTranslation(restaurantId)
-      .then((result) => {
-        if (request !== requestVersion.current) return;
-        setError(null);
-        const nextCategories = result.categories || [];
-        setCategories(nextCategories);
-        setMenuItems(result.items || []);
-        setSelectedCategory((previous) =>
-          nextCategories.some((category) => category.id === previous)
-            ? previous
-            : nextCategories[0]?.id || null
-        );
-      })
-      .catch((failure) => {
-        if (request === requestVersion.current)
-          setError(
-            failure.message ||
-              "メニューの読み込みに失敗しました / Failed to load menu / 菜单加载失败"
+    return (
+      getMenuWithTranslation(restaurantId)
+        .then((result) => {
+          if (request !== requestVersion.current) return;
+          setError(null);
+          const nextCategories = result.categories || [];
+          setCategories(nextCategories);
+          setMenuItems(result.items || []);
+          setSelectedCategory((previous) =>
+            nextCategories.some((category) => category.id === previous)
+              ? previous
+              : nextCategories[0]?.id || null
           );
-      })
-      .finally(() => {
-        if (request === requestVersion.current) {
-          setIsLoading(false);
-          setIsRefreshing(false);
-        }
-      });
+        })
+        // The error's own text is Japanese; the screen words it per language.
+        .catch(() => {
+          if (request === requestVersion.current) setError(true);
+        })
+        .finally(() => {
+          if (request === requestVersion.current) {
+            setIsLoading(false);
+            setIsRefreshing(false);
+          }
+        })
+    );
   }, [restaurantId]);
   const reloadMenu = (showRefresh = false) => {
     if (showRefresh) setIsRefreshing(true);
@@ -322,7 +321,13 @@ const RestaurantMenu = ({ navigation, route }) => {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorIcon}>😔</Text>
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.errorText}>
+          {currentLanguage === "zh"
+            ? "无法加载菜单。请点击“重新加载”。如果仍无法加载，请联系店员。"
+            : currentLanguage === "en"
+              ? "The menu could not be loaded. Tap Retry. If it still does not load, please ask a staff member."
+              : "メニューを読み込めませんでした。「再読み込み」を押してください。直らない場合は、スタッフにお声がけください。"}
+        </Text>
         <TouchableOpacity
           style={styles.retryButton}
           onPress={() => reloadMenu()}

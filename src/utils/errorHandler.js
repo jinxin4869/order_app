@@ -193,6 +193,8 @@ export const logError = (error, context = {}) => {
  * @param {Error} error - Firebaseエラー
  * @returns {string} ユーザー向けエラーメッセージ
  */
+// The messages are Japanese, for the staff screens. Customer screens choose
+// their own text in the customer's language instead of showing these.
 export const getFirebaseErrorMessage = (error) => {
   const errorCode = error.code || "";
 

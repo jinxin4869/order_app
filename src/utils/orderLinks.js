@@ -33,3 +33,50 @@ export const buildOrderLink = (origin, restaurantId, tableId, token) => {
   if (token !== undefined) url.searchParams.set("token", token);
   return url.toString();
 };
+// Why the server refused a table (validateQRCode's "reason"), as
+// [Japanese, English, Chinese]. The customer has not chosen a language yet.
+const QR_REFUSALS = {
+  invalid_format: [
+    "QRコードを読み取れませんでした。テーブルのQRコードを読み取り直してください。",
+    "This QR code could not be read. Please scan the QR code on your table again.",
+    "无法识别此二维码。请重新扫描桌上的二维码。",
+  ],
+  restaurant_not_found: [
+    "この店舗が見つかりません。スタッフにお声がけください。",
+    "This restaurant could not be found. Please ask a staff member.",
+    "找不到该店铺。请联系店员。",
+  ],
+  restaurant_inactive: [
+    "この店舗は現在、営業していません。スタッフにお声がけください。",
+    "This restaurant is not open now. Please ask a staff member.",
+    "该店铺目前未营业。请联系店员。",
+  ],
+  table_not_found: [
+    "このテーブルが見つかりません。スタッフにお声がけください。",
+    "This table could not be found. Please ask a staff member.",
+    "找不到该餐桌。请联系店员。",
+  ],
+  table_unavailable: [
+    "このテーブルは現在利用できません。スタッフにお声がけください。",
+    "This table is not available now. Please ask a staff member.",
+    "该餐桌目前无法使用。请联系店员。",
+  ],
+  token_mismatch: [
+    "このQRコードは使えません。テーブルのQRコードを読み取り直すか、スタッフにお声がけください。",
+    "This QR code cannot be used. Scan the QR code on your table again, or ask a staff member.",
+    "此二维码无法使用。请重新扫描桌上的二维码，或联系店员。",
+  ],
+  check_failed: [
+    "テーブルを確認できませんでした。しばらくしてから、もう一度お試しください。",
+    "Your table could not be checked. Please try again in a moment.",
+    "无法确认餐桌。请稍后重试。",
+  ],
+};
+QR_REFUSALS.qr_mismatch = QR_REFUSALS.token_mismatch;
+// An older server sends only Japanese text and no reason.
+const QR_REFUSED = [
+  "このテーブルは利用できません。スタッフにお声がけください。",
+  "This table cannot be used. Please ask a staff member.",
+  "该餐桌无法使用。请联系店员。",
+];
+export const qrRefusal = (reason) => QR_REFUSALS[reason] || QR_REFUSED;

@@ -107,7 +107,10 @@ test("without enforcement, existing QR codes keep working", async () => {
 test("with enforcement, only the current token passes QR validation", async () => {
   const token = await issue();
   process.env.ENFORCE_TABLE_TOKEN = "true";
-  expect((await validate("rest-test/table-test")).valid).toBe(false);
+  expect(await validate("rest-test/table-test")).toMatchObject({
+    valid: false,
+    reason: "token_mismatch",
+  });
   expect(
     (await validate("rest-test/table-test/abcdefghijklmnopqrstuvwx")).valid
   ).toBe(false);
