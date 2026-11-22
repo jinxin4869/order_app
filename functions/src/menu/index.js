@@ -6,6 +6,7 @@
 
 const { onAppCall } = require("../utils/callable");
 const { HttpsError } = require("firebase-functions/v2/https");
+const logger = require("firebase-functions/logger");
 const { getFirestore } = require("firebase-admin/firestore");
 const { parseQRCode, validId } = require("../utils/qr");
 const { isPublished, orderingState } = require("../utils/menuState");
@@ -49,7 +50,6 @@ exports.getMenuWithTranslation = onAppCall({}, async (request) => {
       .get();
 
     if (!restaurantDoc.exists) {
-      console.warn(`Restaurant not found: ${restaurantId}`);
       throw new HttpsError(
         "not-found",
         "指定されたレストランが見つかりません。"
@@ -76,7 +76,7 @@ exports.getMenuWithTranslation = onAppCall({}, async (request) => {
         .where("is_available", "==", true)
         .get();
     } catch (e) {
-      console.error("Firestore categories query error:", e);
+      logger.error("Firestore categories query error:", e);
       throw new HttpsError(
         "internal",
         "カテゴリ情報の取得中にエラーが発生しました。"
@@ -114,7 +114,7 @@ exports.getMenuWithTranslation = onAppCall({}, async (request) => {
         .collection("menu_items")
         .get();
     } catch (e) {
-      console.error("Firestore items query error:", e);
+      logger.error("Firestore items query error:", e);
       throw new HttpsError(
         "internal",
         "メニュー項目の取得中にエラーが発生しました。"
@@ -172,7 +172,15 @@ exports.getMenuWithTranslation = onAppCall({}, async (request) => {
       items,
     };
   } catch (error) {
-    console.error(`Get menu error for ID ${restaurantId}:`, error);
+    // A missing or closed store is a refusal; failed queries ("internal")
+    // were logged as errors where they happened.
+    if (!(error instanceof HttpsError))
+      logger.error(`Get menu error for ID ${restaurantId}:`, error);
+    else if (error.code !== "internal")
+      logger.warn("getMenuWithTranslation refused", {
+        restaurantId,
+        code: error.code,
+      });
 
     // すでにHttpsErrorの場合はそのまま投げる
     if (
@@ -250,9 +258,7 @@ exports.validateQRCode = onAppCall({}, async (request) => {
       .get();
 
     if (!restaurantDoc.exists) {
-      console.warn(
-        `QR Validation failed: Restaurant ${restaurantId} not found`
-      );
+      logger.warn(`QR Validation failed: Restaurant ${restaurantId} not found`);
       return {
         valid: false,
         error: "指定されたレストランが見つかりません。",
@@ -280,7 +286,7 @@ exports.validateQRCode = onAppCall({}, async (request) => {
       .get();
 
     if (!tableDoc.exists) {
-      console.warn(
+      logger.warn(
         `QR Validation failed: Table ${tableId} not found in ${restaurantId}`
       );
       return {
@@ -348,7 +354,7 @@ exports.validateQRCode = onAppCall({}, async (request) => {
       },
     };
   } catch (error) {
-    console.error(`QR validation error for ${restaurantId}/${tableId}:`, error);
+    logger.error(`QR validation error for ${restaurantId}/${tableId}:`, error);
 
     return {
       valid: false,

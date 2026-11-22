@@ -412,6 +412,73 @@ test.each([
     expect(mockDb.writes).toHaveLength(0);
   }
 );
+describe("createOrder logs", () => {
+  let logger;
+  beforeEach(() => {
+    logger = require("firebase-functions/logger");
+    for (const method of ["info", "warn", "error"])
+      jest.spyOn(logger, method).mockImplementation(() => {});
+  });
+  const logged = () =>
+    JSON.stringify(
+      ["info", "warn", "error"].map((method) => logger[method].mock.calls)
+    );
+  test.each([
+    [
+      "restaurants/rest-test/menu_items/item-test",
+      { name_ja: "テスト料理", price: 1000, is_available: false },
+      "failed-precondition",
+      "item_unavailable",
+    ],
+    [
+      "restaurants/rest-test/tables/table-test",
+      null,
+      "not-found",
+      "table_not_found",
+    ],
+  ])(
+    "an expected refusal is a warning with its kind only",
+    async (path, value, code, reason) => {
+      if (value) mockDb.seed(path, value);
+      else await mockDb.doc(path).delete();
+      await expect(api.createOrder({ data: order() })).rejects.toMatchObject({
+        code,
+      });
+      expect(logger.error).not.toHaveBeenCalled();
+      expect(console.error).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalledTimes(1);
+      expect(logger.warn).toHaveBeenCalledWith("createOrder refused", {
+        restaurantId: "rest-test",
+        code,
+        reason,
+      });
+    }
+  );
+  test("an accepted order is one line without the order contents", async () => {
+    const { orderId, orderNumber } = await api.createOrder({
+      data: order({ customerNotes: "Allergy note" }),
+    });
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    expect(logger.info).toHaveBeenCalledWith("createOrder accepted", {
+      restaurantId: "rest-test",
+      tableId: "table-test",
+      orderId,
+      orderNumber,
+    });
+    // A retry of the same request is not logged as a second order.
+    await api.createOrder({ data: order({ customerNotes: "Allergy note" }) });
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    expect(logged()).not.toMatch(/No onions|Allergy note|テスト料理|Test dish/);
+  });
+  test("an unexpected failure is an error", async () => {
+    jest.spyOn(mockDb, "runTransaction").mockRejectedValue(new Error("down"));
+    await expect(api.createOrder({ data: order() })).rejects.toMatchObject({
+      code: "internal",
+    });
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+});
 test("another restaurant's product is rejected", async () => {
   mockDb.seed("restaurants/other-store/menu_items/foreign-item", {
     name_ja: "他店舗商品",
