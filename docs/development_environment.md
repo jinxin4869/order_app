@@ -366,34 +366,11 @@ qr-order-app/
 
 ## 6. 環境変数設定
 
-### 6.1 .env ファイル作成
+フロントの`.env`は`config/firebase.env.example`をコピーして作り、Firebase Webアプリの設定だけを書きます（[README](../README.md)の「自分のFirebase環境で起動する」）。
 
-```bash
-# プロジェクトルートに .env ファイル作成
-```
+DeepLのAPIキーは`.env`に書きません。READMEの「FunctionsのSecretとスタッフ認証」の手順で、Secret Managerに設定します。
 
-**.env の内容**:
-
-```
-DEEPL_API_KEY=your_deepl_api_key_here
-FIREBASE_API_KEY=your_firebase_api_key_here
-```
-
-### 6.2 .env を読み込むパッケージインストール
-
-```bash
-npm install react-native-dotenv
-```
-
-### 6.3 .gitignore に追加
-
-```bash
-# .gitignore に以下を追加
-.env
-firebaseConfig.js
-```
-
-※ API キーなどの機密情報をGitHubに公開しないため
+`.env`と`.env.*`はGitの除外対象です（`.gitignore`）。
 
 ---
 

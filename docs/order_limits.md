@@ -25,11 +25,13 @@
 
 `functions/.env`の`ENFORCE_ORDER_LIMITS=true`のときだけ拒否します。未設定や`false`の間は、上限を超えても注文を受け付け、超過を記録するだけです。
 
-1. まず強制なしでデプロイし、営業中のスタッフ画面（下記）とログで、通常の営業で上限に達しないことを確認します。
+Functionsのデプロイ前のチェックは、`ENFORCE_ORDER_LIMITS`が`true`か`false`で明示されていないとデプロイを中止します。強制しない間も`ENFORCE_ORDER_LIMITS=false`と書いてください。次のデプロイで使われる値は`node functions/scripts/check-deploy-env.js <project-id>`で確認できます（[README「公開する場合」](../README.md#公開する場合)）。
+
+1. まず`ENFORCE_ORDER_LIMITS=false`でデプロイし、営業中のスタッフ画面（下記）とログで、通常の営業で上限に達しないことを確認します。
 2. 必要なら`ORDER_LIMIT_PER_TABLE`・`ORDER_LIMIT_PER_STORE`を調整します。
 3. `ENFORCE_ORDER_LIMITS=true`にして、Functionsを再デプロイします。
 
-戻すときは`ENFORCE_ORDER_LIMITS`を削除するか`false`にして、再デプロイします。
+戻すときは`ENFORCE_ORDER_LIMITS`を`false`にして、再デプロイします。
 
 ## 記録と対応
 
