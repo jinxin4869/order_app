@@ -8,7 +8,10 @@ export const showAlert = (...args) => {
   const actions = buttons.filter((button) => button.style !== "cancel");
   const cancel = buttons.find((button) => button.style === "cancel");
   if (cancel && actions.length) {
-    if (window.confirm(text)) actions[0].onPress?.();
+    // The browser labels the buttons itself (e.g. "OK" / "キャンセル"), so say
+    // which one runs the action: "キャンセル" may also be the action's word.
+    if (window.confirm(`${text}\n\nOK → ${actions[0].text}`))
+      actions[0].onPress?.();
     else cancel.onPress?.();
   } else {
     window.alert(text);

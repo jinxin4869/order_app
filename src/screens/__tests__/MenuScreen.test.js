@@ -16,6 +16,7 @@ import MenuScreen from "../MenuScreen";
 import { useLanguage } from "../../hooks/useLanguage";
 import { useNetworkStatus } from "../../hooks/useNetworkStatus";
 import * as api from "../../services/api";
+import { CartContext } from "../../context/CartContext";
 
 const mockNavigation = {
   navigate: jest.fn(),
@@ -232,6 +233,38 @@ describe("MenuScreen", () => {
     });
   });
 
+  test.each([
+    ["ja", "戻る"],
+    ["en", "Back"],
+    ["zh", "返回"],
+  ])(
+    "icon buttons and category tabs have a role, a label and a 44px target (%s)",
+    async (language, back) => {
+      useLanguage.mockReturnValue({
+        ...useLanguage(),
+        currentLanguage: language,
+      });
+      const screen = await render(
+        <MenuScreen navigation={mockNavigation} route={mockRoute} />
+      );
+      const main = await screen.findByRole("tab", {
+        name: /メイン|Main/,
+        selected: false,
+      });
+      expect(
+        screen.getByRole("tab", { name: /前菜|Appetizer/, selected: true })
+      ).toBeTruthy();
+      await fireEvent.press(main);
+      expect(
+        screen.getByRole("tab", { name: /メイン|Main/, selected: true })
+      ).toBeTruthy();
+      const backButton = screen.getByRole("button", { name: back });
+      expect(backButton).toHaveStyle({ width: 44, height: 44 });
+      await fireEvent.press(backButton);
+      expect(mockNavigation.goBack).toHaveBeenCalled();
+    }
+  );
+
   test("メニューアイテムを表示する", async () => {
     const { getByText } = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />
@@ -304,7 +337,7 @@ describe("MenuScreen", () => {
     );
 
     await waitFor(async () => {
-      const cartButton = getByText("🛒 カートを見る");
+      const cartButton = getByText("🛒 カートは空です");
       await fireEvent.press(cartButton);
     });
 
@@ -315,6 +348,49 @@ describe("MenuScreen", () => {
       table: mockRoute.params.table,
     });
   });
+
+  test.each([
+    [
+      "ja",
+      "🛒 カートは空です",
+      "🛒 カートを見る（3）",
+      "✓ カートに追加しました",
+    ],
+    ["en", "🛒 Cart is empty", "🛒 View Cart (3)", "✓ Added to cart"],
+    ["zh", "🛒 购物车是空的", "🛒 查看购物车（3）", "✓ 已加入购物车"],
+  ])(
+    "the cart button shows the item count and an add is confirmed (%s)",
+    async (language, empty, three, added) => {
+      jest.useFakeTimers();
+      try {
+        useLanguage.mockReturnValue({
+          ...useLanguage(),
+          currentLanguage: language,
+        });
+        const menu = (itemCount) => (
+          <CartContext.Provider value={{ itemCount }}>
+            <MenuScreen navigation={mockNavigation} route={mockRoute} />
+          </CartContext.Provider>
+        );
+        const screen = await render(menu(0));
+        expect(await screen.findByText(empty)).toBeTruthy();
+        expect(screen.queryByText(added)).toBeNull();
+        // Coming back from the item detail after adding three.
+        await screen.rerender(menu(3));
+        expect(screen.getByText(three)).toBeTruthy();
+        expect(screen.getByText(added)).toBeTruthy();
+        await act(async () => jest.advanceTimersByTime(4000));
+        expect(screen.queryByText(added)).toBeNull();
+        expect(screen.getByText(three)).toBeTruthy();
+        // Ordering empties the cart; that is not an add.
+        await screen.rerender(menu(0));
+        expect(screen.getByText(empty)).toBeTruthy();
+        expect(screen.queryByText(added)).toBeNull();
+      } finally {
+        jest.useRealTimers();
+      }
+    }
+  );
 
   test("戻るボタンをタップすると前の画面に戻る", async () => {
     const { getByText } = await render(
@@ -344,20 +420,45 @@ describe("MenuScreen", () => {
     });
   });
 
-  test("エラー時にエラーメッセージと再読み込みボタンを表示", async () => {
-    api.getMenuWithTranslation.mockRejectedValue(
-      new Error("ネットワークエラー")
-    );
+  // The fetch error's own text is Japanese; the screen words it per language.
+  test.each([
+    [
+      "ja",
+      "メニューを読み込めませんでした。「再読み込み」を押してください。直らない場合は、スタッフにお声がけください。",
+      "再読み込み",
+    ],
+    [
+      "en",
+      "The menu could not be loaded. Tap Retry. If it still does not load, please ask a staff member.",
+      "Retry",
+    ],
+    [
+      "zh",
+      "无法加载菜单。请点击“重新加载”。如果仍无法加载，请联系店员。",
+      "重新加载",
+    ],
+  ])(
+    "エラー時にエラーメッセージと再読み込みボタンを表示 (%s)",
+    async (language, message, retry) => {
+      useLanguage.mockReturnValue({
+        ...useLanguage(),
+        currentLanguage: language,
+      });
+      api.getMenuWithTranslation.mockRejectedValue(
+        new Error("内部エラーが発生しました")
+      );
 
-    const { getByText } = await render(
-      <MenuScreen navigation={mockNavigation} route={mockRoute} />
-    );
+      const { getByText, queryByText } = await render(
+        <MenuScreen navigation={mockNavigation} route={mockRoute} />
+      );
 
-    await waitFor(() => {
-      expect(getByText("ネットワークエラー")).toBeTruthy();
-      expect(getByText("再読み込み")).toBeTruthy();
-    });
-  });
+      await waitFor(() => {
+        expect(getByText(message)).toBeTruthy();
+        expect(getByText(retry)).toBeTruthy();
+      });
+      expect(queryByText("内部エラーが発生しました")).toBeNull();
+    }
+  );
 
   test("再読み込みボタンをタップするとメニューを再取得", async () => {
     api.getMenuWithTranslation.mockRejectedValueOnce(

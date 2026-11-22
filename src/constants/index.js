@@ -2,6 +2,7 @@
 export {
   MIN_ORDER_QUANTITY,
   MAX_ORDER_QUANTITY,
+  MAX_ORDER_TOTAL_QUANTITY,
 } from "../../functions/src/utils/orderLimits";
 
 // サポートする言語

@@ -118,13 +118,22 @@ const ItemDetailScreen = ({ navigation, route }) => {
 
   // レスポンシブなサイズ
   const imageHeight = scaleSize(250, 180, 280);
-  const quantityButtonSize = scaleSize(36, 30, 40);
+  // 44px on every screen size, the minimum touch target.
+  const quantityButtonSize = 44;
 
   return (
     <SafeAreaView style={styles.container}>
       {/* ヘッダー */}
       <View style={[styles.header, isSmallScreen && styles.headerSmall]}>
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={
+            currentLanguage === "zh"
+              ? "返回"
+              : currentLanguage === "en"
+                ? "Back"
+                : "戻る"
+          }
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
@@ -356,6 +365,14 @@ const ItemDetailScreen = ({ navigation, route }) => {
             ]}
             onPress={decrementQuantity}
             disabled={selectedQuantity <= MIN_ORDER_QUANTITY}
+            accessibilityRole="button"
+            accessibilityLabel={
+              currentLanguage === "zh"
+                ? "减少数量"
+                : currentLanguage === "en"
+                  ? "Decrease quantity"
+                  : "数量を減らす"
+            }
           >
             <Text
               style={[
@@ -389,6 +406,14 @@ const ItemDetailScreen = ({ navigation, route }) => {
             ]}
             onPress={incrementQuantity}
             disabled={selectedQuantity >= remaining}
+            accessibilityRole="button"
+            accessibilityLabel={
+              currentLanguage === "zh"
+                ? "增加数量"
+                : currentLanguage === "en"
+                  ? "Increase quantity"
+                  : "数量を増やす"
+            }
           >
             <Text
               style={[
@@ -455,8 +480,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     justifyContent: "center",
     alignItems: "center",
   },

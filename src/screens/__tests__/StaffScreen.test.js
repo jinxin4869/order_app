@@ -56,6 +56,7 @@ jest.mock("../../utils/newOrderAlert", () => ({
   disableAlertSound: jest.fn(),
   playNewOrderAlert: jest.fn(),
   showTitleBadge: jest.fn(),
+  alertSoundAvailable: jest.fn(() => true),
 }));
 const order = {
   id: "order-test",
@@ -199,6 +200,126 @@ test("refresh identifies unseen orders and pagination requests the protected cur
   expect(
     await screen.findByRole("button", { name: "新着 1件を確認" })
   ).toBeTruthy();
+});
+describe("rows loaded with さらに前の注文を読み込む", () => {
+  // Pages of two rows, newest first: o3 arrives after o2 and o1 were loaded.
+  const at = (n, status = "pending") => ({
+    ...order,
+    id: `o${n}`,
+    order_number: `20261009-00${n}`,
+    table_number: String(n),
+    status,
+    created_at: order.created_at + n * 60000,
+  });
+  const loadOlder = async (older) => {
+    listStaffOrders.mockResolvedValueOnce({
+      orders: [at(2)],
+      hasMore: true,
+      cursor: "o2",
+    });
+    const screen = await render(<StaffScreen />);
+    await screen.findByRole("button", { name: "注文 20261009-002 未受付" });
+    listStaffOrders.mockResolvedValueOnce({
+      orders: [older],
+      hasMore: false,
+      cursor: "o1",
+    });
+    await fireEvent.press(
+      screen.getByRole("button", { name: "さらに前の注文を読み込む" })
+    );
+    await screen.findByRole("button", {
+      name: new RegExp(`^注文 20261009-001`),
+    });
+    return screen;
+  };
+  test("stay after the periodic refresh, while new orders are still counted", async () => {
+    jest.useFakeTimers();
+    try {
+      const screen = await loadOlder(at(1));
+      listStaffOrders.mockResolvedValue({
+        orders: [at(3), at(2)],
+        hasMore: true,
+        cursor: "o2",
+      });
+      await act(async () => jest.advanceTimersByTime(15000));
+      expect(
+        await screen.findByRole("button", { name: "新着 1件を確認" })
+      ).toBeTruthy();
+      expect(
+        screen.getByRole("button", { name: "注文 20261009-001 未受付" })
+      ).toBeTruthy();
+      expect(
+        screen.queryByRole("button", { name: "さらに前の注文を読み込む" })
+      ).toBeNull();
+      await fireEvent.changeText(
+        screen.getByLabelText("テーブル番号で絞り込み"),
+        "1"
+      );
+      expect(screen.getByText(/読み込み済みの3件のうち1件を表示/)).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+  test("an older order this staff member finishes leaves the active list", async () => {
+    const screen = await loadOlder(at(1, "served"));
+    getStaffOrder.mockResolvedValueOnce({ order: at(1, "served") });
+    await fireEvent.press(
+      screen.getByRole("button", { name: "注文 20261009-001 提供済み" })
+    );
+    await fireEvent.press(
+      await screen.findByRole("button", { name: "対応を完了する" })
+    );
+    getStaffOrder.mockResolvedValueOnce({ order: at(1, "completed") });
+    listStaffOrders.mockResolvedValueOnce({
+      orders: [at(2)],
+      hasMore: true,
+      cursor: "o2",
+    });
+    await act(async () => showAlert.mock.calls[0][2][1].onPress());
+    expect(await screen.findByText("状態を更新しました。")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "一覧に戻る" }));
+    expect(
+      screen.queryByRole("button", { name: /^注文 20261009-001/ })
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "注文 20261009-002 未受付" })
+    ).toBeTruthy();
+  });
+  test("stay in the waiting-time order too, where later rows come after", async () => {
+    const screen = await render(<StaffScreen />);
+    await screen.findByRole("button", { name: "注文 20261009-001 未受付" });
+    listStaffOrders.mockResolvedValueOnce({
+      orders: [at(1)],
+      hasMore: true,
+      cursor: "o1",
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "待ち時間順" }));
+    await screen.findByRole("button", { name: "さらに前の注文を読み込む" });
+    listStaffOrders.mockResolvedValueOnce({
+      orders: [at(2)],
+      hasMore: false,
+      cursor: "o2",
+    });
+    await fireEvent.press(
+      screen.getByRole("button", { name: "さらに前の注文を読み込む" })
+    );
+    await screen.findByRole("button", { name: "注文 20261009-002 未受付" });
+    listStaffOrders.mockResolvedValueOnce({
+      orders: [at(1)],
+      hasMore: true,
+      cursor: "o1",
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    await waitFor(() =>
+      expect(listStaffOrders).toHaveBeenLastCalledWith({
+        view: "active",
+        sort: "oldest",
+      })
+    );
+    expect(
+      screen.getByRole("button", { name: "注文 20261009-002 未受付" })
+    ).toBeTruthy();
+  });
 });
 
 test("changing the order filter clears old rows and ignores an earlier in-flight refresh", async () => {
@@ -496,9 +617,52 @@ test("without sound support the staff are told to watch the screen", async () =>
     screen.getByRole("button", { name: "通知音をオンにする" })
   );
   expect(screen.getByText(/この端末では通知音を使えません/)).toBeTruthy();
+  expect(screen.queryByText(/通知音がオフです/)).toBeNull();
   expect(
     screen.getByRole("button", { name: "通知音をオンにする" })
   ).toBeTruthy();
+});
+test("while the sound is off, the order screen says so", async () => {
+  const screen = await render(<StaffScreen />);
+  await screen.findByRole("button", { name: "注文 20261009-001 未受付" });
+  expect(screen.getByText(/通知音がオフです/)).toBeTruthy();
+  await fireEvent.press(
+    screen.getByRole("button", { name: "通知音をオンにする" })
+  );
+  expect(screen.queryByText(/通知音がオフです/)).toBeNull();
+  await fireEvent.press(screen.getByRole("button", { name: "通知音：オン" }));
+  expect(screen.getByText(/通知音がオフです/)).toBeTruthy();
+  // Not where sound cannot be used (native app, browsers without Web Audio).
+  alerts.alertSoundAvailable.mockReturnValue(false);
+  await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+  expect(screen.queryByText(/通知音がオフです/)).toBeNull();
+  alerts.alertSoundAvailable.mockReturnValue(true);
+});
+test("the sound repeats every minute until the new orders are checked", async () => {
+  jest.useFakeTimers();
+  try {
+    const screen = await render(<StaffScreen />);
+    await screen.findByRole("button", { name: "注文 20261009-001 未受付" });
+    await fireEvent.press(
+      screen.getByRole("button", { name: "通知音をオンにする" })
+    );
+    listStaffOrders.mockResolvedValueOnce({
+      orders: [{ ...order, id: "new", order_number: "20261009-002" }, order],
+      hasMore: false,
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    await screen.findByRole("button", { name: "新着 1件を確認" });
+    expect(alerts.playNewOrderAlert).toHaveBeenCalledTimes(2);
+    await act(async () => jest.advanceTimersByTime(60000));
+    expect(alerts.playNewOrderAlert).toHaveBeenCalledTimes(3);
+    await fireEvent.press(
+      screen.getByRole("button", { name: "新着 1件を確認" })
+    );
+    await act(async () => jest.advanceTimersByTime(120000));
+    expect(alerts.playNewOrderAlert).toHaveBeenCalledTimes(3);
+  } finally {
+    jest.useRealTimers();
+  }
 });
 test("offline is shown, and coming back online or to the app fetches at once", async () => {
   // Record the handler without replacing AppState's own (mock) behaviour.
@@ -631,6 +795,118 @@ test("corrected orders are flagged in the list and show what changed", async () 
   expect(
     screen.getByRole("button", { name: "数量を訂正する（減数・取消）" })
   ).toBeTruthy();
+});
+describe("the open detail follows changes made by other staff", () => {
+  const three = {
+    ...order,
+    revision: 0,
+    items: [{ name_ja: "テスト料理", quantity: 3, price: 1000 }],
+  };
+  const reduced = {
+    ...three,
+    revision: 1,
+    corrected: true,
+    items: [
+      { name_ja: "テスト料理", quantity: 1, original_quantity: 3, price: 1000 },
+    ],
+  };
+  const openThree = async () => {
+    listStaffOrders.mockResolvedValue({ orders: [three], hasMore: false });
+    getStaffOrder.mockResolvedValue({ order: three });
+    const screen = await render(<StaffScreen />);
+    await fireEvent.press(
+      await screen.findByRole("button", { name: "注文 20261009-001 未受付" })
+    );
+    await screen.findByText("× 3");
+    return screen;
+  };
+  test("a correction shows on the next refresh, and an unchanged order is not re-read", async () => {
+    const screen = await openThree();
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    expect(getStaffOrder).toHaveBeenCalledTimes(1);
+    listStaffOrders.mockResolvedValue({ orders: [reduced], hasMore: false });
+    getStaffOrder.mockResolvedValue({ order: reduced });
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    expect(await screen.findByText("訂正：3 → 1")).toBeTruthy();
+    expect(screen.queryByText("× 3")).toBeNull();
+    expect(
+      screen.getByText(/他のスタッフがこの注文を更新しました/)
+    ).toBeTruthy();
+  });
+  test("a status change keeps the cancellation reason being typed", async () => {
+    const screen = await openThree();
+    await fireEvent.changeText(
+      screen.getByLabelText("キャンセル理由（任意）"),
+      "お客様の都合"
+    );
+    const confirmed = { ...three, status: "confirmed" };
+    listStaffOrders.mockResolvedValue({ orders: [confirmed], hasMore: false });
+    getStaffOrder.mockResolvedValue({ order: confirmed });
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    expect(
+      await screen.findByRole("button", { name: "調理を開始する" })
+    ).toBeTruthy();
+    expect(screen.getByLabelText("キャンセル理由（任意）").props.value).toBe(
+      "お客様の都合"
+    );
+  });
+  test("a cancellation that drops the order from the active list still shows", async () => {
+    const screen = await openThree();
+    listStaffOrders.mockResolvedValue({ orders: [], hasMore: false });
+    getStaffOrder.mockResolvedValue({
+      order: { ...three, status: "cancelled" },
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    expect(await screen.findByText("テーブル 1 · キャンセル")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "注文を受け付ける" })
+    ).toBeNull();
+  });
+  test("a correction in progress is kept, and the staff are told to reload", async () => {
+    const screen = await openThree();
+    await fireEvent.press(
+      screen.getByRole("button", { name: "数量を訂正する（減数・取消）" })
+    );
+    await fireEvent.press(
+      screen.getByRole("button", { name: "テスト料理を1つ減らす" })
+    );
+    listStaffOrders.mockResolvedValue({ orders: [reduced], hasMore: false });
+    getStaffOrder.mockResolvedValue({ order: reduced });
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    expect(
+      await screen.findByText(/訂正をやめて「詳細を再取得」/)
+    ).toBeTruthy();
+    expect(screen.getByText("テスト料理：3 → 2")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "やめる" }));
+    await fireEvent.press(screen.getByRole("button", { name: "詳細を再取得" }));
+    expect(await screen.findByText("訂正：3 → 1")).toBeTruthy();
+  });
+  test("this staff member's own correction is not reported as someone else's", async () => {
+    const { correctOrderItems } = require("../../services/api");
+    correctOrderItems.mockResolvedValue({
+      status: "pending",
+      total_amount: 1100,
+    });
+    const screen = await openThree();
+    await fireEvent.press(
+      screen.getByRole("button", { name: "数量を訂正する（減数・取消）" })
+    );
+    await fireEvent.press(
+      screen.getByRole("button", { name: "テスト料理を1つ減らす" })
+    );
+    await fireEvent.changeText(
+      screen.getByLabelText("訂正の理由（必須）"),
+      "品切れ"
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "訂正を保存" }));
+    listStaffOrders.mockResolvedValue({ orders: [reduced], hasMore: false });
+    getStaffOrder.mockResolvedValue({ order: reduced });
+    await act(async () => showAlert.mock.calls.at(-1)[2][1].onPress());
+    expect(await screen.findByText("訂正：3 → 1")).toBeTruthy();
+    await waitFor(() => expect(listStaffOrders).toHaveBeenCalledTimes(2));
+    expect(screen.getByText(/訂正しました/)).toBeTruthy();
+    expect(screen.queryByText(/他のスタッフ/)).toBeNull();
+  });
 });
 test("an order-fetch outage over a minute is announced once, then its recovery", async () => {
   jest.useFakeTimers();

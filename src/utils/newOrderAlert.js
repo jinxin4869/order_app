@@ -6,6 +6,12 @@ import { Platform } from "react-native";
 let audio = null;
 let baseTitle = null;
 
+// Whether this device can sound the alert at all (web with Web Audio).
+export const alertSoundAvailable = () =>
+  Platform.OS === "web" &&
+  typeof window !== "undefined" &&
+  !!(window.AudioContext || window.webkitAudioContext);
+
 // Call from a press handler. Returns false where sound is unavailable.
 export const enableAlertSound = () => {
   if (Platform.OS !== "web" || typeof window === "undefined") return false;
