@@ -3,7 +3,12 @@ let mockDb;
 jest.mock("firebase-admin/firestore", () => ({ getFirestore: () => mockDb }));
 jest.mock("firebase-functions/v2/https", () => ({
   onCall: (options, handler) => handler,
-  HttpsError: class extends Error {},
+  HttpsError: class extends Error {
+    constructor(code, message) {
+      super(message);
+      this.code = code;
+    }
+  },
 }));
 let validate;
 beforeEach(() => {
@@ -44,7 +49,9 @@ test("QR errors log only the validated IDs, not the raw payload", async () => {
   jest.spyOn(mockDb, "collection").mockImplementation(() => {
     throw new Error("unavailable");
   });
-  const log = jest.spyOn(console, "error").mockImplementation(() => {});
+  const log = jest
+    .spyOn(require("firebase-functions/logger"), "error")
+    .mockImplementation(() => {});
   const qrData =
     "https://example.test/order?restaurant=rest-test&table=table-test&x=<payload>";
   expect(await validate({ data: { qrData } })).toMatchObject({ valid: false });
@@ -52,6 +59,24 @@ test("QR errors log only the validated IDs, not the raw payload", async () => {
     "QR validation error for rest-test/table-test:"
   );
   expect(JSON.stringify(log.mock.calls)).not.toContain("<payload>");
+});
+test("a closed restaurant's menu is a warning, not an error", async () => {
+  const logger = require("firebase-functions/logger");
+  const warn = jest.spyOn(logger, "warn").mockImplementation(() => {});
+  const error = jest.spyOn(logger, "error").mockImplementation(() => {});
+  jest.spyOn(console, "error").mockImplementation(() => {});
+  mockDb.seed("restaurants/rest-test", { is_active: false });
+  await expect(
+    require("../menu").getMenuWithTranslation({
+      data: { restaurantId: "rest-test" },
+    })
+  ).rejects.toThrow();
+  expect(error).not.toHaveBeenCalled();
+  expect(console.error).not.toHaveBeenCalled();
+  expect(warn).toHaveBeenCalledWith("getMenuWithTranslation refused", {
+    restaurantId: "rest-test",
+    code: "failed-precondition",
+  });
 });
 test.each([undefined, null, { id: "rest-test" }, "x".repeat(129), "../x"])(
   "menu rejects the restaurant ID %p before reaching Firestore",
