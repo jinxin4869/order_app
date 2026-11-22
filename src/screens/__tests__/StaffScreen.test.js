@@ -56,6 +56,7 @@ jest.mock("../../utils/newOrderAlert", () => ({
   disableAlertSound: jest.fn(),
   playNewOrderAlert: jest.fn(),
   showTitleBadge: jest.fn(),
+  alertSoundAvailable: jest.fn(() => true),
 }));
 const order = {
   id: "order-test",
@@ -496,9 +497,52 @@ test("without sound support the staff are told to watch the screen", async () =>
     screen.getByRole("button", { name: "通知音をオンにする" })
   );
   expect(screen.getByText(/この端末では通知音を使えません/)).toBeTruthy();
+  expect(screen.queryByText(/通知音がオフです/)).toBeNull();
   expect(
     screen.getByRole("button", { name: "通知音をオンにする" })
   ).toBeTruthy();
+});
+test("while the sound is off, the order screen says so", async () => {
+  const screen = await render(<StaffScreen />);
+  await screen.findByRole("button", { name: "注文 20261009-001 未受付" });
+  expect(screen.getByText(/通知音がオフです/)).toBeTruthy();
+  await fireEvent.press(
+    screen.getByRole("button", { name: "通知音をオンにする" })
+  );
+  expect(screen.queryByText(/通知音がオフです/)).toBeNull();
+  await fireEvent.press(screen.getByRole("button", { name: "通知音：オン" }));
+  expect(screen.getByText(/通知音がオフです/)).toBeTruthy();
+  // Not where sound cannot be used (native app, browsers without Web Audio).
+  alerts.alertSoundAvailable.mockReturnValue(false);
+  await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+  expect(screen.queryByText(/通知音がオフです/)).toBeNull();
+  alerts.alertSoundAvailable.mockReturnValue(true);
+});
+test("the sound repeats every minute until the new orders are checked", async () => {
+  jest.useFakeTimers();
+  try {
+    const screen = await render(<StaffScreen />);
+    await screen.findByRole("button", { name: "注文 20261009-001 未受付" });
+    await fireEvent.press(
+      screen.getByRole("button", { name: "通知音をオンにする" })
+    );
+    listStaffOrders.mockResolvedValueOnce({
+      orders: [{ ...order, id: "new", order_number: "20261009-002" }, order],
+      hasMore: false,
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "更新" }));
+    await screen.findByRole("button", { name: "新着 1件を確認" });
+    expect(alerts.playNewOrderAlert).toHaveBeenCalledTimes(2);
+    await act(async () => jest.advanceTimersByTime(60000));
+    expect(alerts.playNewOrderAlert).toHaveBeenCalledTimes(3);
+    await fireEvent.press(
+      screen.getByRole("button", { name: "新着 1件を確認" })
+    );
+    await act(async () => jest.advanceTimersByTime(120000));
+    expect(alerts.playNewOrderAlert).toHaveBeenCalledTimes(3);
+  } finally {
+    jest.useRealTimers();
+  }
 });
 test("offline is shown, and coming back online or to the app fetches at once", async () => {
   // Record the handler without replacing AppState's own (mock) behaviour.
