@@ -12,9 +12,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS, FONT_SIZES } from "../constants";
 import { useLanguage } from "../hooks/useLanguage";
 import { useResponsive } from "../hooks/useResponsive";
+import { yen } from "../utils/price";
 
 const OrderCompleteScreen = ({ navigation, route }) => {
-  const { orderId, orderNumber, restaurant, table } = route.params;
+  const { orderId, orderNumber, total, restaurant, table } = route.params;
   const { currentLanguage } = useLanguage();
   const { isSmallScreen, scaleSize } = useResponsive();
 
@@ -174,7 +175,12 @@ const OrderCompleteScreen = ({ navigation, route }) => {
               </Text>
             </View>
 
-            <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
+            <View
+              style={[
+                styles.detailRow,
+                !Number.isFinite(total) && { borderBottomWidth: 0 },
+              ]}
+            >
               <Text
                 style={[
                   styles.detailLabel,
@@ -192,6 +198,28 @@ const OrderCompleteScreen = ({ navigation, route }) => {
                 {table?.table_number || "-"}
               </Text>
             </View>
+
+            {Number.isFinite(total) && (
+              <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
+                <Text
+                  style={[
+                    styles.detailLabel,
+                    isSmallScreen && styles.detailLabelSmall,
+                  ]}
+                >
+                  {t("合計（税込）", "Total (incl. tax)", "合计（含税）")}
+                </Text>
+                <Text
+                  style={[
+                    styles.detailValue,
+                    styles.detailValuePrice,
+                    isSmallScreen && styles.detailValueSmall,
+                  ]}
+                >
+                  {yen(total)}
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* メッセージ */}
@@ -396,6 +424,10 @@ const styles = StyleSheet.create({
   },
   detailValueSmall: {
     fontSize: FONT_SIZES.sm,
+  },
+  detailValuePrice: {
+    color: COLORS.primary,
+    fontWeight: "bold",
   },
   messageContainer: {
     alignItems: "center",

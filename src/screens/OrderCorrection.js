@@ -2,20 +2,14 @@
 // 金額は表示用に試算するだけで、確定値はサーバーが計算する。
 import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
-import { COLORS, TAX_RATE } from "../constants";
+import { COLORS } from "../constants";
 import { correctOrderItems } from "../services/api";
 import { showAlert } from "../utils/dialogs";
 import { createRequestId } from "../utils/requestId";
+import { totalsOf } from "../utils/price";
 
 const CORRECTABLE = ["pending", "confirmed", "preparing"];
 const money = (value) => `¥${Number(value || 0).toLocaleString("ja-JP")}`;
-const totalOf = (items) => {
-  const subtotal = items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
-  return subtotal + Math.floor(subtotal * TAX_RATE);
-};
 
 const Button = ({ label, onPress, disabled, name }) => (
   <Pressable
@@ -54,9 +48,9 @@ const OrderCorrection = ({ order, disabled, onDone }) => {
   const changes = order.items
     .map((item, index) => ({ index, quantity: quantityOf(index) }))
     .filter(({ index, quantity }) => quantity !== order.items[index].quantity);
-  const preview = totalOf(
+  const preview = totalsOf(
     order.items.map((item, index) => ({ ...item, quantity: quantityOf(index) }))
-  );
+  ).total;
   const summary = changes
     .map(
       ({ index, quantity }) =>

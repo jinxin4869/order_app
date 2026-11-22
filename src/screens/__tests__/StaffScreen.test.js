@@ -134,6 +134,8 @@ test("staff review item notes and confirm a state transition with the displayed 
     await screen.findByRole("button", { name: "注文 20261009-001 未受付" })
   );
   expect(await screen.findByText("要望：ねぎ抜き")).toBeTruthy();
+  // The unit price is shown as the customer saw it, so it adds up to the total.
+  expect(screen.getByText("¥1,100 / 点（税込）")).toBeTruthy();
   await fireEvent.press(
     screen.getByRole("button", { name: "注文を受け付ける" })
   );

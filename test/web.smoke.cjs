@@ -4,6 +4,8 @@ const path = require("node:path");
 const assert = require("node:assert/strict");
 const { chromium } = require("playwright");
 const os = require("node:os");
+// The rule the server applies; the built client must send the same amounts.
+const { totalsOf } = require("../functions/src/utils/orderTotals");
 const root =
   process.env.ORDER_APP_WEB_DIR || path.join(os.tmpdir(), "order-app-web-test");
 const artifacts = process.env.ORDER_APP_WEB_ARTIFACTS || os.tmpdir();
@@ -208,7 +210,7 @@ const server = http.createServer((req, res) => {
                 id: "tea",
                 category_id: "drinks",
                 name_ja: "お茶",
-                price: 200,
+                price: 95,
                 is_available: true,
               },
             ],
@@ -346,11 +348,21 @@ const server = http.createServer((req, res) => {
         calls.filter((call) => call.name === "getMenuWithTranslation").length,
         2
       );
+      // #138: prices are shown tax-included from the menu to the cart.
+      await page.getByText("¥1,100（税込）", { exact: true }).waitFor();
       await page.screenshot({
         path: path.join(artifacts, `order-app-menu-${viewport.width}.png`),
         fullPage: true,
       });
       await page.getByText("テスト料理", { exact: true }).click();
+      await page
+        .getByText("¥1,100（税込）", { exact: true })
+        .filter({ visible: true })
+        .waitFor();
+      await page.screenshot({
+        path: path.join(artifacts, `order-app-detail-${viewport.width}.png`),
+        fullPage: true,
+      });
       await page.getByText("カートに追加", { exact: true }).click();
       await page.getByText("🛒 カートを見る", { exact: true }).click();
       page.once("dialog", (dialog) => dialog.dismiss());
@@ -361,14 +373,58 @@ const server = http.createServer((req, res) => {
       await page.getByText("メニューに戻る", { exact: true }).click();
       await page.getByText("テスト料理", { exact: true }).click();
       await page.getByText("カートに追加", { exact: true }).click();
+      // Two teas at ¥104 with tax are ¥208; tax on their ¥190 would make ¥209.
+      await page.getByText("飲み物", { exact: true }).click();
+      await page.getByText("お茶", { exact: true }).click();
+      await page
+        .getByText("+", { exact: true })
+        .filter({ visible: true })
+        .click();
+      await page.getByText("カートに追加", { exact: true }).click();
+      await page.getByText("料理", { exact: true }).click();
       await page.getByText("🛒 カートを見る", { exact: true }).click();
-      page.once("dialog", (dialog) => dialog.dismiss());
+      // The lines add up to the total, and the total is what gets sent.
+      for (const text of ["¥1,100", "¥208  ¥104 × 2", "合計（税込）", "¥1,308"])
+        await page
+          .getByText(text, { exact: true })
+          .filter({ visible: true })
+          .waitFor();
+      await page.screenshot({
+        path: path.join(artifacts, `order-app-cart-${viewport.width}.png`),
+        fullPage: true,
+      });
+      const confirmations = [];
+      page.once("dialog", (dialog) => {
+        confirmations.push(dialog.message());
+        dialog.dismiss();
+      });
       await page.getByText("注文を確定する", { exact: true }).click();
       assert.equal(calls.filter((c) => c.name === "createOrder").length, 0);
+      assert.deepEqual(confirmations, [
+        "注文確認\n\n合計 ¥1,308（税込）で注文を確定しますか？",
+      ]);
       page.once("dialog", (dialog) => dialog.accept());
       await page.getByText("注文を確定する", { exact: true }).click();
       await page.getByText("20261009-001", { exact: true }).waitFor();
       assert.equal(calls.filter((c) => c.name === "createOrder").length, 1);
+      const sent = calls.find((c) => c.name === "createOrder").data;
+      assert.deepEqual(
+        { subtotal: sent.subtotal, tax: sent.tax, total: sent.totalAmount },
+        { subtotal: 1190, tax: 118, total: 1308 }
+      );
+      // The details fade in, so wait until the total can actually be read.
+      for (const text of ["合計（税込）", "¥1,308"])
+        await page.waitForFunction(
+          (element) => {
+            for (let node = element; node; node = node.parentElement)
+              if (getComputedStyle(node).opacity !== "1") return false;
+            return true;
+          },
+          await page
+            .getByText(text, { exact: true })
+            .filter({ visible: true })
+            .elementHandle()
+        );
       assert.equal(errors.length, 0, JSON.stringify(errors));
       await page.screenshot({
         path: path.join(
@@ -394,6 +450,7 @@ const server = http.createServer((req, res) => {
         "http://127.0.0.1:4173/order?restaurant=rest-test&table=table-test"
       );
       await page.getByRole("button", { name: "English", exact: true }).click();
+      await page.getByText("¥1,100 (incl. tax)", { exact: true }).waitFor();
       await page.getByText("Test dish (dictionary)", { exact: true }).click();
       await page.getByText("Add to Cart", { exact: true }).click();
       await page.getByText("🛒 View Cart", { exact: true }).click();
@@ -401,6 +458,14 @@ const server = http.createServer((req, res) => {
         .getByText("Test dish (dictionary)", { exact: true })
         .filter({ visible: true })
         .waitFor();
+      await page
+        .getByText("Total (incl. tax)", { exact: true })
+        .filter({ visible: true })
+        .waitFor();
+      await page.screenshot({
+        path: path.join(artifacts, `order-app-cart-en-${viewport.width}.png`),
+        fullPage: true,
+      });
       assert.equal(
         await page
           .getByText(/Translation unverified/)
@@ -710,6 +775,22 @@ const server = http.createServer((req, res) => {
         1
       );
       loseOrderResponses = false;
+      // Every order the built client sent carries the amounts the server's
+      // rule gives for its items; anything else would be refused in production.
+      for (const { data } of calls.filter((c) => c.name === "createOrder"))
+        assert.deepEqual(
+          { subtotal: data.subtotal, tax: data.tax, total: data.totalAmount },
+          totalsOf(data.items)
+        );
+      await page.goto(
+        "http://127.0.0.1:4173/order?restaurant=rest-test&table=table-test"
+      );
+      await page.getByRole("button", { name: "中文", exact: true }).click();
+      await page.getByText("¥1,100（含税）", { exact: true }).waitFor();
+      await page.screenshot({
+        path: path.join(artifacts, `order-app-menu-zh-${viewport.width}.png`),
+        fullPage: true,
+      });
       assert.equal(errors.length, 0, JSON.stringify(errors));
       assert.deepEqual(cspViolations, []);
       console.log(

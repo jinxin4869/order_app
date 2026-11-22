@@ -18,6 +18,7 @@ import {
   translationStatusLabel,
 } from "../utils/translationDisplay";
 import { getMenuWithTranslation } from "../services/api";
+import { menuPrice } from "../utils/price";
 import PendingOrderNotice from "../components/PendingOrderNotice";
 import OrderingNotice from "../components/OrderingNotice";
 import MenuImage from "../components/MenuImage";
@@ -261,6 +262,13 @@ const RestaurantMenu = ({ navigation, route }) => {
               </Text>
             )}
           </View>
+        )}
+        {!!menuPrice(item.price, currentLanguage) && (
+          <Text
+            style={[styles.itemPrice, isSmallScreen && styles.itemPriceSmall]}
+          >
+            {menuPrice(item.price, currentLanguage)}
+          </Text>
         )}
       </View>
     </TouchableOpacity>
@@ -803,6 +811,15 @@ const styles = StyleSheet.create({
   moreAllergens: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.textSecondary,
+  },
+  itemPrice: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: "bold",
+    color: COLORS.primary,
+    marginTop: 5,
+  },
+  itemPriceSmall: {
+    fontSize: FONT_SIZES.sm,
   },
   cartButton: {
     position: "absolute",

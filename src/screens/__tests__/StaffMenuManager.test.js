@@ -70,6 +70,7 @@ test("lists published items with category, price and state, and filters them", a
   const screen = await render(<StaffMenuManager />);
   expect(await screen.findByText("テスト店：注文受付中")).toBeTruthy();
   expect(screen.getByText("公開中の商品2件のうち2件を表示")).toBeTruthy();
+  expect(screen.getByText("¥600（税抜）")).toBeTruthy();
   expect(screen.getAllByText("販売中").length).toBeGreaterThan(0);
   await fireEvent.press(screen.getByRole("button", { name: "売り切れ" }));
   expect(screen.getByText("公開中の商品2件のうち1件を表示")).toBeTruthy();

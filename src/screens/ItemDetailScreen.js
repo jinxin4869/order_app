@@ -20,6 +20,7 @@ import { useLanguage } from "../hooks/useLanguage";
 import { useResponsive } from "../hooks/useResponsive";
 import { CartContext } from "../context/CartContext";
 import { showAlert } from "../utils/dialogs";
+import { menuPrice } from "../utils/price";
 import OrderingNotice from "../components/OrderingNotice";
 import MenuImage from "../components/MenuImage";
 import { useMenuAvailability, isSoldOut } from "../hooks/useMenuAvailability";
@@ -182,6 +183,11 @@ const ItemDetailScreen = ({ navigation, route }) => {
               </View>
             )}
           </View>
+          {!!menuPrice(item.price, currentLanguage) && (
+            <Text style={[styles.price, isSmallScreen && styles.priceSmall]}>
+              {menuPrice(item.price, currentLanguage)}
+            </Text>
+          )}
 
           {/* 説明 */}
           {itemDescription && (
@@ -498,6 +504,15 @@ const styles = StyleSheet.create({
   },
   nameSmall: {
     fontSize: FONT_SIZES.xl,
+  },
+  price: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: "bold",
+    color: COLORS.primary,
+    marginTop: 8,
+  },
+  priceSmall: {
+    fontSize: FONT_SIZES.lg,
   },
   popularBadge: {
     backgroundColor: COLORS.primary,

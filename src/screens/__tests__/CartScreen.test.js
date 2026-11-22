@@ -18,6 +18,7 @@ import CartScreen from "../CartScreen";
 import { useLanguage } from "../../hooks/useLanguage";
 import { useCart } from "../../hooks/useCart";
 import { CartContext } from "../../context/CartContext";
+import { totalsOf } from "../../utils/price";
 import * as api from "../../services/api";
 
 jest.spyOn(Alert, "alert");
@@ -93,15 +94,7 @@ const createMockCartContext = (items = []) => ({
     requestId: "request-screen-test",
   })),
   isOrderRequestCurrent: jest.fn(() => true),
-  subtotal: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-  tax: Math.floor(
-    items.reduce((sum, item) => sum + item.price * item.quantity, 0) * 0.1
-  ),
-  total:
-    items.reduce((sum, item) => sum + item.price * item.quantity, 0) +
-    Math.floor(
-      items.reduce((sum, item) => sum + item.price * item.quantity, 0) * 0.1
-    ),
+  ...totalsOf(items),
   isEmpty: items.length === 0,
   itemCount: items.reduce((count, item) => count + item.quantity, 0),
 });
@@ -242,7 +235,7 @@ describe("CartScreen", () => {
 
     expect(Alert.alert).toHaveBeenCalledWith(
       "注文確認",
-      "注文を確定しますか？",
+      "合計 ¥1,980（税込）で注文を確定しますか？",
       expect.any(Array)
     );
   });
@@ -739,4 +732,69 @@ describe("confirming again after an order with an unknown result", () => {
     expect(api.createOrder.mock.calls[1][0]).toEqual(first);
     expect(api.getOrderRequest).not.toHaveBeenCalled();
   });
+});
+
+// #138: the customer sees what each line costs and the total before ordering.
+describe("prices before ordering", () => {
+  const CartWithHook = ({ cart }) => {
+    cart.current = useCart({
+      restaurantId: "restaurant_01",
+      tableId: "table_01",
+    });
+    return (
+      <CartContext.Provider value={cart.current}>
+        <CartScreen navigation={mockNavigation} route={mockRoute} />
+      </CartContext.Provider>
+    );
+  };
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await AsyncStorage.clear();
+    api.createOrder.mockReset();
+    api.createOrder.mockResolvedValue({ orderId: "order_001" });
+  });
+
+  test.each([
+    ["ja", "合計（税込）", "合計 ¥1,308（税込）で注文を確定しますか？"],
+    ["en", "Total (incl. tax)", "Place this order for ¥1,308 (incl. tax)?"],
+    ["zh", "合计（含税）", "确认以合计 ¥1,308（含税）下单吗？"],
+  ])(
+    "%s: the lines add up to the total shown, confirmed and sent",
+    async (language, totalLabel, question) => {
+      useLanguage.mockReturnValue({ currentLanguage: language });
+      jest
+        .spyOn(Alert, "alert")
+        .mockImplementation((title, message, buttons) =>
+          buttons?.find((button) => button.style !== "cancel")?.onPress()
+        );
+      const cart = { current: null };
+      const view = await render(<CartWithHook cart={cart} />);
+      // ¥95 before tax is ¥104 with tax; two of them are ¥208, not ¥209.
+      await act(() => cart.current.addItem({ id: "tea", price: 95 }, 2));
+      await act(() => cart.current.addItem({ id: "rice", price: 1000 }, 1));
+      expect(view.getByText(/^¥208/)).toBeTruthy();
+      expect(view.getByText("  ¥104 × 2")).toBeTruthy();
+      expect(view.getByText("¥1,100")).toBeTruthy();
+      expect(view.getByText(totalLabel)).toBeTruthy();
+      expect(view.getByText("¥1,308")).toBeTruthy();
+
+      await fireEvent.press(
+        view.getByText(/^(注文を確定する|Place Order|确认订单)$/)
+      );
+      expect(Alert.alert.mock.calls[0][1]).toBe(question);
+      await waitFor(() =>
+        expect(api.createOrder).toHaveBeenCalledWith(
+          expect.objectContaining({
+            subtotal: 1190,
+            tax: 118,
+            totalAmount: 1308,
+          })
+        )
+      );
+      expect(mockNavigation.navigate).toHaveBeenCalledWith(
+        "OrderComplete",
+        expect.objectContaining({ total: 1308 })
+      );
+    }
+  );
 });
