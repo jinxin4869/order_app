@@ -414,8 +414,9 @@ exports.translateText = onAppCall(
   }
 );
 
+// A full menu in both modes exceeded the 256MiB default (286-314MiB observed).
 exports.batchTranslateMenu = onAppCall(
-  { secrets: ["DEEPL_API_KEY"] },
+  { secrets: ["DEEPL_API_KEY"], memory: "512MiB" },
   async (request) => {
     const staffRestaurantId = await requireStaff(request);
     const {
