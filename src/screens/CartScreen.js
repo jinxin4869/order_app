@@ -554,7 +554,7 @@ const CartScreen = ({ navigation, route }) => {
               {t("カート", "Cart", "购物车")}
             </Text>
             <Text style={styles.headerSubtitle}>
-              Table {table?.table_number || tableId}
+              {t("テーブル", "Table", "桌号")} {table?.table_number || tableId}
             </Text>
           </View>
         </View>

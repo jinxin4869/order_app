@@ -58,7 +58,7 @@ describe("LanguageSelectScreen", () => {
     );
 
     expect(getByText("テストレストラン")).toBeTruthy();
-    expect(getByText(/Table\s*1/)).toBeTruthy();
+    expect(getByText("テーブル / Table / 桌号 1")).toBeTruthy();
   });
 
   it("利用可能な言語がすべて表示される", async () => {
@@ -143,7 +143,7 @@ describe("LanguageSelectScreen", () => {
       />
     );
 
-    expect(getByText("レストラン")).toBeTruthy();
+    expect(getByText("レストラン / Restaurant / 餐厅")).toBeTruthy();
   });
 
   it("tableがない場合はtableIdが表示される", async () => {
@@ -161,7 +161,7 @@ describe("LanguageSelectScreen", () => {
       />
     );
 
-    expect(getByText(/Table\s*table_01/)).toBeTruthy();
+    expect(getByText("テーブル / Table / 桌号 table_01")).toBeTruthy();
   });
 
   it("フッターテキストが表示される", async () => {

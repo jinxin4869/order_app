@@ -371,10 +371,10 @@ const RestaurantMenu = ({ navigation, route }) => {
               ]}
               numberOfLines={1}
             >
-              {restaurant?.name || "レストラン"}
+              {restaurant?.name || t("レストラン", "Restaurant", "餐厅")}
             </Text>
             <Text style={styles.tableInfo}>
-              Table {table?.table_number || tableId}
+              {t("テーブル", "Table", "桌号")} {table?.table_number || tableId}
             </Text>
           </View>
           <TouchableOpacity
@@ -462,6 +462,7 @@ const RestaurantMenu = ({ navigation, route }) => {
                 styles.translationModeButtonActive,
             ]}
             accessibilityRole="button"
+            aria-pressed={translationMode === "dictionary"}
             accessibilityState={{ selected: translationMode === "dictionary" }}
             onPress={() => setTranslationMode("dictionary")}
           >
@@ -483,6 +484,7 @@ const RestaurantMenu = ({ navigation, route }) => {
                 styles.translationModeButtonActive,
             ]}
             accessibilityRole="button"
+            aria-pressed={translationMode === "deepl_only"}
             accessibilityState={{ selected: translationMode === "deepl_only" }}
             onPress={() => setTranslationMode("deepl_only")}
           >

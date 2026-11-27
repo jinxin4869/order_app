@@ -125,9 +125,30 @@ describe("MenuScreen", () => {
 
     await waitFor(() => {
       expect(getByText("テストレストラン")).toBeTruthy();
-      expect(getByText("Table 1")).toBeTruthy();
+      expect(getByText("テーブル 1")).toBeTruthy();
     });
   });
+  test.each([
+    ["ja", "レストラン", "テーブル 1"],
+    ["en", "Restaurant", "Table 1"],
+    ["zh", "餐厅", "桌号 1"],
+  ])(
+    "localizes the table and missing restaurant name (%s)",
+    async (language, name, table) => {
+      useLanguage.mockReturnValue({
+        ...useLanguage(),
+        currentLanguage: language,
+      });
+      const screen = await render(
+        <MenuScreen
+          navigation={mockNavigation}
+          route={{ params: { ...mockRoute.params, restaurant: {} } }}
+        />
+      );
+      expect(await screen.findByText(name)).toBeTruthy();
+      expect(screen.getByText(table)).toBeTruthy();
+    }
+  );
   test("category, language and translation mode switches do not refetch the catalog", async () => {
     const screen = await render(
       <MenuScreen navigation={mockNavigation} route={mockRoute} />

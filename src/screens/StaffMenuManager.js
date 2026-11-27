@@ -37,6 +37,7 @@ const timeLabel = (millis) =>
 const Chip = ({ label, selected, onPress }) => (
   <Pressable
     accessibilityRole="button"
+    aria-pressed={selected}
     accessibilityState={{ selected }}
     onPress={onPress}
     style={[styles.chip, selected && styles.chipSelected]}

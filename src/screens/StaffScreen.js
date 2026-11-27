@@ -138,6 +138,8 @@ const OrderConsole = ({ session }) => {
   const [recoveredAfter, setRecoveredAfter] = useState(null);
   const generation = useRef(0);
   const loading = useRef(false);
+  const refreshAfterReconnect = useRef(false);
+  const refreshRef = useRef(null);
   const seen = useRef(null);
   const [selectedId, setSelectedId] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -286,18 +288,22 @@ const OrderConsole = ({ session }) => {
         if (current === generation.current) {
           loading.current = false;
           setBusy(false);
+          if (refreshAfterReconnect.current) {
+            refreshAfterReconnect.current = false;
+            void refreshRef.current({ quiet: true });
+          }
         }
       }
     },
     [view, sort, listing.cursor, syncDetail]
   );
-  const refreshRef = useRef(refresh);
   useEffect(() => {
     refreshRef.current = refresh;
   }, [refresh]);
   useEffect(() => {
     generation.current++;
     loading.current = false;
+    refreshAfterReconnect.current = false;
     seen.current = null;
     refreshRef.current();
     const lifetime = generation;
@@ -316,7 +322,12 @@ const OrderConsole = ({ session }) => {
   }, [view, sort]);
   const wasOnline = useRef(isOnline);
   useEffect(() => {
-    if (isOnline && !wasOnline.current) refreshRef.current({ quiet: true });
+    if (!isOnline) {
+      refreshAfterReconnect.current = false;
+    } else if (!wasOnline.current) {
+      if (loading.current) refreshAfterReconnect.current = true;
+      else refreshRef.current({ quiet: true });
+    }
     wasOnline.current = isOnline;
   }, [isOnline]);
   useEffect(() => {
@@ -505,6 +516,7 @@ const OrderConsole = ({ session }) => {
             <Pressable
               key={key}
               accessibilityRole="button"
+              aria-pressed={mode === key}
               accessibilityState={{
                 selected: mode === key,
                 disabled: updating,
@@ -572,6 +584,7 @@ const OrderConsole = ({ session }) => {
                 <Pressable
                   key={key}
                   accessibilityRole="button"
+                  aria-pressed={view === key}
                   accessibilityState={{
                     selected: view === key,
                     disabled: updating,
@@ -601,6 +614,7 @@ const OrderConsole = ({ session }) => {
                 <Pressable
                   key={key}
                   accessibilityRole="button"
+                  aria-pressed={sort === key}
                   accessibilityState={{
                     selected: sort === key,
                     disabled: updating,
@@ -675,6 +689,7 @@ const OrderConsole = ({ session }) => {
                 <Pressable
                   key={status || "any"}
                   accessibilityRole="button"
+                  aria-pressed={statusFilter === status}
                   accessibilityState={{ selected: statusFilter === status }}
                   onPress={() => setStatusFilter(status)}
                   style={[
