@@ -33,6 +33,10 @@ export const translateText = async (text, targetLang, options = {}) => {
   }
 };
 
+// The callable SDK aborts after 70s by default. A full menu in both modes
+// takes longer, so wait as long as the function may run (timeoutSeconds: 540).
+export const BATCH_TRANSLATE_TIMEOUT_MS = 540 * 1000;
+
 /**
  * メニューを一括翻訳する（管理者用）
  * @param {string} restaurantId - レストランID
@@ -46,7 +50,9 @@ export const batchTranslateMenu = async (
 ) => {
   const { generateBothModes = false } = options;
   try {
-    const batchFunction = httpsCallable(functions, "batchTranslateMenu");
+    const batchFunction = httpsCallable(functions, "batchTranslateMenu", {
+      timeout: BATCH_TRANSLATE_TIMEOUT_MS,
+    });
     const result = await withRetry(
       () => batchFunction({ restaurantId, targetLang, generateBothModes }),
       2,

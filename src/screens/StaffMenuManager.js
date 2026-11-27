@@ -196,7 +196,9 @@ const StaffMenuManager = ({ restaurantId, canEditMenu = false }) => {
           text: "更新する",
           onPress: async () => {
             setSaving("translations");
-            setMessage("翻訳を更新しています…");
+            setMessage(
+              "翻訳を更新しています。数分かかることがあります。画面を閉じずにお待ちください…"
+            );
             try {
               for (const language of ["en", "zh"])
                 await batchTranslateMenu(restaurantId, language, {

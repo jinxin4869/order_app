@@ -414,9 +414,11 @@ exports.translateText = onAppCall(
   }
 );
 
-// A full menu in both modes exceeded the 256MiB default (286-314MiB observed).
+// A full menu in both modes exceeded the 256MiB default (286-314MiB observed)
+// and the 60s default timeout: every field is translated one by one.
+// Keep in sync with BATCH_TRANSLATE_TIMEOUT_MS in src/services/api.js.
 exports.batchTranslateMenu = onAppCall(
-  { secrets: ["DEEPL_API_KEY"], memory: "512MiB" },
+  { secrets: ["DEEPL_API_KEY"], memory: "512MiB", timeoutSeconds: 540 },
   async (request) => {
     const staffRestaurantId = await requireStaff(request);
     const {
