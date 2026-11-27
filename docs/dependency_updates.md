@@ -46,6 +46,7 @@ Expo 管理下のパッケージ（react、react-native、expo-\*、jest-expo、
 
 - **jest-expo と `@react-native/jest-preset`：** jest-expo 57 以降は `@react-native/jest-preset` を必須の peer にしています。react-native を上げるときは、jest-expo と `@react-native/jest-preset` を同じ版に合わせて同時に入れてください。古い jest-expo が残っていると、`npx expo install --fix` が ERESOLVE で止まります。
 - **Sentry の設定プラグイン：** Sentry 7.11 の設定プラグインは `@expo/config-plugins` をルートから `require` します。SDK 56 への更新直後は、このパッケージが expo の配下にだけ置かれ、Web のビルドが `Cannot find module '@expo/config-plugins'` で失敗しました。`npm dedupe` で解消します。Sentry 8 では `expo/config-plugins` に直っています。
+- **Sentry の版（2026-11-22 に追記）：** `@sentry/react-native` は、Expo SDK 58 の期待（`~8.28.0`）に合わせます。Dependabot が 8.36.0 に上げていたため（#187）、#204 で 8.28.1 に戻しました。8.28.0 ではなく 8.28.1 を使います。Sentry は 2026-11-13 に Apple 向けの署名用の証明書を失効させ、ビルド済みの XCFramework を使うビルドが `The signing certificate has been revoked` で失敗する場合は 8.28.1 か 8.36.0 に上げるよう案内しています（[sentry-cocoa の issue 9645](https://github.com/getsentry/sentry-cocoa/issues/9645)）。8.28.1 は、8.28.0 を新しい証明書で署名し直した再リリースです（[リリースノート](https://github.com/getsentry/sentry-react-native/releases/tag/8.28.1)）。このアプリの iOS のビルドがこの失効の影響を受けるかは、確認していません。
 - **ネイティブ版：** Android / iOS は、SDK を上げるたびに新しい development build が必要です。Expo Go のストア版は最新の SDK にしか対応しません。
 
 ## 監査の再現
