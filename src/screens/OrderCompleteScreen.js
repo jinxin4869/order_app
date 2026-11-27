@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo } from "react";
 import {
   View,
+  ScrollView,
   Text,
   StyleSheet,
   TouchableOpacity,
@@ -82,7 +83,13 @@ const OrderCompleteScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={[styles.content, isSmallScreen && styles.contentSmall]}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.content,
+          isSmallScreen && styles.contentSmall,
+        ]}
+      >
         {/* 成功アイコン */}
         <Animated.View
           style={[
@@ -245,7 +252,7 @@ const OrderCompleteScreen = ({ navigation, route }) => {
             </Text>
           </View>
         </Animated.View>
-      </View>
+      </ScrollView>
 
       {/* ボタン */}
       <View
@@ -315,8 +322,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  scroll: { flex: 1 },
   content: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 30,
