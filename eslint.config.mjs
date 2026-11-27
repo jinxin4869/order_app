@@ -80,6 +80,16 @@ export default [
     rules: {},
   },
   {
+    // Node.js data tools run with firebase-admin outside the app bundle.
+    files: ["scripts/data-tools/**/*.js"],
+    languageOptions: {
+      globals: {
+        Buffer: "readonly",
+        fetch: "readonly",
+      },
+    },
+  },
+  {
     ignores: [
       "node_modules/**",
       ".expo/**",

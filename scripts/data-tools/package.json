@@ -1,0 +1,21 @@
+{
+  "name": "order-app-scripts",
+  "version": "1.0.0",
+  "description": "Data seeding scripts for Order App",
+  "scripts": {
+    "seed": "node seedData.js",
+    "seed:clear": "node seedData.js --clear",
+    "seed:clear-only": "node seedData.js --clear --clear-only",
+    "seed:dictionary": "node seedDictionary.js",
+    "seed:dictionary:clear": "node seedDictionary.js --clear",
+    "update-images:unsplash": "node updateMenuImagesUnsplash.js",
+    "update-images:unsplash:dry-run": "node updateMenuImagesUnsplash.js --dry-run",
+    "upload-images": "node uploadMenuImagesToStorage.js",
+    "upload-images:dry-run": "node uploadMenuImagesToStorage.js --dry-run"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "csv-parser": "^3.0.0",
+    "dotenv": "^16.0.0"
+  }
+}
