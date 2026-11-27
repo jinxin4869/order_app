@@ -490,6 +490,49 @@ const server = http.createServer((req, res) => {
         ),
         fullPage: true,
       });
+      // Keep the desktop width while reducing height, so the small-width
+      // layout cannot mask clipped confirmation content.
+      for (const size of [
+        viewport,
+        ...(viewport.width === 1280 ? [{ width: 1280, height: 720 }] : []),
+      ]) {
+        await page.setViewportSize(size);
+        const addMore = page
+          .getByText("追加注文する", { exact: true })
+          .filter({ visible: true });
+        for (const content of [
+          page
+            .getByText("✓", { exact: true })
+            .filter({ visible: true })
+            .locator(".."),
+          page
+            .getByText("20261009-001", { exact: true })
+            .filter({ visible: true }),
+          page.getByText("¥1,308", { exact: true }).filter({ visible: true }),
+          page
+            .getByText(/お料理の準備ができましたらお届けします/)
+            .filter({ visible: true }),
+        ]) {
+          await content.scrollIntoViewIfNeeded({ timeout: 3000 });
+          const box = await content.boundingBox();
+          const button = await addMore.boundingBox();
+          assert.ok(
+            box && button && box.y >= -1 && box.y + box.height <= button.y,
+            `Confirmation content is clipped at ${size.width}×${size.height}: ${JSON.stringify(box)}`
+          );
+        }
+        for (const label of ["追加注文する", "注文履歴を見る", "終了する"]) {
+          const button = page
+            .getByText(label, { exact: true })
+            .filter({ visible: true });
+          const box = await button.boundingBox();
+          assert.ok(
+            box && box.y >= 0 && box.y + box.height <= size.height,
+            label
+          );
+        }
+      }
+      await page.setViewportSize(viewport);
       // "Add more" must return to the existing menu and drop the completed
       // order from the stack, not push a second menu on top of it.
       await page.getByText("追加注文する", { exact: true }).click();
