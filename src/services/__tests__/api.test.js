@@ -133,7 +133,8 @@ describe("API Service", () => {
 
       expect(httpsCallable).toHaveBeenCalledWith(
         expect.anything(),
-        "batchTranslateMenu"
+        "batchTranslateMenu",
+        { timeout: 540 * 1000 }
       );
       expect(mockFunction).toHaveBeenCalledWith({
         restaurantId: "restaurant_01",
