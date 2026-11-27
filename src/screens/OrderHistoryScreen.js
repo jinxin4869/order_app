@@ -107,7 +107,7 @@ const OrderHistoryScreen = ({ navigation, route }) => {
             {t("注文履歴", "Your orders", "订单记录")}
           </Text>
           <Text style={styles.muted}>
-            Table {table?.table_number || tableId}
+            {t("テーブル", "Table", "桌号")} {table?.table_number || tableId}
           </Text>
         </View>
         <TouchableOpacity

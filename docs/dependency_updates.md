@@ -2,7 +2,7 @@
 
 確認日: **2026-10-25（日本時間）**。main `b36c6ea`（Expo SDK 58）で、Node.js 22 / Java 21 を使って確認しました。
 
-この文書のバージョン・監査の件数・テストの件数は、確認日時点の記録です。確認日のあとに直したのは、「残る指摘と期限」の high の例外と解消済みの指摘の記述、「動作検証」の `npm run audit:dependencies` の行だけです（2026-11-16）。現在の値は、`package.json`・`functions/package.json`（バージョン）、`.nvmrc`（Node.js 24）、`npm run check`（テストの件数）、`npm run audit:dependencies`（監査の件数）で確認してください。
+この文書のバージョン・監査の件数・テストの件数は、確認日時点の記録です。確認日以降に、「残る指摘と期限」の high の例外・解消済みの指摘・moderate の確認方法と、「動作検証」の監査コマンドを更新しています。現在の値は、`package.json`・`functions/package.json`（バージョン）、`.nvmrc`（Node.js 24）、`npm run check`（テストの件数）、`npm run audit:dependencies`（監査の件数）で確認してください。
 
 ## 確認日時点の主なバージョン
 
@@ -72,10 +72,7 @@ npm run audit:dependencies
 
 high / critical の例外は現在ありません。[例外ファイル](dependency-audit-exceptions.json)の `exceptions` は空です。例外を追加するときは、対象の scope・GHSA・バージョン・lockfile 内のパス・理由・期限を限定します。例外は期限だけを自動で延長しません。
 
-moderate は次の 2 件で、どちらも開発用の Firebase CLI（エミュレーターとデプロイ）からだけ入ります。アプリ、Functions、Hosting には含まれません。Firebase CLI の更新で解消を確認します。
-
-- `@opentelemetry/core` 1.30.1：Firebase CLI → Pub/Sub。CLI の計測処理です。
-- `uuid` 9.0.1：Firebase CLI → gaxios。バッファーを渡す v3/v5/v6 の生成だけが対象です。
+`npm run audit:dependencies` は、ルートと Functions の本番依存・開発依存込みの集計を表示します。moderate の最新の内訳は、同じコマンドが `ORDER_APP_AUDIT_ARTIFACTS` の指定先（既定は OS の一時ディレクトリ内の `order-app-dependency-audit`）に保存する JSON の `vulnerabilities` 欄で確認してください。glob と minimatch は本番依存のツリーにも含まれます。上流の対応状況は [#166](https://github.com/jinxin4869/order_app/issues/166) で追跡しています。
 
 Functions には high / critical の例外を設けていません。CI は、新しい high、対象バージョンやパスの変化、期限切れ、すべての critical、監査の通信失敗・不正な応答で失敗します。moderate も JSON に記録しますが、CI の失敗の基準は high です。
 

@@ -327,6 +327,30 @@ const server = http.createServer((req, res) => {
           body: JSON.stringify({ data: result }),
         });
       });
+      const pressedButton = (name, pressed) =>
+        page.getByRole("button", { name, pressed, exact: true });
+      const checkOfflineRecovery = async (notice, callable) => {
+        const banner = page.getByText(notice);
+        const context = page.context();
+        await context.setOffline(true);
+        try {
+          await banner.waitFor({ state: "visible", timeout: 3000 });
+        } catch (error) {
+          await context.setOffline(false);
+          throw error;
+        }
+        await Promise.all([
+          page.waitForResponse(
+            (response) =>
+              response.url().endsWith(`/${callable}`) &&
+              response.request().method() === "POST" &&
+              response.ok(),
+            { timeout: 3000 }
+          ),
+          context.setOffline(false),
+        ]);
+        await banner.waitFor({ state: "hidden", timeout: 3000 });
+      };
       await page.goto(
         "http://127.0.0.1:4173/order?restaurant=rest-test&table=table-test"
       );
@@ -335,6 +359,9 @@ const server = http.createServer((req, res) => {
       await page.reload();
       await page.getByText("言語を選択してください", { exact: true }).waitFor();
       console.log("RELOAD", viewport.width, page.url());
+      await page
+        .getByText("テーブル / Table / 桌号 1", { exact: true })
+        .waitFor();
       await page.getByRole("button", { name: "日本語", exact: true }).click();
       await page.getByText("飲み物", { exact: true }).click();
       await page.getByText("お茶", { exact: true }).waitFor();
@@ -348,6 +375,10 @@ const server = http.createServer((req, res) => {
       assert.equal(
         calls.filter((call) => call.name === "getMenuWithTranslation").length,
         2
+      );
+      await checkOfflineRecovery(
+        /オフライン - ネットワーク接続を確認/,
+        "getMenuAvailability"
       );
       // #138: prices are shown tax-included from the menu to the cart.
       await page.getByText("¥1,100（税込）", { exact: true }).waitFor();
@@ -481,6 +512,10 @@ const server = http.createServer((req, res) => {
       await page.getByText("Add to Cart", { exact: true }).click();
       await page.getByText(/^🛒 View Cart \(\d+\)$/).click();
       await page
+        .getByText("Table 1", { exact: true })
+        .filter({ visible: true })
+        .waitFor();
+      await page
         .getByText("Test dish (dictionary)", { exact: true })
         .filter({ visible: true })
         .waitFor();
@@ -503,9 +538,9 @@ const server = http.createServer((req, res) => {
         .getByText("←", { exact: true })
         .filter({ visible: true })
         .click();
-      await page
-        .getByRole("button", { name: "DeepL API Only", exact: true })
-        .click();
+      await pressedButton("DeepL + Dict", true).waitFor({ timeout: 3000 });
+      await pressedButton("DeepL API Only", false).click({ timeout: 3000 });
+      await pressedButton("DeepL API Only", true).waitFor({ timeout: 3000 });
       await page
         .getByText("テスト料理", {
           exact: true,
@@ -562,8 +597,19 @@ const server = http.createServer((req, res) => {
         .getByLabel("パスワード", { exact: true })
         .fill("synthetic-password");
       await page.getByRole("button", { name: "ログイン", exact: true }).click();
+      await pressedButton("注文受付", true).waitFor({ timeout: 3000 });
+      await pressedButton("対応中", true).waitFor({ timeout: 3000 });
+      await pressedButton("新しい順", true).waitFor({ timeout: 3000 });
+      await pressedButton("状態：すべて", true).waitFor({ timeout: 3000 });
       // Sound is off until a staff member turns it on; the screen says so.
       await page.getByText(/^通知音がオフです。/).waitFor();
+      await page
+        .getByRole("button", { name: "注文 20261009-002 未受付", exact: true })
+        .waitFor();
+      await checkOfflineRecovery(
+        /^オフラインです。注文を取得できません。/,
+        "listStaffOrders"
+      );
       await page
         .getByRole("button", { name: "注文 20261009-002 未受付", exact: true })
         .click();
@@ -608,9 +654,10 @@ const server = http.createServer((req, res) => {
         fullPage: true,
       });
       // Staff mark an item sold out from the menu management tab.
-      await page
-        .getByRole("button", { name: "メニュー管理", exact: true })
-        .click();
+      await pressedButton("メニュー管理", false).click({ timeout: 3000 });
+      await pressedButton("メニュー管理", true).waitFor({ timeout: 3000 });
+      await pressedButton("カテゴリ：すべて", true).waitFor({ timeout: 3000 });
+      await pressedButton("状態：すべて", true).waitFor({ timeout: 3000 });
       await page.getByText("テスト店舗：注文受付中", { exact: true }).waitFor();
       page.once("dialog", (dialog) => dialog.accept());
       await page
@@ -724,6 +771,10 @@ const server = http.createServer((req, res) => {
       );
       // The device's visit lists both orders it sent from this table.
       await page.getByRole("button", { name: "注文履歴", exact: true }).click();
+      await page
+        .getByText("テーブル 1", { exact: true })
+        .filter({ visible: true })
+        .waitFor();
       await page
         .getByText(/^この端末から送った注文だけを表示します。/)
         .waitFor();

@@ -95,6 +95,8 @@ npx firebase deploy --only hosting --project <project-id>
 
 `npm run build:web`は変換キャッシュを消してから`dist`へビルドします。Firebaseの設定値はビルド時にバンドルへ埋め込まれるため、`.env`を切り替えたあとは必ずビルドし直し、`grep`の出力がデプロイ先のプロジェクトIDであることを確認してからHostingへデプロイします。
 
+公開用のビルド直後とHostingのデプロイ直前に、バンドル内のApp Checkサイトキーを検査します。検査に失敗した場合は、`FIREBASE_APPCHECK_SITE_KEY`を設定してビルドし直します。App Checkを使わない環境では、ビルドとHostingのデプロイの両方で`ORDER_APP_ALLOW_NO_APP_CHECK=1`を指定します。
+
 デプロイは、コミット済みで変更のない作業ツリー（`git status --short`が空）から行います。3つとも成功したら、そのコミットにタグを打って、デプロイした版を記録します。
 
 ```bash

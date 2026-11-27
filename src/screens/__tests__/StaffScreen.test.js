@@ -687,6 +687,27 @@ test("offline is shown, and coming back online or to the app fetches at once", a
   );
   useNetworkStatus.mockReturnValue({ isOnline: true });
 });
+test("reconnect queues a refresh behind an in-flight order request", async () => {
+  let failPending;
+  listStaffOrders.mockImplementationOnce(
+    () =>
+      new Promise((_, reject) => {
+        failPending = reject;
+      })
+  );
+  const screen = await render(<StaffScreen />);
+  await waitFor(() => expect(listStaffOrders).toHaveBeenCalledTimes(1));
+
+  useNetworkStatus.mockReturnValue({ isOnline: false });
+  await screen.rerender(<StaffScreen />);
+  useNetworkStatus.mockReturnValue({ isOnline: true });
+  await screen.rerender(<StaffScreen />);
+  expect(listStaffOrders).toHaveBeenCalledTimes(1);
+
+  await act(async () => failPending(new Error("offline")));
+  expect(listStaffOrders).toHaveBeenCalledTimes(2);
+});
+
 test("staff can end the table's visit after confirming", async () => {
   const { closeTableVisit } = require("../../services/api");
   closeTableVisit.mockResolvedValue({ success: true });

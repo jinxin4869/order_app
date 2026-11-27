@@ -44,10 +44,10 @@ const LanguageSelectScreen = ({ navigation, route }) => {
           ]}
           numberOfLines={2}
         >
-          {restaurant?.name || "レストラン"}
+          {restaurant?.name || "レストラン / Restaurant / 餐厅"}
         </Text>
         <Text style={styles.tableInfo}>
-          Table {table?.table_number || tableId}
+          テーブル / Table / 桌号 {table?.table_number || tableId}
         </Text>
       </View>
 
